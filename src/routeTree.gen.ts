@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as CampaignsRouteImport } from './routes/campaigns'
 import { Route as ContactsRouteImport } from './routes/contacts'
+import { Route as LiveCallsRouteImport } from './routes/live-calls'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -28,35 +29,44 @@ const ContactsRoute = ContactsRouteImport.update({
   path: '/contacts',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LiveCallsRoute = LiveCallsRouteImport.update({
+  id: '/live-calls',
+  path: '/live-calls',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/campaigns': typeof CampaignsRoute
   '/contacts': typeof ContactsRoute
+  '/live-calls': typeof LiveCallsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/campaigns': typeof CampaignsRoute
   '/contacts': typeof ContactsRoute
+  '/live-calls': typeof LiveCallsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/campaigns': typeof CampaignsRoute
   '/contacts': typeof ContactsRoute
+  '/live-calls': typeof LiveCallsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/campaigns' | '/contacts'
+  fullPaths: '/' | '/campaigns' | '/contacts' | '/live-calls'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/campaigns' | '/contacts'
-  id: '__root__' | '/' | '/campaigns' | '/contacts'
+  to: '/' | '/campaigns' | '/contacts' | '/live-calls'
+  id: '__root__' | '/' | '/campaigns' | '/contacts' | '/live-calls'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CampaignsRoute: typeof CampaignsRoute
   ContactsRoute: typeof ContactsRoute
+  LiveCallsRoute: typeof LiveCallsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -82,6 +92,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ContactsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/live-calls': {
+      id: '/live-calls'
+      path: '/live-calls'
+      fullPath: '/live-calls'
+      preLoaderRoute: typeof LiveCallsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -89,6 +106,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CampaignsRoute: CampaignsRoute,
   ContactsRoute: ContactsRoute,
+  LiveCallsRoute: LiveCallsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
