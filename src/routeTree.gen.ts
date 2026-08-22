@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AgentsRouteImport } from './routes/agents'
+import { Route as AnalyticsRouteImport } from './routes/analytics'
 import { Route as CallHistoryRouteImport } from './routes/call-history'
 import { Route as CampaignsRouteImport } from './routes/campaigns'
 import { Route as ContactsRouteImport } from './routes/contacts'
@@ -25,6 +26,11 @@ const IndexRoute = IndexRouteImport.update({
 const AgentsRoute = AgentsRouteImport.update({
   id: '/agents',
   path: '/agents',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AnalyticsRoute = AnalyticsRouteImport.update({
+  id: '/analytics',
+  path: '/analytics',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CallHistoryRoute = CallHistoryRouteImport.update({
@@ -56,6 +62,7 @@ const RecordingsRoute = RecordingsRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/agents': typeof AgentsRoute
+  '/analytics': typeof AnalyticsRoute
   '/call-history': typeof CallHistoryRoute
   '/campaigns': typeof CampaignsRoute
   '/contacts': typeof ContactsRoute
@@ -65,6 +72,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/agents': typeof AgentsRoute
+  '/analytics': typeof AnalyticsRoute
   '/call-history': typeof CallHistoryRoute
   '/campaigns': typeof CampaignsRoute
   '/contacts': typeof ContactsRoute
@@ -75,6 +83,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/agents': typeof AgentsRoute
+  '/analytics': typeof AnalyticsRoute
   '/call-history': typeof CallHistoryRoute
   '/campaigns': typeof CampaignsRoute
   '/contacts': typeof ContactsRoute
@@ -86,6 +95,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/agents'
+    | '/analytics'
     | '/call-history'
     | '/campaigns'
     | '/contacts'
@@ -95,6 +105,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/agents'
+    | '/analytics'
     | '/call-history'
     | '/campaigns'
     | '/contacts'
@@ -104,6 +115,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/agents'
+    | '/analytics'
     | '/call-history'
     | '/campaigns'
     | '/contacts'
@@ -114,6 +126,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AgentsRoute: typeof AgentsRoute
+  AnalyticsRoute: typeof AnalyticsRoute
   CallHistoryRoute: typeof CallHistoryRoute
   CampaignsRoute: typeof CampaignsRoute
   ContactsRoute: typeof ContactsRoute
@@ -135,6 +148,13 @@ declare module '@tanstack/react-router' {
       path: '/agents'
       fullPath: '/agents'
       preLoaderRoute: typeof AgentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/analytics': {
+      id: '/analytics'
+      path: '/analytics'
+      fullPath: '/analytics'
+      preLoaderRoute: typeof AnalyticsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/call-history': {
@@ -178,6 +198,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AgentsRoute: AgentsRoute,
+  AnalyticsRoute: AnalyticsRoute,
   CallHistoryRoute: CallHistoryRoute,
   CampaignsRoute: CampaignsRoute,
   ContactsRoute: ContactsRoute,
