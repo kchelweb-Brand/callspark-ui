@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AgentsRouteImport } from './routes/agents'
 import { Route as CampaignsRouteImport } from './routes/campaigns'
 import { Route as ContactsRouteImport } from './routes/contacts'
 import { Route as LiveCallsRouteImport } from './routes/live-calls'
@@ -17,6 +18,11 @@ import { Route as LiveCallsRouteImport } from './routes/live-calls'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AgentsRoute = AgentsRouteImport.update({
+  id: '/agents',
+  path: '/agents',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CampaignsRoute = CampaignsRouteImport.update({
@@ -37,12 +43,14 @@ const LiveCallsRoute = LiveCallsRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/agents': typeof AgentsRoute
   '/campaigns': typeof CampaignsRoute
   '/contacts': typeof ContactsRoute
   '/live-calls': typeof LiveCallsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/agents': typeof AgentsRoute
   '/campaigns': typeof CampaignsRoute
   '/contacts': typeof ContactsRoute
   '/live-calls': typeof LiveCallsRoute
@@ -50,20 +58,22 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/agents': typeof AgentsRoute
   '/campaigns': typeof CampaignsRoute
   '/contacts': typeof ContactsRoute
   '/live-calls': typeof LiveCallsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/campaigns' | '/contacts' | '/live-calls'
+  fullPaths: '/' | '/agents' | '/campaigns' | '/contacts' | '/live-calls'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/campaigns' | '/contacts' | '/live-calls'
-  id: '__root__' | '/' | '/campaigns' | '/contacts' | '/live-calls'
+  to: '/' | '/agents' | '/campaigns' | '/contacts' | '/live-calls'
+  id: '__root__' | '/' | '/agents' | '/campaigns' | '/contacts' | '/live-calls'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AgentsRoute: typeof AgentsRoute
   CampaignsRoute: typeof CampaignsRoute
   ContactsRoute: typeof ContactsRoute
   LiveCallsRoute: typeof LiveCallsRoute
@@ -76,6 +86,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/agents': {
+      id: '/agents'
+      path: '/agents'
+      fullPath: '/agents'
+      preLoaderRoute: typeof AgentsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/campaigns': {
@@ -104,6 +121,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AgentsRoute: AgentsRoute,
   CampaignsRoute: CampaignsRoute,
   ContactsRoute: ContactsRoute,
   LiveCallsRoute: LiveCallsRoute,
