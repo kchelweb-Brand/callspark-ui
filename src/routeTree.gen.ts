@@ -10,33 +10,154 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AgentsRouteImport } from './routes/agents'
+import { Route as AnalyticsRouteImport } from './routes/analytics'
+import { Route as BillingRouteImport } from './routes/billing'
+import { Route as CallHistoryRouteImport } from './routes/call-history'
+import { Route as CampaignsRouteImport } from './routes/campaigns'
+import { Route as ContactsRouteImport } from './routes/contacts'
+import { Route as LiveCallsRouteImport } from './routes/live-calls'
+import { Route as RecordingsRouteImport } from './routes/recordings'
+import { Route as SettingsRouteImport } from './routes/settings'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AgentsRoute = AgentsRouteImport.update({
+  id: '/agents',
+  path: '/agents',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AnalyticsRoute = AnalyticsRouteImport.update({
+  id: '/analytics',
+  path: '/analytics',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BillingRoute = BillingRouteImport.update({
+  id: '/billing',
+  path: '/billing',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CallHistoryRoute = CallHistoryRouteImport.update({
+  id: '/call-history',
+  path: '/call-history',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CampaignsRoute = CampaignsRouteImport.update({
+  id: '/campaigns',
+  path: '/campaigns',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContactsRoute = ContactsRouteImport.update({
+  id: '/contacts',
+  path: '/contacts',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LiveCallsRoute = LiveCallsRouteImport.update({
+  id: '/live-calls',
+  path: '/live-calls',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RecordingsRoute = RecordingsRouteImport.update({
+  id: '/recordings',
+  path: '/recordings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/agents': typeof AgentsRoute
+  '/analytics': typeof AnalyticsRoute
+  '/billing': typeof BillingRoute
+  '/call-history': typeof CallHistoryRoute
+  '/campaigns': typeof CampaignsRoute
+  '/contacts': typeof ContactsRoute
+  '/live-calls': typeof LiveCallsRoute
+  '/recordings': typeof RecordingsRoute
+  '/settings': typeof SettingsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/agents': typeof AgentsRoute
+  '/analytics': typeof AnalyticsRoute
+  '/billing': typeof BillingRoute
+  '/call-history': typeof CallHistoryRoute
+  '/campaigns': typeof CampaignsRoute
+  '/contacts': typeof ContactsRoute
+  '/live-calls': typeof LiveCallsRoute
+  '/recordings': typeof RecordingsRoute
+  '/settings': typeof SettingsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/agents': typeof AgentsRoute
+  '/analytics': typeof AnalyticsRoute
+  '/billing': typeof BillingRoute
+  '/call-history': typeof CallHistoryRoute
+  '/campaigns': typeof CampaignsRoute
+  '/contacts': typeof ContactsRoute
+  '/live-calls': typeof LiveCallsRoute
+  '/recordings': typeof RecordingsRoute
+  '/settings': typeof SettingsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/agents'
+    | '/analytics'
+    | '/billing'
+    | '/call-history'
+    | '/campaigns'
+    | '/contacts'
+    | '/live-calls'
+    | '/recordings'
+    | '/settings'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/agents'
+    | '/analytics'
+    | '/billing'
+    | '/call-history'
+    | '/campaigns'
+    | '/contacts'
+    | '/live-calls'
+    | '/recordings'
+    | '/settings'
+  id:
+    | '__root__'
+    | '/'
+    | '/agents'
+    | '/analytics'
+    | '/billing'
+    | '/call-history'
+    | '/campaigns'
+    | '/contacts'
+    | '/live-calls'
+    | '/recordings'
+    | '/settings'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AgentsRoute: typeof AgentsRoute
+  AnalyticsRoute: typeof AnalyticsRoute
+  BillingRoute: typeof BillingRoute
+  CallHistoryRoute: typeof CallHistoryRoute
+  CampaignsRoute: typeof CampaignsRoute
+  ContactsRoute: typeof ContactsRoute
+  LiveCallsRoute: typeof LiveCallsRoute
+  RecordingsRoute: typeof RecordingsRoute
+  SettingsRoute: typeof SettingsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +169,83 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/agents': {
+      id: '/agents'
+      path: '/agents'
+      fullPath: '/agents'
+      preLoaderRoute: typeof AgentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/analytics': {
+      id: '/analytics'
+      path: '/analytics'
+      fullPath: '/analytics'
+      preLoaderRoute: typeof AnalyticsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/billing': {
+      id: '/billing'
+      path: '/billing'
+      fullPath: '/billing'
+      preLoaderRoute: typeof BillingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/call-history': {
+      id: '/call-history'
+      path: '/call-history'
+      fullPath: '/call-history'
+      preLoaderRoute: typeof CallHistoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/campaigns': {
+      id: '/campaigns'
+      path: '/campaigns'
+      fullPath: '/campaigns'
+      preLoaderRoute: typeof CampaignsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/contacts': {
+      id: '/contacts'
+      path: '/contacts'
+      fullPath: '/contacts'
+      preLoaderRoute: typeof ContactsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/live-calls': {
+      id: '/live-calls'
+      path: '/live-calls'
+      fullPath: '/live-calls'
+      preLoaderRoute: typeof LiveCallsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/recordings': {
+      id: '/recordings'
+      path: '/recordings'
+      fullPath: '/recordings'
+      preLoaderRoute: typeof RecordingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AgentsRoute: AgentsRoute,
+  AnalyticsRoute: AnalyticsRoute,
+  BillingRoute: BillingRoute,
+  CallHistoryRoute: CallHistoryRoute,
+  CampaignsRoute: CampaignsRoute,
+  ContactsRoute: ContactsRoute,
+  LiveCallsRoute: LiveCallsRoute,
+  RecordingsRoute: RecordingsRoute,
+  SettingsRoute: SettingsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
