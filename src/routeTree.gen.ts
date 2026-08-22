@@ -15,6 +15,7 @@ import { Route as CallHistoryRouteImport } from './routes/call-history'
 import { Route as CampaignsRouteImport } from './routes/campaigns'
 import { Route as ContactsRouteImport } from './routes/contacts'
 import { Route as LiveCallsRouteImport } from './routes/live-calls'
+import { Route as RecordingsRouteImport } from './routes/recordings'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -46,6 +47,11 @@ const LiveCallsRoute = LiveCallsRouteImport.update({
   path: '/live-calls',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RecordingsRoute = RecordingsRouteImport.update({
+  id: '/recordings',
+  path: '/recordings',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -54,6 +60,7 @@ export interface FileRoutesByFullPath {
   '/campaigns': typeof CampaignsRoute
   '/contacts': typeof ContactsRoute
   '/live-calls': typeof LiveCallsRoute
+  '/recordings': typeof RecordingsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -62,6 +69,7 @@ export interface FileRoutesByTo {
   '/campaigns': typeof CampaignsRoute
   '/contacts': typeof ContactsRoute
   '/live-calls': typeof LiveCallsRoute
+  '/recordings': typeof RecordingsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -71,6 +79,7 @@ export interface FileRoutesById {
   '/campaigns': typeof CampaignsRoute
   '/contacts': typeof ContactsRoute
   '/live-calls': typeof LiveCallsRoute
+  '/recordings': typeof RecordingsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -81,6 +90,7 @@ export interface FileRouteTypes {
     | '/campaigns'
     | '/contacts'
     | '/live-calls'
+    | '/recordings'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -89,6 +99,7 @@ export interface FileRouteTypes {
     | '/campaigns'
     | '/contacts'
     | '/live-calls'
+    | '/recordings'
   id:
     | '__root__'
     | '/'
@@ -97,6 +108,7 @@ export interface FileRouteTypes {
     | '/campaigns'
     | '/contacts'
     | '/live-calls'
+    | '/recordings'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -106,6 +118,7 @@ export interface RootRouteChildren {
   CampaignsRoute: typeof CampaignsRoute
   ContactsRoute: typeof ContactsRoute
   LiveCallsRoute: typeof LiveCallsRoute
+  RecordingsRoute: typeof RecordingsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -152,6 +165,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LiveCallsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/recordings': {
+      id: '/recordings'
+      path: '/recordings'
+      fullPath: '/recordings'
+      preLoaderRoute: typeof RecordingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -162,6 +182,7 @@ const rootRouteChildren: RootRouteChildren = {
   CampaignsRoute: CampaignsRoute,
   ContactsRoute: ContactsRoute,
   LiveCallsRoute: LiveCallsRoute,
+  RecordingsRoute: RecordingsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
