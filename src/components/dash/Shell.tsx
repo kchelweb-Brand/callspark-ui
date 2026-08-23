@@ -10,7 +10,7 @@ import { tenantNav, adminNav, type NavItem } from "./nav";
 
 type Scope = "tenant" | "admin";
 
-function NavList({ items, onNavigate }: { items: NavItem[]; onNavigate?: () => void }) {
+function NavList({ items, onNavigate }: { items: NavItem[]; onNavigate?: (() => void) | undefined }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   return (
@@ -41,7 +41,7 @@ function NavList({ items, onNavigate }: { items: NavItem[]; onNavigate?: () => v
   );
 }
 
-function SidebarBody({ scope, onNavigate }: { scope: Scope; onNavigate?: () => void }) {
+function SidebarBody({ scope, onNavigate }: { scope: Scope; onNavigate?: (() => void) | undefined }) {
   const items = scope === "admin" ? adminNav : tenantNav;
 
   return (
