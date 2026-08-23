@@ -84,10 +84,10 @@ function BillingPage() {
           </div>
           <ul className="mt-4 flex flex-col gap-3 text-sm">
             {[
-              ["Trunk pack × 2", "Aug 14, 2026", "Provisioned"],
-              ["Trunk pack × 2", "Feb 12, 2026", "Provisioned"],
-              ["Toll-free add-on", "Aug 20, 2026", "Pending"],
-            ].map(([item, date, status]) => (
+              { item: "Trunk pack × 2", date: "Aug 14, 2026", status: "Provisioned" },
+              { item: "Trunk pack × 2", date: "Feb 12, 2026", status: "Provisioned" },
+              { item: "Toll-free add-on", date: "Aug 20, 2026", status: "Pending" },
+            ].map(({ item, date, status }) => (
               <li key={item + date} className="flex items-center justify-between gap-3">
                 <span>
                   <span className="block font-medium">{item}</span>
@@ -96,6 +96,7 @@ function BillingPage() {
                 <StatusPill status={status} />
               </li>
             ))}
+
           </ul>
           <Button variant="outline" className="mt-4 w-full">
             Buy more trunks
