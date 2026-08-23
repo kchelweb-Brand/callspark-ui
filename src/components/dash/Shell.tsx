@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Menu, Radio, Search, Bell, ArrowLeftRight } from "lucide-react";
+import { Menu, Radio, Search, Bell, ArrowLeftRight, LogOut } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -52,7 +52,7 @@ function SidebarBody({ scope, onNavigate }: { scope: Scope; onNavigate?: (() => 
         </span>
         <span className="leading-tight">
           <span className="block text-sm font-bold tracking-tight text-sidebar-accent-foreground">
-            Cadence
+            Kchel Dialer
           </span>
           <span className="block text-[11px] font-medium uppercase tracking-[0.14em] text-sidebar-foreground/55">
             {scope === "admin" ? "Platform admin" : "Dialer suite"}
@@ -75,7 +75,7 @@ function SidebarBody({ scope, onNavigate }: { scope: Scope; onNavigate?: (() => 
         <NavList items={items} onNavigate={onNavigate} />
       </div>
 
-      <div className="mt-4 px-3">
+      <div className="mt-4 flex flex-col gap-1 px-3">
         <Link
           to={scope === "admin" ? "/" : "/admin"}
           onClick={onNavigate}
@@ -83,6 +83,14 @@ function SidebarBody({ scope, onNavigate }: { scope: Scope; onNavigate?: (() => 
         >
           <ArrowLeftRight className="size-4" />
           {scope === "admin" ? "Tenant dashboard" : "Super admin"}
+        </Link>
+        <Link
+          to={scope === "admin" ? "/admin/login" : "/login"}
+          onClick={onNavigate}
+          className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+        >
+          <LogOut className="size-4" />
+          Sign out
         </Link>
       </div>
     </div>

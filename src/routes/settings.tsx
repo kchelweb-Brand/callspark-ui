@@ -2,8 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { ShieldCheck, Phone, GitBranch, KeyRound, Plus } from "lucide-react";
 
 import { Shell } from "@/components/dash/Shell";
-import { Panel, StatusPill } from "@/components/dash/bits";
-import { Button } from "@/components/ui/button";
+import { ActionButton, Panel, SmsNotice, StatusPill } from "@/components/dash/bits";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -20,12 +19,12 @@ import { phoneNumbers } from "@/lib/mock-data";
 export const Route = createFileRoute("/settings")({
   head: () => ({
     meta: [
-      { title: "Settings — Cadence Dialer" },
+      { title: "Settings — Kchel Dialer" },
       {
         name: "description",
         content: "SIP credential status, phone number management and IVR routing configuration.",
       },
-      { property: "og:title", content: "Settings — Cadence Dialer" },
+      { property: "og:title", content: "Settings — Kchel Dialer" },
       {
         property: "og:description",
         content: "Configure SIP trunks, caller IDs and inbound routing for your workspace.",
@@ -41,7 +40,7 @@ function SettingsPage() {
       scope="tenant"
       title="Settings"
       description="Workspace, telephony and routing configuration"
-      actions={<Button variant="outline">View change log</Button>}
+      actions={<ActionButton variant="outline">View change log</ActionButton>}
     >
       <div className="grid gap-4 xl:grid-cols-2">
         <Panel title="SIP credentials" description="Provisioned via platform trunk group" bodyClassName="p-5">
@@ -59,9 +58,10 @@ function SettingsPage() {
           <dl className="mt-4 grid gap-3 sm:grid-cols-2">
             {[
               ["SIP username", "bw_outreach_01"],
-              ["Realm", "sip.telnyx.cadence.io"],
+              ["Realm", "sip.telnyx.kchel.io"],
               ["Transport", "TLS / SRTP"],
               ["Concurrency", "240 channels"],
+              ["SMS enabled", "US numbers only"],
             ].map(([k, v]) => (
               <div key={k} className="rounded-lg border border-border bg-muted/50 p-3">
                 <dt className="text-xs text-muted-foreground">{k}</dt>
@@ -71,10 +71,10 @@ function SettingsPage() {
           </dl>
 
           <div className="mt-4 flex flex-wrap gap-2">
-            <Button variant="outline">
+            <ActionButton variant="outline">
               <KeyRound className="size-4" /> Rotate secret
-            </Button>
-            <Button variant="outline">Download config</Button>
+            </ActionButton>
+            <ActionButton variant="outline">Download config</ActionButton>
           </div>
         </Panel>
 
@@ -105,14 +105,20 @@ function SettingsPage() {
 
       <Panel
         title="Phone numbers"
-        description="Caller IDs available to campaigns"
+        description="Caller IDs available to voice and SMS campaigns"
         actions={
-          <Button>
+          <ActionButton>
             <Plus className="size-4" /> Buy number
-          </Button>
+          </ActionButton>
         }
         bodyClassName="p-0"
       >
+        <div className="flex flex-wrap items-center gap-3 border-b border-border p-4">
+          <SmsNotice />
+          <span className="text-xs text-muted-foreground">
+            Non-US numbers can place calls but cannot send or receive SMS.
+          </span>
+        </div>
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
@@ -136,9 +142,9 @@ function SettingsPage() {
                     <StatusPill status={n.status} />
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="sm">
+                    <ActionButton variant="ghost" size="sm">
                       Configure
-                    </Button>
+                    </ActionButton>
                   </TableCell>
                 </TableRow>
               ))}

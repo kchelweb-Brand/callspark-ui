@@ -2,8 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Search, Upload, Tag, Filter } from "lucide-react";
 
 import { Shell } from "@/components/dash/Shell";
-import { Panel } from "@/components/dash/bits";
-import { Button } from "@/components/ui/button";
+import { ActionButton, Panel } from "@/components/dash/bits";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -19,12 +18,12 @@ import { contacts } from "@/lib/mock-data";
 export const Route = createFileRoute("/contacts")({
   head: () => ({
     meta: [
-      { title: "Contacts — Cadence Dialer" },
+      { title: "Contacts — Kchel Dialer" },
       {
         name: "description",
         content: "Search, tag and import contact lists via CSV for your outbound calling campaigns.",
       },
-      { property: "og:title", content: "Contacts — Cadence Dialer" },
+      { property: "og:title", content: "Contacts — Kchel Dialer" },
       {
         property: "og:description",
         content: "Import CSV lists, tag contacts and filter your calling database.",
@@ -44,10 +43,10 @@ function ContactsPage() {
       description="24,318 contacts across 6 lists"
       actions={
         <>
-          <Button variant="outline">Export CSV</Button>
-          <Button>
+          <ActionButton variant="outline">Export CSV</ActionButton>
+          <ActionButton>
             <Upload className="size-4" /> Import CSV
-          </Button>
+          </ActionButton>
         </>
       }
     >
@@ -57,12 +56,12 @@ function ContactsPage() {
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input placeholder="Search name, company or number" className="pl-9" />
           </div>
-          <Button variant="outline">
+          <ActionButton variant="outline">
             <Filter className="size-4" /> List
-          </Button>
-          <Button variant="outline">
+          </ActionButton>
+          <ActionButton variant="outline">
             <Tag className="size-4" /> Tags
-          </Button>
+          </ActionButton>
         </div>
 
         <div className="flex flex-wrap gap-2 border-b border-border px-4 py-3">

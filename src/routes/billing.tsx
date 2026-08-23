@@ -2,8 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Download, CreditCard, ShieldCheck } from "lucide-react";
 
 import { Shell } from "@/components/dash/Shell";
-import { Meter, Panel, StatCard, StatusPill } from "@/components/dash/bits";
-import { Button } from "@/components/ui/button";
+import { ActionButton, Meter, Panel, StatCard, StatusPill } from "@/components/dash/bits";
 import {
   Table,
   TableBody,
@@ -17,13 +16,13 @@ import { invoices } from "@/lib/mock-data";
 export const Route = createFileRoute("/billing")({
   head: () => ({
     meta: [
-      { title: "Billing — Cadence Dialer" },
+      { title: "Billing — Kchel Dialer" },
       {
         name: "description",
         content:
           "Current plan, minutes used versus allotted, SIP credential purchases and invoice history.",
       },
-      { property: "og:title", content: "Billing — Cadence Dialer" },
+      { property: "og:title", content: "Billing — Kchel Dialer" },
       {
         property: "og:description",
         content: "Review plan usage, SIP purchases and download past invoices.",
@@ -41,8 +40,8 @@ function BillingPage() {
       description="Billing period Aug 1 – Aug 31, 2026"
       actions={
         <>
-          <Button variant="outline">Payment method</Button>
-          <Button>Upgrade plan</Button>
+          <ActionButton variant="outline">Payment method</ActionButton>
+          <ActionButton>Upgrade plan</ActionButton>
         </>
       }
     >
@@ -98,9 +97,9 @@ function BillingPage() {
             ))}
 
           </ul>
-          <Button variant="outline" className="mt-4 w-full">
+          <ActionButton variant="outline" className="mt-4 w-full">
             Buy more trunks
-          </Button>
+          </ActionButton>
         </Panel>
       </div>
 
@@ -128,9 +127,9 @@ function BillingPage() {
                     <StatusPill status={inv.status} />
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="sm">
+                    <ActionButton variant="ghost" size="sm">
                       <Download className="size-3.5" /> Download
-                    </Button>
+                    </ActionButton>
                   </TableCell>
                 </TableRow>
               ))}

@@ -2,20 +2,19 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Search, Download, Play } from "lucide-react";
 
 import { Shell } from "@/components/dash/Shell";
-import { Panel, Waveform } from "@/components/dash/bits";
-import { Button } from "@/components/ui/button";
+import { ActionButton, Panel, Waveform } from "@/components/dash/bits";
 import { Input } from "@/components/ui/input";
 import { recordings } from "@/lib/mock-data";
 
 export const Route = createFileRoute("/recordings")({
   head: () => ({
     meta: [
-      { title: "Recordings — Cadence Dialer" },
+      { title: "Recordings — Kchel Dialer" },
       {
         name: "description",
         content: "Browse, play back and download call recordings with tags, duration and file size.",
       },
-      { property: "og:title", content: "Recordings — Cadence Dialer" },
+      { property: "og:title", content: "Recordings — Kchel Dialer" },
       {
         property: "og:description",
         content: "Review call recordings from your agents with quick playback.",
@@ -31,7 +30,7 @@ function RecordingsPage() {
       scope="tenant"
       title="Recordings"
       description="812 recordings stored · 90-day retention"
-      actions={<Button variant="outline">Retention settings</Button>}
+      actions={<ActionButton variant="outline">Retention settings</ActionButton>}
     >
       <Panel bodyClassName="p-4">
         <div className="relative">
@@ -56,9 +55,9 @@ function RecordingsPage() {
             </div>
 
             <div className="mt-4 flex items-center gap-3">
-              <Button size="icon" className="rounded-full" aria-label={`Play ${r.contact} recording`}>
+              <ActionButton size="icon" className="rounded-full" aria-label={`Play ${r.contact} recording`}>
                 <Play className="size-4" />
-              </Button>
+              </ActionButton>
               <div className="flex-1 overflow-hidden">
                 <Waveform />
               </div>
@@ -69,9 +68,9 @@ function RecordingsPage() {
               <span className="font-mono">
                 {r.id} · {r.size}
               </span>
-              <Button variant="ghost" size="sm">
+              <ActionButton variant="ghost" size="sm">
                 <Download className="size-3.5" /> Download
-              </Button>
+              </ActionButton>
             </div>
           </div>
         ))}

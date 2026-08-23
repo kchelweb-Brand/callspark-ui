@@ -15,20 +15,19 @@ import {
 } from "recharts";
 
 import { Shell } from "@/components/dash/Shell";
-import { Panel, StatCard } from "@/components/dash/bits";
-import { Button } from "@/components/ui/button";
+import { ActionButton, Panel, StatCard } from "@/components/dash/bits";
 import { hourlyLoad, outcomeBreakdown, agents } from "@/lib/mock-data";
 
 export const Route = createFileRoute("/analytics")({
   head: () => ({
     meta: [
-      { title: "Analytics — Cadence Dialer" },
+      { title: "Analytics — Kchel Dialer" },
       {
         name: "description",
         content:
           "Call outcome breakdown, hourly dial load and agent leaderboard analytics for your call center.",
       },
-      { property: "og:title", content: "Analytics — Cadence Dialer" },
+      { property: "og:title", content: "Analytics — Kchel Dialer" },
       {
         property: "og:description",
         content: "Understand outcomes, peak hours and agent performance trends.",
@@ -59,7 +58,7 @@ function AnalyticsPage() {
       scope="tenant"
       title="Analytics"
       description="Last 30 days · all campaigns"
-      actions={<Button variant="outline">Change range</Button>}
+      actions={<ActionButton variant="outline">Change range</ActionButton>}
     >
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Total dials" value="8,002" delta="+9.2%" icon={PhoneCall} />

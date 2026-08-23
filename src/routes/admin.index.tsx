@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Building2, PhoneCall, Timer, DollarSign } from "lucide-react";
+import { Building2, PhoneCall, Timer, DollarSign, MessageSquare } from "lucide-react";
 import {
   Area,
   AreaChart,
@@ -13,20 +13,19 @@ import {
 } from "recharts";
 
 import { Shell } from "@/components/dash/Shell";
-import { Panel, StatCard, StatusPill } from "@/components/dash/bits";
-import { Button } from "@/components/ui/button";
+import { ActionButton, Panel, StatCard, StatusPill } from "@/components/dash/bits";
 import { systemAlerts, tenantGrowth, tenants } from "@/lib/mock-data";
 
 export const Route = createFileRoute("/admin/")({
   head: () => ({
     meta: [
-      { title: "Platform Overview — Cadence Super Admin" },
+      { title: "Platform Overview — Kchel Admin" },
       {
         name: "description",
         content:
           "Platform-wide view of tenants, active calls, minutes consumed and monthly recurring revenue.",
       },
-      { property: "og:title", content: "Platform Overview — Cadence Super Admin" },
+      { property: "og:title", content: "Platform Overview — Kchel Admin" },
       {
         property: "og:description",
         content: "Monitor tenant growth, platform call load and revenue in one console.",
@@ -49,12 +48,19 @@ function AdminOverviewPage() {
       scope="admin"
       title="Platform Overview"
       description="74 tenants · production US-East · all regions healthy"
-      actions={<Button variant="outline">Download platform report</Button>}
+      actions={<ActionButton variant="outline">Download platform report</ActionButton>}
     >
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <StatCard label="Total tenants" value="74" delta="+6" hint="this month" icon={Building2} />
         <StatCard label="Active calls" value="1,284" hint="peak today 1,610" icon={PhoneCall} />
         <StatCard label="Minutes today" value="412,880" delta="+7.8%" icon={Timer} />
+        <StatCard
+          label="SMS sent today"
+          value="86,420"
+          delta="+14.2%"
+          hint="US numbers only"
+          icon={MessageSquare}
+        />
         <StatCard
           label="Revenue this month"
           value="$43,850"
