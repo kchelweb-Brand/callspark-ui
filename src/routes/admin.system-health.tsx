@@ -106,18 +106,19 @@ function AdminSystemHealthPage() {
         <Panel title="Service status" bodyClassName="p-0">
           <ul className="divide-y divide-border">
             {[
-              ["Media gateway", "Online"],
-              ["Dialer workers", "Online"],
-              ["Recording storage", "Online"],
-              ["Billing sync", "Warning"],
-              ["Carrier edge-02", "Warning"],
-              ["Webhooks", "Online"],
-            ].map(([svc, status]) => (
+              { svc: "Media gateway", status: "Online" },
+              { svc: "Dialer workers", status: "Online" },
+              { svc: "Recording storage", status: "Online" },
+              { svc: "Billing sync", status: "Warning" },
+              { svc: "Carrier edge-02", status: "Warning" },
+              { svc: "Webhooks", status: "Online" },
+            ].map(({ svc, status }) => (
               <li key={svc} className="flex items-center justify-between gap-3 px-5 py-3.5">
                 <span className="text-sm font-medium">{svc}</span>
                 <StatusPill status={status} />
               </li>
             ))}
+
           </ul>
         </Panel>
       </div>
