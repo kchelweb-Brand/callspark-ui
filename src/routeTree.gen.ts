@@ -20,6 +20,7 @@ import { Route as LiveCallsRouteImport } from './routes/live-calls'
 import { Route as RecordingsRouteImport } from './routes/recordings'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
+import { Route as AdminTenantsRouteImport } from './routes/admin.tenants'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -76,6 +77,11 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
   path: '/admin/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminTenantsRoute = AdminTenantsRouteImport.update({
+  id: '/admin/tenants',
+  path: '/admin/tenants',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -88,6 +94,7 @@ export interface FileRoutesByFullPath {
   '/live-calls': typeof LiveCallsRoute
   '/recordings': typeof RecordingsRoute
   '/settings': typeof SettingsRoute
+  '/admin/tenants': typeof AdminTenantsRoute
   '/admin/': typeof AdminIndexRoute
 }
 export interface FileRoutesByTo {
@@ -101,6 +108,7 @@ export interface FileRoutesByTo {
   '/live-calls': typeof LiveCallsRoute
   '/recordings': typeof RecordingsRoute
   '/settings': typeof SettingsRoute
+  '/admin/tenants': typeof AdminTenantsRoute
   '/admin': typeof AdminIndexRoute
 }
 export interface FileRoutesById {
@@ -115,6 +123,7 @@ export interface FileRoutesById {
   '/live-calls': typeof LiveCallsRoute
   '/recordings': typeof RecordingsRoute
   '/settings': typeof SettingsRoute
+  '/admin/tenants': typeof AdminTenantsRoute
   '/admin/': typeof AdminIndexRoute
 }
 export interface FileRouteTypes {
@@ -130,6 +139,7 @@ export interface FileRouteTypes {
     | '/live-calls'
     | '/recordings'
     | '/settings'
+    | '/admin/tenants'
     | '/admin/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -143,6 +153,7 @@ export interface FileRouteTypes {
     | '/live-calls'
     | '/recordings'
     | '/settings'
+    | '/admin/tenants'
     | '/admin'
   id:
     | '__root__'
@@ -156,6 +167,7 @@ export interface FileRouteTypes {
     | '/live-calls'
     | '/recordings'
     | '/settings'
+    | '/admin/tenants'
     | '/admin/'
   fileRoutesById: FileRoutesById
 }
@@ -170,6 +182,7 @@ export interface RootRouteChildren {
   LiveCallsRoute: typeof LiveCallsRoute
   RecordingsRoute: typeof RecordingsRoute
   SettingsRoute: typeof SettingsRoute
+  AdminTenantsRoute: typeof AdminTenantsRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
 
@@ -252,6 +265,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/tenants': {
+      id: '/admin/tenants'
+      path: '/admin/tenants'
+      fullPath: '/admin/tenants'
+      preLoaderRoute: typeof AdminTenantsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -266,6 +286,7 @@ const rootRouteChildren: RootRouteChildren = {
   LiveCallsRoute: LiveCallsRoute,
   RecordingsRoute: RecordingsRoute,
   SettingsRoute: SettingsRoute,
+  AdminTenantsRoute: AdminTenantsRoute,
   AdminIndexRoute: AdminIndexRoute,
 }
 export const routeTree = rootRouteImport
