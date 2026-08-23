@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
+import { requestLoginCode, verifyLoginCode, saveSession } from "@/lib/auth-api";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
@@ -29,10 +29,48 @@ export const Route = createFileRoute("/login")({
 
 function LoginPage() {
   const navigate = useNavigate();
-  const [email, setEmail] = useState("mara@bluewaveoutreach.com");
-  const [password, setPassword] = useState("");
+  const [step, setStep] = useState<"email" | "code">("email");
+  const [email, setEmail] = useState("");
   const [workspace, setWorkspace] = useState("bluewave");
+  const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
+
+  async function handleSendCode(event: React.FormEvent) {
+    event.preventDefault();
+    if (!email) {
+      toast.error("Enter your work email to continue.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await requestLoginCode({ email, purpose: "login", workspaceSlug: workspace });
+      toast.success("Code sent", { description: `Check ${email} for your login code.` });
+      setStep("code");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not send code.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleVerifyCode(event: React.FormEvent) {
+    event.preventDefault();
+    if (code.trim().length !== 6) {
+      toast.error("Enter the 6-digit code from your email.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const { token, user } = await verifyLoginCode({ email, code, purpose: "login" });
+      saveSession(token, user);
+      toast.success("Welcome back", { description: "Opening your workspace…" });
+      navigate({ to: "/" });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Invalid or expired code.");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <div className="grid min-h-screen w-full lg:grid-cols-2">
@@ -55,104 +93,112 @@ function LoginPage() {
           </p>
         </div>
         <p className="text-xs text-sidebar-foreground/55">
-          Bluewave Outreach · workspace on Kchel Dialer
+          Sign in with a one-time code sent to your email — no password needed.
         </p>
       </div>
 
       <div className="flex items-center justify-center px-5 py-12">
-        <form
-          className="w-full max-w-sm"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (!email || !password) {
-              toast.error("Enter your email and password to continue.");
-              return;
-            }
-            setBusy(true);
-            toast.success("Welcome back", { description: "Opening your workspace…" });
-            setTimeout(() => navigate({ to: "/" }), 500);
-          }}
-        >
-          <div className="mb-8 flex items-center gap-3 lg:hidden">
-            <span className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <Radio className="size-4.5" />
-            </span>
-            <span className="font-bold tracking-tight">Kchel Dialer</span>
-          </div>
+        {step === "email" ? (
+          <form className="w-full max-w-sm" onSubmit={handleSendCode}>
+            <div className="mb-8 flex items-center gap-3 lg:hidden">
+              <span className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+                <Radio className="size-4.5" />
+              </span>
+              <span className="font-bold tracking-tight">Kchel Dialer</span>
+            </div>
 
-          <h1 className="text-2xl font-bold tracking-tight">Sign in to your workspace</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            For agents, supervisors and workspace admins.
-          </p>
+            <h1 className="text-2xl font-bold tracking-tight">Sign in to your workspace</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              We'll email you a one-time code — no password required.
+            </p>
 
-          <div className="mt-7 flex flex-col gap-4">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="workspace">Workspace</Label>
-              <div className="flex items-center rounded-md border border-input bg-background pr-3 focus-within:ring-1 focus-within:ring-ring">
+            <div className="mt-7 flex flex-col gap-4">
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="workspace">Workspace</Label>
+                <div className="flex items-center rounded-md border border-input bg-background pr-3 focus-within:ring-1 focus-within:ring-ring">
+                  <Input
+                    id="workspace"
+                    value={workspace}
+                    onChange={(e) => setWorkspace(e.target.value)}
+                    className="border-0 shadow-none focus-visible:ring-0"
+                  />
+                  <span className="shrink-0 font-mono text-xs text-muted-foreground">
+                    .kchel.app
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="email">Work email</Label>
                 <Input
-                  id="workspace"
-                  value={workspace}
-                  onChange={(e) => setWorkspace(e.target.value)}
-                  className="border-0 shadow-none focus-visible:ring-0"
+                  id="email"
+                  type="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                 />
-                <span className="shrink-0 font-mono text-xs text-muted-foreground">
-                  .kchel.app
-                </span>
               </div>
+
+              <Button type="submit" className="w-full" disabled={busy}>
+                {busy ? <Loader2 className="size-4 animate-spin" /> : null}
+                Send login code
+              </Button>
             </div>
 
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="email">Work email</Label>
-              <Input
-                id="email"
-                type="email"
-                autoComplete="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
+            <p className="mt-6 text-center text-sm text-muted-foreground">
+              Platform owner?{" "}
+              <Link to="/admin/login" className="font-semibold text-primary hover:underline">
+                Super admin sign in
+              </Link>
+            </p>
+          </form>
+        ) : (
+          <form className="w-full max-w-sm" onSubmit={handleVerifyCode}>
+            <div className="mb-8 flex items-center gap-3 lg:hidden">
+              <span className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+                <Radio className="size-4.5" />
+              </span>
+              <span className="font-bold tracking-tight">Kchel Dialer</span>
             </div>
 
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="password">Password</Label>
-                <button
-                  type="button"
-                  className="text-xs font-semibold text-primary hover:underline"
-                  onClick={() =>
-                    toast.success("Reset link sent", {
-                      description: `Check ${email || "your inbox"} for instructions.`,
-                    })
-                  }
-                >
-                  Forgot password?
-                </button>
+            <h1 className="text-2xl font-bold tracking-tight">Enter your code</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              We sent a 6-digit code to <span className="font-medium">{email}</span>.
+            </p>
+
+            <div className="mt-7 flex flex-col gap-4">
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="code">Login code</Label>
+                <Input
+                  id="code"
+                  inputMode="numeric"
+                  maxLength={6}
+                  placeholder="123456"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
+                  className="font-mono tracking-[0.3em]"
+                  autoFocus
+                />
               </div>
-              <Input
-                id="password"
-                type="password"
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
+
+              <Button type="submit" className="w-full" disabled={busy}>
+                {busy ? <Loader2 className="size-4 animate-spin" /> : null}
+                Verify & sign in
+              </Button>
+
+              <button
+                type="button"
+                className="text-center text-sm text-muted-foreground hover:underline"
+                onClick={() => {
+                  setStep("email");
+                  setCode("");
+                }}
+              >
+                Use a different email
+              </button>
             </div>
-
-            <label className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Checkbox defaultChecked /> Keep me signed in on this device
-            </label>
-
-            <Button type="submit" className="w-full" disabled={busy}>
-              {busy ? <Loader2 className="size-4 animate-spin" /> : null}
-              Sign in
-            </Button>
-          </div>
-
-          <p className="mt-6 text-center text-sm text-muted-foreground">
-            Platform owner?{" "}
-            <Link to="/admin/login" className="font-semibold text-primary hover:underline">
-              Super admin sign in
-            </Link>
-          </p>
-        </form>
+          </form>
+        )}
       </div>
     </div>
   );
