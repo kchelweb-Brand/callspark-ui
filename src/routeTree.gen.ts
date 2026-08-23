@@ -19,6 +19,11 @@ import { Route as ContactsRouteImport } from './routes/contacts'
 import { Route as LiveCallsRouteImport } from './routes/live-calls'
 import { Route as RecordingsRouteImport } from './routes/recordings'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as AdminIndexRouteImport } from './routes/admin.index'
+import { Route as AdminRevenueRouteImport } from './routes/admin.revenue'
+import { Route as AdminSupportRouteImport } from './routes/admin.support'
+import { Route as AdminSystemHealthRouteImport } from './routes/admin.system-health'
+import { Route as AdminTenantsRouteImport } from './routes/admin.tenants'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -70,6 +75,31 @@ const SettingsRoute = SettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/admin/',
+  path: '/admin/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminRevenueRoute = AdminRevenueRouteImport.update({
+  id: '/admin/revenue',
+  path: '/admin/revenue',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminSupportRoute = AdminSupportRouteImport.update({
+  id: '/admin/support',
+  path: '/admin/support',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminSystemHealthRoute = AdminSystemHealthRouteImport.update({
+  id: '/admin/system-health',
+  path: '/admin/system-health',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminTenantsRoute = AdminTenantsRouteImport.update({
+  id: '/admin/tenants',
+  path: '/admin/tenants',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -82,6 +112,11 @@ export interface FileRoutesByFullPath {
   '/live-calls': typeof LiveCallsRoute
   '/recordings': typeof RecordingsRoute
   '/settings': typeof SettingsRoute
+  '/admin/revenue': typeof AdminRevenueRoute
+  '/admin/support': typeof AdminSupportRoute
+  '/admin/system-health': typeof AdminSystemHealthRoute
+  '/admin/tenants': typeof AdminTenantsRoute
+  '/admin/': typeof AdminIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -94,6 +129,11 @@ export interface FileRoutesByTo {
   '/live-calls': typeof LiveCallsRoute
   '/recordings': typeof RecordingsRoute
   '/settings': typeof SettingsRoute
+  '/admin/revenue': typeof AdminRevenueRoute
+  '/admin/support': typeof AdminSupportRoute
+  '/admin/system-health': typeof AdminSystemHealthRoute
+  '/admin/tenants': typeof AdminTenantsRoute
+  '/admin': typeof AdminIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -107,6 +147,11 @@ export interface FileRoutesById {
   '/live-calls': typeof LiveCallsRoute
   '/recordings': typeof RecordingsRoute
   '/settings': typeof SettingsRoute
+  '/admin/revenue': typeof AdminRevenueRoute
+  '/admin/support': typeof AdminSupportRoute
+  '/admin/system-health': typeof AdminSystemHealthRoute
+  '/admin/tenants': typeof AdminTenantsRoute
+  '/admin/': typeof AdminIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -121,6 +166,11 @@ export interface FileRouteTypes {
     | '/live-calls'
     | '/recordings'
     | '/settings'
+    | '/admin/revenue'
+    | '/admin/support'
+    | '/admin/system-health'
+    | '/admin/tenants'
+    | '/admin/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -133,6 +183,11 @@ export interface FileRouteTypes {
     | '/live-calls'
     | '/recordings'
     | '/settings'
+    | '/admin/revenue'
+    | '/admin/support'
+    | '/admin/system-health'
+    | '/admin/tenants'
+    | '/admin'
   id:
     | '__root__'
     | '/'
@@ -145,6 +200,11 @@ export interface FileRouteTypes {
     | '/live-calls'
     | '/recordings'
     | '/settings'
+    | '/admin/revenue'
+    | '/admin/support'
+    | '/admin/system-health'
+    | '/admin/tenants'
+    | '/admin/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -158,6 +218,11 @@ export interface RootRouteChildren {
   LiveCallsRoute: typeof LiveCallsRoute
   RecordingsRoute: typeof RecordingsRoute
   SettingsRoute: typeof SettingsRoute
+  AdminRevenueRoute: typeof AdminRevenueRoute
+  AdminSupportRoute: typeof AdminSupportRoute
+  AdminSystemHealthRoute: typeof AdminSystemHealthRoute
+  AdminTenantsRoute: typeof AdminTenantsRoute
+  AdminIndexRoute: typeof AdminIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -232,6 +297,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/': {
+      id: '/admin/'
+      path: '/admin'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/revenue': {
+      id: '/admin/revenue'
+      path: '/admin/revenue'
+      fullPath: '/admin/revenue'
+      preLoaderRoute: typeof AdminRevenueRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/support': {
+      id: '/admin/support'
+      path: '/admin/support'
+      fullPath: '/admin/support'
+      preLoaderRoute: typeof AdminSupportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/system-health': {
+      id: '/admin/system-health'
+      path: '/admin/system-health'
+      fullPath: '/admin/system-health'
+      preLoaderRoute: typeof AdminSystemHealthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/tenants': {
+      id: '/admin/tenants'
+      path: '/admin/tenants'
+      fullPath: '/admin/tenants'
+      preLoaderRoute: typeof AdminTenantsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -246,6 +346,11 @@ const rootRouteChildren: RootRouteChildren = {
   LiveCallsRoute: LiveCallsRoute,
   RecordingsRoute: RecordingsRoute,
   SettingsRoute: SettingsRoute,
+  AdminRevenueRoute: AdminRevenueRoute,
+  AdminSupportRoute: AdminSupportRoute,
+  AdminSystemHealthRoute: AdminSystemHealthRoute,
+  AdminTenantsRoute: AdminTenantsRoute,
+  AdminIndexRoute: AdminIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
