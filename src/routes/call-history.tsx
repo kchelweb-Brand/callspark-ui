@@ -2,8 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Search, CalendarDays, Filter, Download, Play } from "lucide-react";
 
 import { Shell } from "@/components/dash/Shell";
-import { Panel, StatusPill } from "@/components/dash/bits";
-import { Button } from "@/components/ui/button";
+import { ActionButton, Panel, StatusPill } from "@/components/dash/bits";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -18,13 +17,13 @@ import { callHistory } from "@/lib/mock-data";
 export const Route = createFileRoute("/call-history")({
   head: () => ({
     meta: [
-      { title: "Call History — Cadence Dialer" },
+      { title: "Call History — Kchel Dialer" },
       {
         name: "description",
         content:
           "Searchable call log with date, contact, agent, duration, outcome and linked recordings.",
       },
-      { property: "og:title", content: "Call History — Cadence Dialer" },
+      { property: "og:title", content: "Call History — Kchel Dialer" },
       {
         property: "og:description",
         content: "Filter historical calls by agent, outcome or date and open recordings.",
@@ -41,9 +40,9 @@ function CallHistoryPage() {
       title="Call History"
       description="9 of 42,118 calls · showing today"
       actions={
-        <Button variant="outline">
+        <ActionButton variant="outline">
           <Download className="size-4" /> Export log
-        </Button>
+        </ActionButton>
       }
     >
       <Panel bodyClassName="p-0">
@@ -52,13 +51,13 @@ function CallHistoryPage() {
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input placeholder="Search number, contact or call ID" className="pl-9" />
           </div>
-          <Button variant="outline">
+          <ActionButton variant="outline">
             <CalendarDays className="size-4" /> Aug 22, 2026
-          </Button>
-          <Button variant="outline">
+          </ActionButton>
+          <ActionButton variant="outline">
             <Filter className="size-4" /> Outcome
-          </Button>
-          <Button variant="outline">Agent</Button>
+          </ActionButton>
+          <ActionButton variant="outline">Agent</ActionButton>
         </div>
 
         <div className="overflow-x-auto">
@@ -87,9 +86,9 @@ function CallHistoryPage() {
                   </TableCell>
                   <TableCell className="text-right">
                     {c.outcome === "Connected" ? (
-                      <Button variant="ghost" size="sm">
+                      <ActionButton variant="ghost" size="sm">
                         <Play className="size-3.5" /> Play
-                      </Button>
+                      </ActionButton>
                     ) : (
                       <span className="text-xs text-muted-foreground">—</span>
                     )}

@@ -11,8 +11,7 @@ import {
 } from "recharts";
 
 import { Shell } from "@/components/dash/Shell";
-import { Panel, StatCard, StatusPill } from "@/components/dash/bits";
-import { Button } from "@/components/ui/button";
+import { ActionButton, Panel, StatCard, StatusPill } from "@/components/dash/bits";
 import {
   Table,
   TableBody,
@@ -26,13 +25,13 @@ import { hourlyLoad, systemAlerts } from "@/lib/mock-data";
 export const Route = createFileRoute("/admin/system-health")({
   head: () => ({
     meta: [
-      { title: "System Health — Cadence Super Admin" },
+      { title: "System Health — Kchel Admin" },
       {
         name: "description",
         content:
           "Carrier balance, queue depth, active call count and platform error and alert log in one view.",
       },
-      { property: "og:title", content: "System Health — Cadence Super Admin" },
+      { property: "og:title", content: "System Health — Kchel Admin" },
       {
         property: "og:description",
         content: "Watch carrier balance, queue depth and platform alerts in real time.",
@@ -50,8 +49,8 @@ function AdminSystemHealthPage() {
       description="Carrier, queue and error telemetry"
       actions={
         <>
-          <Button variant="outline">Alert rules</Button>
-          <Button>Top up carrier</Button>
+          <ActionButton variant="outline">Alert rules</ActionButton>
+          <ActionButton>Top up carrier</ActionButton>
         </>
       }
     >
@@ -145,9 +144,9 @@ function AdminSystemHealthPage() {
                   <TableCell className="font-mono text-xs text-muted-foreground">{a.source}</TableCell>
                   <TableCell>{a.message}</TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="sm">
+                    <ActionButton variant="ghost" size="sm">
                       Acknowledge
-                    </Button>
+                    </ActionButton>
                   </TableCell>
                 </TableRow>
               ))}

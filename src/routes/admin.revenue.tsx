@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { DollarSign, TrendingUp, Users, Radio } from "lucide-react";
+import { DollarSign, TrendingUp, Users, Radio, MessageSquare } from "lucide-react";
 import {
   Bar,
   BarChart,
@@ -11,8 +11,7 @@ import {
 } from "recharts";
 
 import { Shell } from "@/components/dash/Shell";
-import { Panel, StatCard, StatusPill } from "@/components/dash/bits";
-import { Button } from "@/components/ui/button";
+import { ActionButton, Panel, StatCard, StatusPill } from "@/components/dash/bits";
 import {
   Table,
   TableBody,
@@ -21,18 +20,18 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { revenueByTenant, sipSales, tenantGrowth } from "@/lib/mock-data";
+import { revenueByTenant, sipSales, smsByTenant, tenantGrowth } from "@/lib/mock-data";
 
 export const Route = createFileRoute("/admin/revenue")({
   head: () => ({
     meta: [
-      { title: "Billing & Revenue — Cadence Super Admin" },
+      { title: "Billing & Revenue — Kchel Admin" },
       {
         name: "description",
         content:
           "Platform revenue overview with per-tenant billing breakdown and SIP credential sales.",
       },
-      { property: "og:title", content: "Billing & Revenue — Cadence Super Admin" },
+      { property: "og:title", content: "Billing & Revenue — Kchel Admin" },
       {
         property: "og:description",
         content: "Track MRR, per-tenant billing and SIP credential sales across the platform.",
@@ -48,11 +47,12 @@ function AdminRevenuePage() {
       scope="admin"
       title="Billing & Revenue"
       description="August 2026 · USD"
-      actions={<Button variant="outline">Export ledger</Button>}
+      actions={<ActionButton variant="outline">Export ledger</ActionButton>}
     >
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <StatCard label="MRR" value="$41,540" delta="+9.4%" icon={DollarSign} tone="success" />
         <StatCard label="SIP credential sales" value="$2,310" delta="+18.0%" icon={Radio} />
+        <StatCard label="SMS revenue" value="$3,304" delta="+14.2%" icon={MessageSquare} />
         <StatCard label="ARPA" value="$561" delta="+2.1%" icon={TrendingUp} />
         <StatCard label="Paying tenants" value="71 / 74" hint="3 on trial" icon={Users} />
       </div>
@@ -87,6 +87,8 @@ function AdminRevenuePage() {
                 <TableHead>Plan</TableHead>
                 <TableHead className="text-right">Minutes</TableHead>
                 <TableHead className="text-right">SIP</TableHead>
+                <TableHead className="text-right">SMS sent</TableHead>
+                <TableHead className="text-right">SMS cost</TableHead>
                 <TableHead className="text-right">Subscription</TableHead>
                 <TableHead className="text-right">Total</TableHead>
               </TableRow>
@@ -100,6 +102,12 @@ function AdminRevenuePage() {
                     {r.minutes.toLocaleString()}
                   </TableCell>
                   <TableCell className="text-right font-mono text-sm">{r.sip}</TableCell>
+                  <TableCell className="text-right font-mono text-sm">
+                    {(smsByTenant.find((s) => s.company === r.company)?.sms ?? 0).toLocaleString()}
+                  </TableCell>
+                  <TableCell className="text-right font-mono text-sm">
+                    {smsByTenant.find((s) => s.company === r.company)?.smsCost ?? "$0"}
+                  </TableCell>
                   <TableCell className="text-right font-mono text-sm">{r.mrr}</TableCell>
                   <TableCell className="text-right font-mono text-sm font-semibold">{r.total}</TableCell>
                 </TableRow>

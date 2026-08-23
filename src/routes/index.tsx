@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { PhoneCall, Percent, Headset, Timer, Plus } from "lucide-react";
+import { PhoneCall, Percent, Headset, Timer, Plus, MessageSquare } from "lucide-react";
 import {
   Area,
   AreaChart,
@@ -12,20 +12,21 @@ import {
 } from "recharts";
 
 import { Shell } from "@/components/dash/Shell";
-import { Panel, StatCard, StatusPill } from "@/components/dash/bits";
+import { ActionButton, Panel, StatCard, StatusPill } from "@/components/dash/bits";
 import { Button } from "@/components/ui/button";
+import { CreateCampaignDialog } from "@/components/dash/CreateCampaignDialog";
 import { activityFeed, callVolume7d, liveQueue } from "@/lib/mock-data";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Overview — Cadence Dialer Workspace" },
+      { title: "Overview — Kchel Dialer" },
       {
         name: "description",
         content:
           "Live call center overview: calls today, connect rate, active agents, minutes used and 7-day call volume.",
       },
-      { property: "og:title", content: "Overview — Cadence Dialer Workspace" },
+      { property: "og:title", content: "Overview — Kchel Dialer" },
       {
         property: "og:description",
         content: "Track calls, agents and minutes for your call center workspace in real time.",
@@ -43,14 +44,18 @@ function OverviewPage() {
       description="Friday, August 22 · shift started 08:00 · 6 agents on the floor"
       actions={
         <>
-          <Button variant="outline">Export snapshot</Button>
-          <Button>
-            <Plus className="size-4" /> New campaign
-          </Button>
+          <ActionButton variant="outline">Export snapshot</ActionButton>
+          <CreateCampaignDialog
+            trigger={
+              <Button>
+                <Plus className="size-4" /> New campaign
+              </Button>
+            }
+          />
         </>
       }
     >
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <StatCard label="Calls today" value="1,725" delta="+12.4%" hint="vs yesterday" icon={PhoneCall} />
         <StatCard
           label="Connected rate"
@@ -61,6 +66,7 @@ function OverviewPage() {
           tone="success"
         />
         <StatCard label="Active agents" value="6 / 7" hint="1 offline" icon={Headset} />
+        <StatCard label="SMS sent today" value="2,710" delta="+8.2%" hint="US numbers only" icon={MessageSquare} />
         <StatCard
           label="Minutes used"
           value="184,200"

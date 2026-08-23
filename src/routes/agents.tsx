@@ -2,8 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { UserPlus } from "lucide-react";
 
 import { Shell } from "@/components/dash/Shell";
-import { Panel, StatusPill } from "@/components/dash/bits";
-import { Button } from "@/components/ui/button";
+import { ActionButton, Panel, StatusPill } from "@/components/dash/bits";
 import {
   Table,
   TableBody,
@@ -17,12 +16,12 @@ import { agents } from "@/lib/mock-data";
 export const Route = createFileRoute("/agents")({
   head: () => ({
     meta: [
-      { title: "Agents — Cadence Dialer" },
+      { title: "Agents — Kchel Dialer" },
       {
         name: "description",
         content: "Agent roster with live status, calls handled today, talk time and connect performance.",
       },
-      { property: "og:title", content: "Agents — Cadence Dialer" },
+      { property: "og:title", content: "Agents — Kchel Dialer" },
       {
         property: "og:description",
         content: "Track agent availability and daily performance on the dialer floor.",
@@ -39,9 +38,9 @@ function AgentsPage() {
       title="Agents"
       description="7 seats · 6 signed in today"
       actions={
-        <Button>
+        <ActionButton>
           <UserPlus className="size-4" /> Invite agent
-        </Button>
+        </ActionButton>
       }
     >
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">

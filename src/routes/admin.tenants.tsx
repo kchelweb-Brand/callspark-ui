@@ -2,8 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Search, Filter, Plus } from "lucide-react";
 
 import { Shell } from "@/components/dash/Shell";
-import { Meter, Panel, StatusPill } from "@/components/dash/bits";
-import { Button } from "@/components/ui/button";
+import { ActionButton, Meter, Panel, StatusPill } from "@/components/dash/bits";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -18,13 +17,13 @@ import { tenants } from "@/lib/mock-data";
 export const Route = createFileRoute("/admin/tenants")({
   head: () => ({
     meta: [
-      { title: "Tenants — Cadence Super Admin" },
+      { title: "Tenants — Kchel Admin" },
       {
         name: "description",
         content:
           "All tenant accounts with plan, status, minutes used and join date, plus suspend or activate controls.",
       },
-      { property: "og:title", content: "Tenants — Cadence Super Admin" },
+      { property: "og:title", content: "Tenants — Kchel Admin" },
       {
         property: "og:description",
         content: "Manage tenant accounts, plans and usage across the dialer platform.",
@@ -41,9 +40,9 @@ function AdminTenantsPage() {
       title="Tenants"
       description="8 of 74 accounts shown"
       actions={
-        <Button>
+        <ActionButton>
           <Plus className="size-4" /> Provision tenant
-        </Button>
+        </ActionButton>
       }
     >
       <Panel bodyClassName="p-0">
@@ -52,10 +51,10 @@ function AdminTenantsPage() {
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input placeholder="Search company or tenant ID" className="pl-9" />
           </div>
-          <Button variant="outline">
+          <ActionButton variant="outline">
             <Filter className="size-4" /> Plan
-          </Button>
-          <Button variant="outline">Status</Button>
+          </ActionButton>
+          <ActionButton variant="outline">Status</ActionButton>
         </div>
 
         <div className="overflow-x-auto">
@@ -93,15 +92,15 @@ function AdminTenantsPage() {
                   <TableCell className="text-right font-mono text-sm">{t.mrr}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
-                      <Button variant="ghost" size="sm">
+                      <ActionButton variant="ghost" size="sm">
                         Usage
-                      </Button>
+                      </ActionButton>
                       {t.status === "Suspended" ? (
-                        <Button size="sm">Activate</Button>
+                        <ActionButton size="sm">Activate</ActionButton>
                       ) : (
-                        <Button variant="outline" size="sm">
+                        <ActionButton variant="outline" size="sm">
                           Suspend
-                        </Button>
+                        </ActionButton>
                       )}
                     </div>
                   </TableCell>

@@ -2,8 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Search, LifeBuoy, Clock, CheckCircle2 } from "lucide-react";
 
 import { Shell } from "@/components/dash/Shell";
-import { Panel, StatCard, StatusPill } from "@/components/dash/bits";
-import { Button } from "@/components/ui/button";
+import { ActionButton, Panel, StatCard, StatusPill } from "@/components/dash/bits";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -18,12 +17,12 @@ import { supportTickets } from "@/lib/mock-data";
 export const Route = createFileRoute("/admin/support")({
   head: () => ({
     meta: [
-      { title: "Support — Cadence Super Admin" },
+      { title: "Support — Kchel Admin" },
       {
         name: "description",
         content: "Tenant support queue with ticket priority, status and response time metrics.",
       },
-      { property: "og:title", content: "Support — Cadence Super Admin" },
+      { property: "og:title", content: "Support — Kchel Admin" },
       {
         property: "og:description",
         content: "Triage tenant support tickets and track response performance.",
@@ -39,7 +38,7 @@ function AdminSupportPage() {
       scope="admin"
       title="Support"
       description="6 open conversations across 6 tenants"
-      actions={<Button variant="outline">Macros</Button>}
+      actions={<ActionButton variant="outline">Macros</ActionButton>}
     >
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Open tickets" value="14" icon={LifeBuoy} />
@@ -54,8 +53,8 @@ function AdminSupportPage() {
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input placeholder="Search tickets, tenants or IDs" className="pl-9" />
           </div>
-          <Button variant="outline">Priority</Button>
-          <Button variant="outline">Status</Button>
+          <ActionButton variant="outline">Priority</ActionButton>
+          <ActionButton variant="outline">Status</ActionButton>
         </div>
 
         <div className="overflow-x-auto">
@@ -85,9 +84,9 @@ function AdminSupportPage() {
                   </TableCell>
                   <TableCell className="text-muted-foreground">{t.updated}</TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="sm">
+                    <ActionButton variant="ghost" size="sm">
                       Open
-                    </Button>
+                    </ActionButton>
                   </TableCell>
                 </TableRow>
               ))}

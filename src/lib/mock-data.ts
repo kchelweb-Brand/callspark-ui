@@ -184,3 +184,82 @@ export const supportTickets = [
   { id: "TK-4809", tenant: "Vertex Solar", subject: "Appeal account suspension", priority: "High", status: "Escalated", updated: "1d ago" },
   { id: "TK-4802", tenant: "Lumen Health", subject: "Recording retention policy", priority: "Low", status: "Resolved", updated: "2d ago" },
 ];
+
+/* ---------- SMS ---------- */
+
+export const smsThreads = [
+  {
+    id: "th_01",
+    contact: "Alan Reece",
+    company: "Bridgewater Ltd",
+    number: "+1 415 555 0134",
+    unread: 2,
+    last: "09:44",
+    messages: [
+      { id: 1, from: "them" as const, time: "09:31", text: "Hi — can you resend the renewal quote?" },
+      { id: 2, from: "us" as const, time: "09:33", text: "Sure, sending it over now. Same seat count?" },
+      { id: 3, from: "them" as const, time: "09:44", text: "Add 5 seats please. Also can we start Sept 1?" },
+    ],
+  },
+  {
+    id: "th_02",
+    contact: "Sara Kim",
+    company: "Pinegrove Dental",
+    number: "+1 503 555 0781",
+    unread: 0,
+    last: "09:12",
+    messages: [
+      { id: 1, from: "us" as const, time: "08:58", text: "Reminder: your trial ends Friday." },
+      { id: 2, from: "them" as const, time: "09:12", text: "Thanks — we'll upgrade this week." },
+    ],
+  },
+  {
+    id: "th_03",
+    contact: "Marco Silva",
+    company: "Kestrel Media",
+    number: "+1 312 555 0770",
+    unread: 1,
+    last: "Yesterday",
+    messages: [
+      { id: 1, from: "us" as const, time: "16:04", text: "Following up on our call — good time tomorrow?" },
+      { id: 2, from: "them" as const, time: "16:40", text: "Try me after 2pm CT." },
+    ],
+  },
+  {
+    id: "th_04",
+    contact: "Nina Kraus",
+    company: "Alder & Fitch",
+    number: "+1 917 555 0044",
+    unread: 0,
+    last: "Mon",
+    messages: [
+      { id: 1, from: "us" as const, time: "11:20", text: "Hi Nina, sharing the pricing sheet you asked for." },
+    ],
+  },
+];
+
+export const smsCampaigns = [
+  { id: "sms_01", name: "Renewal reminders — US", status: "Active", list: "Q3 Renewals", sent: 4820, delivered: 4712, replies: 388 },
+  { id: "sms_02", name: "Trial day-7 nudge", status: "Active", list: "Trial Nurture", sent: 2410, delivered: 2366, replies: 201 },
+  { id: "sms_03", name: "Winback offer", status: "Paused", list: "Winback July", sent: 1980, delivered: 1902, replies: 96 },
+  { id: "sms_04", name: "Appointment confirmations", status: "Scheduled", list: "Support Follow-up", sent: 0, delivered: 0, replies: 0 },
+];
+
+export const smsVolume7d = [
+  { day: "Mon", sent: 1820, replies: 142 },
+  { day: "Tue", sent: 2140, replies: 188 },
+  { day: "Wed", sent: 1960, replies: 161 },
+  { day: "Thu", sent: 2480, replies: 214 },
+  { day: "Fri", sent: 2710, replies: 246 },
+  { day: "Sat", sent: 880, replies: 61 },
+  { day: "Sun", sent: 420, replies: 22 },
+];
+
+export const smsByTenant = [
+  { company: "Cobalt Insurance", sms: 184200, smsCost: "$1,842" },
+  { company: "Bluewave Outreach", sms: 42310, smsCost: "$423" },
+  { company: "Vertex Solar", sms: 51880, smsCost: "$519" },
+  { company: "Lumen Health", sms: 30140, smsCost: "$301" },
+  { company: "Redpine Recruiting", sms: 12060, smsCost: "$121" },
+  { company: "Nimbus Collections", sms: 9840, smsCost: "$98" },
+];

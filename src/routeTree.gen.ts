@@ -17,9 +17,12 @@ import { Route as CallHistoryRouteImport } from './routes/call-history'
 import { Route as CampaignsRouteImport } from './routes/campaigns'
 import { Route as ContactsRouteImport } from './routes/contacts'
 import { Route as LiveCallsRouteImport } from './routes/live-calls'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as RecordingsRouteImport } from './routes/recordings'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as SmsRouteImport } from './routes/sms'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
+import { Route as AdminLoginRouteImport } from './routes/admin.login'
 import { Route as AdminRevenueRouteImport } from './routes/admin.revenue'
 import { Route as AdminSupportRouteImport } from './routes/admin.support'
 import { Route as AdminSystemHealthRouteImport } from './routes/admin.system-health'
@@ -65,6 +68,11 @@ const LiveCallsRoute = LiveCallsRouteImport.update({
   path: '/live-calls',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RecordingsRoute = RecordingsRouteImport.update({
   id: '/recordings',
   path: '/recordings',
@@ -75,9 +83,19 @@ const SettingsRoute = SettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SmsRoute = SmsRouteImport.update({
+  id: '/sms',
+  path: '/sms',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminIndexRoute = AdminIndexRouteImport.update({
   id: '/admin/',
   path: '/admin/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminLoginRoute = AdminLoginRouteImport.update({
+  id: '/admin/login',
+  path: '/admin/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminRevenueRoute = AdminRevenueRouteImport.update({
@@ -110,8 +128,11 @@ export interface FileRoutesByFullPath {
   '/campaigns': typeof CampaignsRoute
   '/contacts': typeof ContactsRoute
   '/live-calls': typeof LiveCallsRoute
+  '/login': typeof LoginRoute
   '/recordings': typeof RecordingsRoute
   '/settings': typeof SettingsRoute
+  '/sms': typeof SmsRoute
+  '/admin/login': typeof AdminLoginRoute
   '/admin/revenue': typeof AdminRevenueRoute
   '/admin/support': typeof AdminSupportRoute
   '/admin/system-health': typeof AdminSystemHealthRoute
@@ -127,8 +148,11 @@ export interface FileRoutesByTo {
   '/campaigns': typeof CampaignsRoute
   '/contacts': typeof ContactsRoute
   '/live-calls': typeof LiveCallsRoute
+  '/login': typeof LoginRoute
   '/recordings': typeof RecordingsRoute
   '/settings': typeof SettingsRoute
+  '/sms': typeof SmsRoute
+  '/admin/login': typeof AdminLoginRoute
   '/admin/revenue': typeof AdminRevenueRoute
   '/admin/support': typeof AdminSupportRoute
   '/admin/system-health': typeof AdminSystemHealthRoute
@@ -145,8 +169,11 @@ export interface FileRoutesById {
   '/campaigns': typeof CampaignsRoute
   '/contacts': typeof ContactsRoute
   '/live-calls': typeof LiveCallsRoute
+  '/login': typeof LoginRoute
   '/recordings': typeof RecordingsRoute
   '/settings': typeof SettingsRoute
+  '/sms': typeof SmsRoute
+  '/admin/login': typeof AdminLoginRoute
   '/admin/revenue': typeof AdminRevenueRoute
   '/admin/support': typeof AdminSupportRoute
   '/admin/system-health': typeof AdminSystemHealthRoute
@@ -164,8 +191,11 @@ export interface FileRouteTypes {
     | '/campaigns'
     | '/contacts'
     | '/live-calls'
+    | '/login'
     | '/recordings'
     | '/settings'
+    | '/sms'
+    | '/admin/login'
     | '/admin/revenue'
     | '/admin/support'
     | '/admin/system-health'
@@ -181,8 +211,11 @@ export interface FileRouteTypes {
     | '/campaigns'
     | '/contacts'
     | '/live-calls'
+    | '/login'
     | '/recordings'
     | '/settings'
+    | '/sms'
+    | '/admin/login'
     | '/admin/revenue'
     | '/admin/support'
     | '/admin/system-health'
@@ -198,8 +231,11 @@ export interface FileRouteTypes {
     | '/campaigns'
     | '/contacts'
     | '/live-calls'
+    | '/login'
     | '/recordings'
     | '/settings'
+    | '/sms'
+    | '/admin/login'
     | '/admin/revenue'
     | '/admin/support'
     | '/admin/system-health'
@@ -216,8 +252,11 @@ export interface RootRouteChildren {
   CampaignsRoute: typeof CampaignsRoute
   ContactsRoute: typeof ContactsRoute
   LiveCallsRoute: typeof LiveCallsRoute
+  LoginRoute: typeof LoginRoute
   RecordingsRoute: typeof RecordingsRoute
   SettingsRoute: typeof SettingsRoute
+  SmsRoute: typeof SmsRoute
+  AdminLoginRoute: typeof AdminLoginRoute
   AdminRevenueRoute: typeof AdminRevenueRoute
   AdminSupportRoute: typeof AdminSupportRoute
   AdminSystemHealthRoute: typeof AdminSystemHealthRoute
@@ -283,6 +322,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LiveCallsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/recordings': {
       id: '/recordings'
       path: '/recordings'
@@ -297,11 +343,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/sms': {
+      id: '/sms'
+      path: '/sms'
+      fullPath: '/sms'
+      preLoaderRoute: typeof SmsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/': {
       id: '/admin/'
       path: '/admin'
       fullPath: '/admin/'
       preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/login': {
+      id: '/admin/login'
+      path: '/admin/login'
+      fullPath: '/admin/login'
+      preLoaderRoute: typeof AdminLoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/revenue': {
@@ -344,8 +404,11 @@ const rootRouteChildren: RootRouteChildren = {
   CampaignsRoute: CampaignsRoute,
   ContactsRoute: ContactsRoute,
   LiveCallsRoute: LiveCallsRoute,
+  LoginRoute: LoginRoute,
   RecordingsRoute: RecordingsRoute,
   SettingsRoute: SettingsRoute,
+  SmsRoute: SmsRoute,
+  AdminLoginRoute: AdminLoginRoute,
   AdminRevenueRoute: AdminRevenueRoute,
   AdminSupportRoute: AdminSupportRoute,
   AdminSystemHealthRoute: AdminSystemHealthRoute,

@@ -1,4 +1,8 @@
-import type { ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
+import { MessageSquare } from "lucide-react";
+import { toast } from "sonner";
+
+import { Button } from "@/components/ui/button";
 import type { LucideIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -167,5 +171,40 @@ export function Meter({ value, max, label }: { value: number; max: number; label
       </div>
       <p className="mt-1 text-xs text-muted-foreground">{label ?? `${pct}% used`}</p>
     </div>
+  );
+}
+
+export function ActionButton({
+  children,
+  onClick,
+  toastMessage,
+  ...props
+}: ComponentProps<typeof Button> & { toastMessage?: string }) {
+  return (
+    <Button
+      {...props}
+      onClick={(event) => {
+        onClick?.(event);
+        const label = toastMessage ?? event.currentTarget.textContent?.trim();
+        toast.success(label && label.length > 0 ? label : "Action triggered", {
+          description: "Demo action — connect your API to make this live.",
+        });
+      }}
+    >
+      {children}
+    </Button>
+  );
+}
+
+export function SmsNotice({ className }: { className?: string }) {
+  return (
+    <p
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full border border-warning/35 bg-warning/15 px-2.5 py-1 text-xs font-semibold text-warning-foreground",
+        className,
+      )}
+    >
+      <MessageSquare className="size-3.5" /> SMS available for US numbers only
+    </p>
   );
 }

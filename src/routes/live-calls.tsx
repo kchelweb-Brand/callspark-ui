@@ -2,8 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { PhoneCall, Users, Timer, Activity } from "lucide-react";
 
 import { Shell } from "@/components/dash/Shell";
-import { Panel, StatCard, StatusPill, Waveform } from "@/components/dash/bits";
-import { Button } from "@/components/ui/button";
+import { ActionButton, Panel, StatCard, StatusPill, Waveform } from "@/components/dash/bits";
 import {
   Table,
   TableBody,
@@ -17,13 +16,13 @@ import { liveQueue, waitingQueue } from "@/lib/mock-data";
 export const Route = createFileRoute("/live-calls")({
   head: () => ({
     meta: [
-      { title: "Live Calls — Cadence Dialer" },
+      { title: "Live Calls — Kchel Dialer" },
       {
         name: "description",
         content:
           "Real-time call queue with agent availability, live call duration and audio activity indicators.",
       },
-      { property: "og:title", content: "Live Calls — Cadence Dialer" },
+      { property: "og:title", content: "Live Calls — Kchel Dialer" },
       {
         property: "og:description",
         content: "Monitor the live dialer floor: who is on call, wrapping up or available.",
@@ -41,8 +40,8 @@ function LiveCallsPage() {
       description="Updating every second · 3 calls in progress"
       actions={
         <>
-          <Button variant="outline">Barge settings</Button>
-          <Button variant="destructive">Pause dialer</Button>
+          <ActionButton variant="outline">Barge settings</ActionButton>
+          <ActionButton variant="destructive">Pause dialer</ActionButton>
         </>
       }
     >
@@ -90,9 +89,9 @@ function LiveCallsPage() {
                     )}
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="sm" disabled={row.status !== "On call"}>
+                    <ActionButton variant="ghost" size="sm" disabled={row.status !== "On call"}>
                       Listen
-                    </Button>
+                    </ActionButton>
                   </TableCell>
                 </TableRow>
               ))}
