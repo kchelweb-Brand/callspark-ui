@@ -16,6 +16,7 @@ import { Route as BillingRouteImport } from './routes/billing'
 import { Route as CallHistoryRouteImport } from './routes/call-history'
 import { Route as CampaignsRouteImport } from './routes/campaigns'
 import { Route as ContactsRouteImport } from './routes/contacts'
+import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as LiveCallsRouteImport } from './routes/live-calls'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as PhoneSystemRouteImport } from './routes/phone-system'
@@ -64,6 +65,11 @@ const CampaignsRoute = CampaignsRouteImport.update({
 const ContactsRoute = ContactsRouteImport.update({
   id: '/contacts',
   path: '/contacts',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardRoute = DashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LiveCallsRoute = LiveCallsRouteImport.update({
@@ -145,6 +151,7 @@ export interface FileRoutesByFullPath {
   '/call-history': typeof CallHistoryRoute
   '/campaigns': typeof CampaignsRoute
   '/contacts': typeof ContactsRoute
+  '/dashboard': typeof DashboardRoute
   '/live-calls': typeof LiveCallsRoute
   '/login': typeof LoginRoute
   '/phone-system': typeof PhoneSystemRoute
@@ -168,6 +175,7 @@ export interface FileRoutesByTo {
   '/call-history': typeof CallHistoryRoute
   '/campaigns': typeof CampaignsRoute
   '/contacts': typeof ContactsRoute
+  '/dashboard': typeof DashboardRoute
   '/live-calls': typeof LiveCallsRoute
   '/login': typeof LoginRoute
   '/phone-system': typeof PhoneSystemRoute
@@ -192,6 +200,7 @@ export interface FileRoutesById {
   '/call-history': typeof CallHistoryRoute
   '/campaigns': typeof CampaignsRoute
   '/contacts': typeof ContactsRoute
+  '/dashboard': typeof DashboardRoute
   '/live-calls': typeof LiveCallsRoute
   '/login': typeof LoginRoute
   '/phone-system': typeof PhoneSystemRoute
@@ -217,6 +226,7 @@ export interface FileRouteTypes {
     | '/call-history'
     | '/campaigns'
     | '/contacts'
+    | '/dashboard'
     | '/live-calls'
     | '/login'
     | '/phone-system'
@@ -240,6 +250,7 @@ export interface FileRouteTypes {
     | '/call-history'
     | '/campaigns'
     | '/contacts'
+    | '/dashboard'
     | '/live-calls'
     | '/login'
     | '/phone-system'
@@ -263,6 +274,7 @@ export interface FileRouteTypes {
     | '/call-history'
     | '/campaigns'
     | '/contacts'
+    | '/dashboard'
     | '/live-calls'
     | '/login'
     | '/phone-system'
@@ -287,6 +299,7 @@ export interface RootRouteChildren {
   CallHistoryRoute: typeof CallHistoryRoute
   CampaignsRoute: typeof CampaignsRoute
   ContactsRoute: typeof ContactsRoute
+  DashboardRoute: typeof DashboardRoute
   LiveCallsRoute: typeof LiveCallsRoute
   LoginRoute: typeof LoginRoute
   PhoneSystemRoute: typeof PhoneSystemRoute
@@ -352,6 +365,13 @@ declare module '@tanstack/react-router' {
       path: '/contacts'
       fullPath: '/contacts'
       preLoaderRoute: typeof ContactsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dashboard': {
+      id: '/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof DashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/live-calls': {
@@ -463,6 +483,7 @@ const rootRouteChildren: RootRouteChildren = {
   CallHistoryRoute: CallHistoryRoute,
   CampaignsRoute: CampaignsRoute,
   ContactsRoute: ContactsRoute,
+  DashboardRoute: DashboardRoute,
   LiveCallsRoute: LiveCallsRoute,
   LoginRoute: LoginRoute,
   PhoneSystemRoute: PhoneSystemRoute,

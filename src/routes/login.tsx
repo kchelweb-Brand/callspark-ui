@@ -64,7 +64,7 @@ function LoginPage() {
       const { token, user } = await verifyLoginCode({ email, code, purpose: "login" });
       saveSession(token, user);
       toast.success("Welcome back", { description: "Opening your workspace…" });
-      navigate({ to: "/" });
+      navigate({ to: "/dashboard" });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Invalid or expired code.");
     } finally {
@@ -149,12 +149,6 @@ function LoginPage() {
               New here?{" "}
               <Link to="/signup" className="font-semibold text-primary hover:underline">
                 Create an account
-              </Link>
-            </p>
-            <p className="mt-2 text-center text-sm text-muted-foreground">
-              Platform owner?{" "}
-              <Link to="/admin/login" className="font-semibold text-primary hover:underline">
-                Super admin sign in
               </Link>
             </p>
           </form>

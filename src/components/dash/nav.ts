@@ -20,7 +20,7 @@ import {
 export type NavItem = { label: string; to: string; icon: LucideIcon };
 
 export const tenantNav: NavItem[] = [
-  { label: "Overview", to: "/", icon: LayoutDashboard },
+  { label: "Overview", to: "/dashboard", icon: LayoutDashboard },
   { label: "Campaigns", to: "/campaigns", icon: Megaphone },
   { label: "Contacts", to: "/contacts", icon: Users },
   { label: "SMS", to: "/sms", icon: MessageSquare },
