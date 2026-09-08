@@ -258,9 +258,13 @@ export function dialableTarget(value: string, defaultDialCode?: string | null): 
   const code = (defaultDialCode ?? "").replace(/[^\d]/g, "");
   if (bare.startsWith("0") && code) return `+${code}${bare.slice(1)}`;
 
-  // North American numbering, kept because it needs no configuration.
+  // North American numbering wins for bare 10-digit numbers even when the
+  // workspace default is elsewhere. A US number is written "4155550134" while
+  // a Nigerian one is written "08034064184" — the leading zero, handled above,
+  // is what distinguishes them. Without this rule a workspace set to 234 turns
+  // every US number into a Nigerian one.
   if (bare.length === 11 && bare.startsWith("1")) return `+${bare}`;
-  if (bare.length === 10 && (!code || code === "1")) return `+1${bare}`;
+  if (bare.length === 10) return `+1${bare}`;
 
   // Anything else is only meaningful with a country in front of it.
   if (code) return `+${code}${bare}`;
