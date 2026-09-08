@@ -202,3 +202,55 @@
     animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
   }
 }
+
+/* Tables on a phone.
+   Below md a table stops being a grid and becomes a list of records: the
+   header row disappears and each cell carries its own label, supplied by
+   useColumnLabels in components/ui/table.tsx. Dragging a nine-column table
+   sideways on a 375px screen is not a layout, it's a workaround. */
+@media (max-width: 767px) {
+  .responsive-table thead {
+    display: none;
+  }
+
+  .responsive-table tbody,
+  .responsive-table tr,
+  .responsive-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .responsive-table tr {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .responsive-table td {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.25rem 0;
+    border: 0;
+    /* Cells are aligned by the flex row now; a stray text-right would fight it. */
+    text-align: left;
+  }
+
+  .responsive-table td::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.5rem;
+    color: var(--color-muted-foreground);
+  }
+
+  /* A cell with no header (checkbox and action columns) keeps its full width
+     instead of leaving an empty label gutter. */
+  .responsive-table td:not([data-label]) {
+    justify-content: flex-start;
+  }
+  .responsive-table td:not([data-label])::before {
+    content: none;
+  }
+}

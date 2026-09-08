@@ -2,12 +2,58 @@ import * as React from "react";
 
 import { cn } from "@/lib/utils";
 
+/**
+ * Copies each column's header text onto the cells beneath it as `data-label`.
+ *
+ * On a phone the table stacks into rows of label/value pairs (see
+ * `.responsive-table` in styles.css), and those labels come from here. Doing it
+ * in one effect means every table in the app — including ones added later —
+ * gets the treatment without repeating the header text on ~100 cells by hand.
+ *
+ * Runs after every render rather than once: the rows change whenever the data
+ * does, and new rows arrive without their labels.
+ */
+function useColumnLabels(ref: React.RefObject<HTMLTableElement | null>) {
+  React.useEffect(() => {
+    const table = ref.current;
+    if (!table) return;
+
+    const labels = Array.from(table.querySelectorAll("thead th")).map(
+      (th) => th.textContent?.trim() ?? "",
+    );
+    if (labels.length === 0) return;
+
+    for (const row of Array.from(table.querySelectorAll("tbody tr"))) {
+      const cells = Array.from(row.children);
+      // A row that doesn't line up with the header is something else — an
+      // empty state or a spanning message — and labelling it would be wrong.
+      if (cells.length !== labels.length) continue;
+      cells.forEach((cell, i) => {
+        if (labels[i]) cell.setAttribute("data-label", labels[i]);
+      });
+    }
+  });
+}
+
 const Table = React.forwardRef<HTMLTableElement, React.HTMLAttributes<HTMLTableElement>>(
-  ({ className, ...props }, ref) => (
-    <div className="relative w-full overflow-auto">
-      <table ref={ref} className={cn("w-full caption-bottom text-sm", className)} {...props} />
-    </div>
-  ),
+  ({ className, ...props }, ref) => {
+    const inner = React.useRef<HTMLTableElement | null>(null);
+    useColumnLabels(inner);
+
+    return (
+      <div className="relative w-full overflow-auto">
+        <table
+          ref={(node) => {
+            inner.current = node;
+            if (typeof ref === "function") ref(node);
+            else if (ref) ref.current = node;
+          }}
+          className={cn("responsive-table w-full caption-bottom text-sm", className)}
+          {...props}
+        />
+      </div>
+    );
+  },
 );
 Table.displayName = "Table";
 
