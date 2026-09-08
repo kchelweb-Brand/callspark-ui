@@ -75,6 +75,12 @@ export interface RingStep {
 
 export interface RoutingRule {
   strategy: RingStrategy;
+  /**
+   * Country code for numbers written in national format. "08034064184" is a
+   * real Nigerian number, not a malformed American one — without this the
+   * dialer can't tell which country to put in front of it.
+   */
+  defaultDialCode?: string;
   ringOrder: RingStep[];
   timeoutSeconds: number;
   fallback: FallbackDestination;
@@ -85,6 +91,7 @@ export interface RoutingRule {
 
 export const routingRule: RoutingRule = {
   strategy: "simultaneous",
+  defaultDialCode: "",
   ringOrder: [],
   timeoutSeconds: 30,
   fallback: "voicemail",

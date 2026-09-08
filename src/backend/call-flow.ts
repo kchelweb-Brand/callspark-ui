@@ -56,6 +56,8 @@ export interface RingStep {
 
 export interface RoutingRule {
   strategy?: string;
+  /** E.164 country code for numbers stored in national format, e.g. "234". */
+  defaultDialCode?: string;
   ringOrder?: RingStep[];
   timeoutSeconds?: number;
   fallback?: string;
@@ -177,9 +179,20 @@ export function buildTrunkUri(
   return `sip:${user}@${host}${port}${param}`;
 }
 
-export function findMenu(config: TenantPhoneConfig, id: string | null | undefined): IvrMenu | null {
-  if (!id) return null;
-  return config.menus.find((m) => m?.id === id) ?? null;
+/**
+ * Menus are referenced by id internally, but a "Go to another menu" option is
+ * typed by the person building the IVR, who sees the menu's *name*. Matching
+ * both is the difference between that option working and silently dropping
+ * the caller into voicemail.
+ */
+export function findMenu(config: TenantPhoneConfig, ref: string | null | undefined): IvrMenu | null {
+  if (!ref) return null;
+  const needle = ref.trim().toLowerCase();
+  return (
+    config.menus.find((m) => m?.id === ref) ??
+    config.menus.find((m) => (m?.name ?? "").trim().toLowerCase() === needle) ??
+    null
+  );
 }
 
 /**
@@ -192,15 +205,20 @@ export function targetsForExtension(config: TenantPhoneConfig, reference: string
   const ref = reference.trim();
   if (!ref) return [];
 
+  const needle = ref.toLowerCase();
   const ext =
     config.extensions.find((e) => e?.id === ref) ??
     config.extensions.find((e) => String(e?.number ?? "") === ref) ??
+    // The IVR editor asks for a "Department or queue name", so a ring option's
+    // target is usually the extension's label rather than its id or number.
+    config.extensions.find((e) => (e?.label ?? "").trim().toLowerCase() === needle) ??
     null;
 
   const raw = ext?.forwardsTo ?? ref;
+  const dialCode = config.routing.defaultDialCode;
   return raw
     .split(",")
-    .map((t) => (t.trim().toLowerCase() === "trunk" ? config.trunkUri : dialableTarget(t)))
+    .map((t) => (t.trim().toLowerCase() === "trunk" ? config.trunkUri : dialableTarget(t, dialCode)))
     .filter((t): t is string => Boolean(t));
 }
 
@@ -220,16 +238,32 @@ export function ringTargetsFromRouting(config: TenantPhoneConfig): string[] {
  * it can't be dialled (a bare "201" is an internal extension number, not a
  * routable destination).
  */
-export function dialableTarget(value: string): string | null {
+export function dialableTarget(value: string, defaultDialCode?: string | null): string | null {
   const trimmed = value.trim();
   if (!trimmed) return null;
   if (trimmed.toLowerCase().startsWith("sip:")) return trimmed;
 
   const digits = trimmed.replace(/[^\d+]/g, "");
   if (digits.startsWith("+")) return digits;
+
   const bare = digits.replace(/\D/g, "");
+  if (!bare) return null;
+
+  // 00 is the international prefix most of the world dials.
+  if (bare.startsWith("00")) return `+${bare.slice(2)}`;
+
+  // A leading 0 is a national trunk prefix — "08034064184" is a real number in
+  // Nigeria, not a malformed US one. It only becomes dialable once we know the
+  // country, which is why the workspace carries a default dial code.
+  const code = (defaultDialCode ?? "").replace(/[^\d]/g, "");
+  if (bare.startsWith("0") && code) return `+${code}${bare.slice(1)}`;
+
+  // North American numbering, kept because it needs no configuration.
   if (bare.length === 11 && bare.startsWith("1")) return `+${bare}`;
-  if (bare.length === 10) return `+1${bare}`;
+  if (bare.length === 10 && (!code || code === "1")) return `+1${bare}`;
+
+  // Anything else is only meaningful with a country in front of it.
+  if (code) return `+${code}${bare}`;
   return null;
 }
 

@@ -109,6 +109,22 @@ export function RoutingTab({
             )}
           </div>
 
+          <div className="flex flex-col gap-2 sm:max-w-sm">
+            <Label htmlFor="dial-code">Default country code</Label>
+            <Input
+              id="dial-code"
+              placeholder="234"
+              inputMode="numeric"
+              value={routing.defaultDialCode ?? ""}
+              onChange={(e) => patch({ defaultDialCode: e.target.value.replace(/[^\d]/g, "") })}
+            />
+            <p className="text-xs text-muted-foreground">
+              Used when an extension forwards to a number written the local way, like
+              <span className="font-mono"> 08034064184</span>. Nigeria is 234, the UK 44, the US 1.
+              Numbers already stored with a <span className="font-mono">+</span> are left alone.
+            </p>
+          </div>
+
           <div>
             <div className="mb-2 flex items-center justify-between">
               <Label>Ring order</Label>
