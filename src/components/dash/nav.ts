@@ -13,6 +13,7 @@ import {
   Building2,
   Activity,
   LifeBuoy,
+  Workflow,
   type LucideIcon,
 } from "lucide-react";
 
@@ -28,8 +29,10 @@ export const tenantNav: NavItem[] = [
   { label: "Call History", to: "/call-history", icon: History },
   { label: "Recordings", to: "/recordings", icon: AudioLines },
   { label: "Analytics", to: "/analytics", icon: BarChart3 },
+  { label: "Phone System", to: "/phone-system", icon: Workflow },
   { label: "Settings", to: "/settings", icon: Settings },
   { label: "Billing", to: "/billing", icon: CreditCard },
+  { label: "Support", to: "/support", icon: LifeBuoy },
 ];
 
 export const adminNav: NavItem[] = [

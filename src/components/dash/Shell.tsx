@@ -1,4 +1,4 @@
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { Menu, Radio, Search, Bell, ArrowLeftRight, LogOut } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
@@ -6,6 +6,9 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { AuthGuard } from "@/components/auth/AuthGuard";
+import { SoftphoneBar } from "@/components/dash/SoftphoneBar";
+import { clearSession, getSessionUser } from "@/lib/auth-api";
 import { tenantNav, adminNav, type NavItem } from "./nav";
 
 type Scope = "tenant" | "admin";
@@ -42,6 +45,7 @@ function NavList({ items, onNavigate }: { items: NavItem[]; onNavigate?: (() => 
 }
 
 function SidebarBody({ scope, onNavigate }: { scope: Scope; onNavigate?: (() => void) | undefined }) {
+  const sessionUser = getSessionUser();
   const items = scope === "admin" ? adminNav : tenantNav;
 
   return (
@@ -66,7 +70,11 @@ function SidebarBody({ scope, onNavigate }: { scope: Scope; onNavigate?: (() => 
             {scope === "admin" ? "Environment" : "Workspace"}
           </p>
           <p className="truncate text-sm font-semibold text-sidebar-accent-foreground">
-            {scope === "admin" ? "Production · US-East" : "Bluewave Outreach"}
+            {scope === "admin"
+              ? "Production · US-East"
+              : sessionUser?.workspace_slug
+                ? `${sessionUser.workspace_slug}.kchel.app`
+                : "Workspace"}
           </p>
         </div>
       </div>
@@ -84,16 +92,34 @@ function SidebarBody({ scope, onNavigate }: { scope: Scope; onNavigate?: (() => 
           <ArrowLeftRight className="size-4" />
           {scope === "admin" ? "Tenant dashboard" : "Super admin"}
         </Link>
-        <Link
-          to={scope === "admin" ? "/admin/login" : "/login"}
-          onClick={onNavigate}
-          className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-        >
-          <LogOut className="size-4" />
-          Sign out
-        </Link>
+        <SignOutButton scope={scope} onNavigate={onNavigate} />
       </div>
     </div>
+  );
+}
+
+function SignOutButton({
+  scope,
+  onNavigate,
+}: {
+  scope: Scope;
+  onNavigate?: (() => void) | undefined;
+}) {
+  const navigate = useNavigate();
+
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        clearSession();
+        onNavigate?.();
+        void navigate({ to: scope === "admin" ? "/admin/login" : "/login" });
+      }}
+      className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+    >
+      <LogOut className="size-4" />
+      Sign out
+    </button>
   );
 }
 
@@ -111,8 +137,10 @@ export function Shell({
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  const user = getSessionUser();
 
   return (
+    <AuthGuard scope={scope}>
     <div className="min-h-screen w-full bg-background">
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 border-r border-sidebar-border lg:block">
         <SidebarBody scope={scope} />
@@ -137,15 +165,11 @@ export function Shell({
           </div>
 
           <div className="ml-auto flex items-center gap-2">
-            <span className="hidden items-center gap-2 rounded-full border border-border bg-success/10 px-3 py-1 text-xs font-semibold text-success sm:flex">
-              <span className="relative size-2 rounded-full bg-success pulse-dot" />
-              SIP trunk online
-            </span>
             <Button variant="ghost" size="icon" aria-label="Notifications">
               <Bell className="size-5" />
             </Button>
             <span className="flex size-9 items-center justify-center rounded-full bg-primary/12 text-sm font-bold text-primary">
-              {scope === "admin" ? "PO" : "BW"}
+              {(user?.email || "?").slice(0, 2).toUpperCase()}
             </span>
           </div>
         </header>
@@ -165,6 +189,10 @@ export function Shell({
           </div>
         </main>
       </div>
+
+      {/* Tenant only — the platform admin console has no carrier connection. */}
+      {scope === "tenant" && <SoftphoneBar />}
     </div>
+    </AuthGuard>
   );
 }

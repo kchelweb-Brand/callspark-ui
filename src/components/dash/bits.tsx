@@ -1,6 +1,5 @@
 import type { ComponentProps, ReactNode } from "react";
 import { MessageSquare } from "lucide-react";
-import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import type { LucideIcon } from "lucide-react";
@@ -174,26 +173,17 @@ export function Meter({ value, max, label }: { value: number; max: number; label
   );
 }
 
+/**
+ * Thin `Button` wrapper kept for call-site consistency across the dash.
+ * It no longer fires an automatic toast — every action button now owns
+ * real behavior (state change, dialog, navigation, download, etc.) via
+ * its own `onClick`, so a stray click never silently does nothing.
+ */
 export function ActionButton({
   children,
-  onClick,
-  toastMessage,
   ...props
-}: ComponentProps<typeof Button> & { toastMessage?: string }) {
-  return (
-    <Button
-      {...props}
-      onClick={(event) => {
-        onClick?.(event);
-        const label = toastMessage ?? event.currentTarget.textContent?.trim();
-        toast.success(label && label.length > 0 ? label : "Action triggered", {
-          description: "Demo action — connect your API to make this live.",
-        });
-      }}
-    >
-      {children}
-    </Button>
-  );
+}: ComponentProps<typeof Button>) {
+  return <Button {...props}>{children}</Button>;
 }
 
 export function SmsNotice({ className }: { className?: string }) {

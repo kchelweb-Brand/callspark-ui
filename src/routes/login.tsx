@@ -31,7 +31,7 @@ function LoginPage() {
   const navigate = useNavigate();
   const [step, setStep] = useState<"email" | "code">("email");
   const [email, setEmail] = useState("");
-  const [workspace, setWorkspace] = useState("bluewave");
+  const [workspace, setWorkspace] = useState("");
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -135,7 +135,7 @@ function LoginPage() {
                   type="email"
                   autoComplete="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => setEmail(e.target.value.toLowerCase())}
                 />
               </div>
 
@@ -146,6 +146,12 @@ function LoginPage() {
             </div>
 
             <p className="mt-6 text-center text-sm text-muted-foreground">
+              New here?{" "}
+              <Link to="/signup" className="font-semibold text-primary hover:underline">
+                Create an account
+              </Link>
+            </p>
+            <p className="mt-2 text-center text-sm text-muted-foreground">
               Platform owner?{" "}
               <Link to="/admin/login" className="font-semibold text-primary hover:underline">
                 Super admin sign in

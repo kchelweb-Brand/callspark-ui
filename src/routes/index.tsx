@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { PhoneCall, Percent, Headset, Timer, Plus, MessageSquare } from "lucide-react";
+import { Activity, Headset, Loader2, MessageSquare, Percent, PhoneCall, Plus, Timer } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { toast } from "sonner";
 import {
   Area,
   AreaChart,
@@ -12,10 +14,11 @@ import {
 } from "recharts";
 
 import { Shell } from "@/components/dash/Shell";
-import { ActionButton, Panel, StatCard, StatusPill } from "@/components/dash/bits";
+import { Panel, StatCard } from "@/components/dash/bits";
 import { Button } from "@/components/ui/button";
 import { CreateCampaignDialog } from "@/components/dash/CreateCampaignDialog";
-import { activityFeed, callVolume7d, liveQueue } from "@/lib/mock-data";
+import { downloadCsv } from "@/lib/download";
+import { formatTalk, getOverview } from "@/lib/metrics-api";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -36,15 +39,78 @@ export const Route = createFileRoute("/")({
   component: OverviewPage,
 });
 
+type Overview = Awaited<ReturnType<typeof getOverview>>;
+
 function OverviewPage() {
+  const [data, setData] = useState<Overview | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      setData(await getOverview());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not load your overview.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const today = new Date().toLocaleDateString(undefined, {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  });
+
+  if (loading) {
+    return (
+      <Shell scope="tenant" title="Overview" description={today}>
+        <Panel bodyClassName="flex items-center justify-center gap-2 p-12 text-muted-foreground">
+          <Loader2 className="size-4 animate-spin" /> Loading…
+        </Panel>
+      </Shell>
+    );
+  }
+
+  if (error || !data) {
+    return (
+      <Shell scope="tenant" title="Overview" description={today}>
+        <Panel bodyClassName="p-10 text-center">
+          <p className="text-sm text-destructive">{error}</p>
+          <Button className="mt-4" onClick={() => void load()}>
+            Try again
+          </Button>
+        </Panel>
+      </Shell>
+    );
+  }
+
   return (
     <Shell
       scope="tenant"
       title="Overview"
-      description="Friday, August 22 · shift started 08:00 · 6 agents on the floor"
+      description={`${today} · ${data.agentsOnline} of ${data.agentsTotal} agent${data.agentsTotal === 1 ? "" : "s"} online`}
       actions={
         <>
-          <ActionButton variant="outline">Export snapshot</ActionButton>
+          <Button
+            variant="outline"
+            onClick={() => {
+              downloadCsv(`overview-snapshot-${Date.now()}.csv`, data.volume, [
+                "day",
+                "calls",
+                "connected",
+              ]);
+              toast.success("Snapshot exported");
+            }}
+          >
+            Export snapshot
+          </Button>
           <CreateCampaignDialog
             trigger={
               <Button>
@@ -56,24 +122,36 @@ function OverviewPage() {
       }
     >
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        <StatCard label="Calls today" value="1,725" delta="+12.4%" hint="vs yesterday" icon={PhoneCall} />
         <StatCard
-          label="Connected rate"
-          value="40.1%"
-          delta="+2.6 pts"
-          hint="rolling 7 days"
-          icon={Percent}
-          tone="success"
+          label="Calls today"
+          value={data.callsToday.toLocaleString()}
+          hint={data.callsActive > 0 ? `${data.callsActive} in progress` : "none in progress"}
+          icon={PhoneCall}
         />
-        <StatCard label="Active agents" value="6 / 7" hint="1 offline" icon={Headset} />
-        <StatCard label="SMS sent today" value="2,710" delta="+8.2%" hint="US numbers only" icon={MessageSquare} />
         <StatCard
-          label="Minutes used"
-          value="184,200"
-          delta="-4.1%"
-          hint="of 250,000 allotted"
+          label="Connect rate"
+          value={data.connectRate === null ? "—" : `${data.connectRate.toFixed(1)}%`}
+          hint={data.connectRate === null ? "no calls yet" : `${data.connectedToday} connected`}
+          icon={Percent}
+          {...(data.connectRate !== null && data.connectRate >= 30 ? { tone: "success" as const } : {})}
+        />
+        <StatCard
+          label="Active agents"
+          value={`${data.agentsOnline} / ${data.agentsTotal}`}
+          hint={data.agentsTotal === 0 ? "invite your team" : `${data.agentsTotal - data.agentsOnline} offline`}
+          icon={Headset}
+        />
+        <StatCard
+          label="SMS sent"
+          value={data.smsSent.toLocaleString()}
+          hint="US numbers only"
+          icon={MessageSquare}
+        />
+        <StatCard
+          label="Minutes this month"
+          value={formatTalk(data.talkSecondsMonth)}
+          hint={`${data.campaignsActive} campaign${data.campaignsActive === 1 ? "" : "s"} active`}
           icon={Timer}
-          tone="warning"
         />
       </div>
 
@@ -86,7 +164,7 @@ function OverviewPage() {
         >
           <div className="h-72 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={callVolume7d} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
+              <AreaChart data={data.volume} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
                 <defs>
                   <linearGradient id="dials" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="var(--color-chart-1)" stopOpacity={0.35} />
@@ -95,7 +173,7 @@ function OverviewPage() {
                 </defs>
                 <CartesianGrid stroke="var(--color-border)" vertical={false} />
                 <XAxis dataKey="day" stroke="var(--color-muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis stroke="var(--color-muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
+                <YAxis stroke="var(--color-muted-foreground)" fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} />
                 <Tooltip
                   contentStyle={{
                     background: "var(--color-card)",
@@ -125,48 +203,50 @@ function OverviewPage() {
           </div>
         </Panel>
 
-        <Panel title="Live activity" description="Streaming events" bodyClassName="p-0">
-          <ul className="max-h-72 divide-y divide-border overflow-y-auto">
-            {activityFeed.map((event) => (
-              <li key={event.id} className="flex gap-3 px-5 py-3">
-                <span
-                  className={
-                    "mt-1.5 size-2 shrink-0 rounded-full " +
-                    (event.kind === "connected"
-                      ? "bg-success"
-                      : event.kind === "warning"
-                        ? "bg-warning"
-                        : event.kind === "error"
-                          ? "bg-destructive"
-                          : "bg-primary")
-                  }
-                />
-                <div className="min-w-0">
-                  <p className="text-sm leading-snug">{event.text}</p>
-                  <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">{event.time}</p>
-                </div>
-              </li>
-            ))}
-          </ul>
+        <Panel title="Recent activity" description="Latest calls" bodyClassName="p-0">
+          {data.activity.length === 0 ? (
+            <div className="flex h-72 flex-col items-center justify-center gap-2 px-6 text-center">
+              <Activity className="size-6 text-muted-foreground" />
+              <p className="text-sm font-medium">No activity yet</p>
+              <p className="text-xs text-muted-foreground">
+                Calls appear here as soon as agents start dialing.
+              </p>
+            </div>
+          ) : (
+            <ul className="max-h-72 divide-y divide-border overflow-y-auto">
+              {data.activity.map((e) => {
+                const number = e.direction === "outbound" ? e.to_number : e.from_number;
+                return (
+                  <li key={e.id} className="flex gap-3 px-5 py-3">
+                    <span
+                      className={
+                        "mt-1.5 size-2 shrink-0 rounded-full " +
+                        (e.outcome === "Connected"
+                          ? "bg-success"
+                          : e.status === "failed"
+                            ? "bg-destructive"
+                            : "bg-muted-foreground")
+                      }
+                    />
+                    <div className="min-w-0">
+                      <p className="truncate text-sm leading-snug">
+                        {e.contact_name ?? number ?? "Unknown"} — {e.outcome ?? e.status}
+                      </p>
+                      <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">
+                        {new Date(e.started_at).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                        {e.agent_email ? ` · ${e.agent_email}` : ""}
+                      </p>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </Panel>
       </div>
-
-      <Panel title="Floor status" description="Agents currently signed in" bodyClassName="p-0">
-        <div className="grid gap-px bg-border sm:grid-cols-2 xl:grid-cols-3">
-          {liveQueue.slice(0, 6).map((row) => (
-            <div key={row.ext} className="bg-card p-5">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-semibold">{row.agent}</p>
-                <StatusPill status={row.status} />
-              </div>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Ext {row.ext} · {row.campaign}
-              </p>
-              <p className="mt-3 font-mono text-sm">{row.duration}</p>
-            </div>
-          ))}
-        </div>
-      </Panel>
     </Shell>
   );
 }

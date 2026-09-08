@@ -1,5 +1,5 @@
-import { Plus } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { Loader2, Plus } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -23,20 +23,34 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { getSessionUser } from "@/lib/auth-api";
+import { getContactsMeta } from "@/lib/contacts-api";
+import { createCampaign, type CampaignRecord } from "@/lib/workspace-api";
 
 export function CreateCampaignDialog({
   trigger,
   onCreated,
 }: {
   trigger?: ReactNode;
-  onCreated?: (campaign: { name: string; list: string; owner: string }) => void;
+  onCreated?: (campaign: CampaignRecord) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
-  const [list, setList] = useState("Q3 Renewals");
-  const [owner, setOwner] = useState("Mara Owusu");
+  const [list, setList] = useState("");
+  const [owner, setOwner] = useState(() => getSessionUser()?.email ?? "");
   const [script, setScript] = useState("");
   const [startNow, setStartNow] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [contactLists, setContactLists] = useState<{ id: string; name: string }[]>([]);
+
+  useEffect(() => {
+    if (!open) return;
+    getContactsMeta()
+      .then((meta) => setContactLists(meta.lists))
+      .catch(() => {
+        // Non-fatal — the dialog still works with no lists yet.
+      });
+  }, [open]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -64,13 +78,29 @@ export function CreateCampaignDialog({
               toast.error("Give the campaign a name.");
               return;
             }
-            onCreated?.({ name: name.trim(), list, owner });
-            toast.success(`Campaign “${name.trim()}” created`, {
-              description: `${list} · owner ${owner}${startNow ? " · dialing now" : " · saved as draft"}`,
-            });
-            setName("");
-            setScript("");
-            setOpen(false);
+            void (async () => {
+              setSaving(true);
+              try {
+                const result = await createCampaign({
+                  name: name.trim(),
+                  status: startNow ? "Active" : "Draft",
+                  ...(list ? { listName: list } : {}),
+                  ...(owner.trim() ? { owner: owner.trim() } : {}),
+                  ...(script.trim() ? { script: script.trim() } : {}),
+                });
+                onCreated?.(result.campaign);
+                toast.success(`Campaign “${result.campaign.name}” created`, {
+                  description: `${list || "No list yet"}${startNow ? " · dialing now" : " · saved as draft"}`,
+                });
+                setName("");
+                setScript("");
+                setOpen(false);
+              } catch (err) {
+                toast.error(err instanceof Error ? err.message : "Could not create that campaign.");
+              } finally {
+                setSaving(false);
+              }
+            })();
           }}
         >
           <div className="flex flex-col gap-2">
@@ -86,37 +116,27 @@ export function CreateCampaignDialog({
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-2">
               <Label>Contact list</Label>
-              <Select value={list} onValueChange={setList}>
+              <Select value={list} onValueChange={setList} disabled={contactLists.length === 0}>
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder={contactLists.length === 0 ? "No lists yet" : "Choose a list"} />
                 </SelectTrigger>
                 <SelectContent>
-                  {["Q3 Renewals", "Trial Nurture", "Winback July", "Enterprise Outbound", "Cold List — Midwest"].map(
-                    (l) => (
-                      <SelectItem key={l} value={l}>
-                        {l}
-                      </SelectItem>
-                    ),
-                  )}
+                  {contactLists.map((l) => (
+                    <SelectItem key={l.id} value={l.name}>
+                      {l.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="flex flex-col gap-2">
-              <Label>Owner</Label>
-              <Select value={owner} onValueChange={setOwner}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {["Mara Owusu", "Dane Whitlock", "Priya Nair", "Ines Duarte", "Tomas Feld"].map(
-                    (o) => (
-                      <SelectItem key={o} value={o}>
-                        {o}
-                      </SelectItem>
-                    ),
-                  )}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="camp-owner">Owner</Label>
+              <Input
+                id="camp-owner"
+                placeholder="you@company.com"
+                value={owner}
+                onChange={(e) => setOwner(e.target.value)}
+              />
             </div>
           </div>
 
@@ -143,7 +163,8 @@ export function CreateCampaignDialog({
           <Button variant="outline" onClick={() => setOpen(false)}>
             Cancel
           </Button>
-          <Button type="submit" form="create-campaign-form">
+          <Button type="submit" form="create-campaign-form" disabled={saving}>
+            {saving ? <Loader2 className="size-4 animate-spin" /> : null}
             Create campaign
           </Button>
         </DialogFooter>

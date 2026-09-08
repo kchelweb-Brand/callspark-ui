@@ -10,6 +10,7 @@ import {
 import { useEffect, type ReactNode } from "react";
 
 import { Toaster } from "@/components/ui/sonner";
+import { SoftphoneProvider } from "@/components/dash/SoftphoneProvider";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -128,8 +129,14 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <Outlet />
+      {/* Softphone lives above the router so page components — which *render*
+          Shell rather than sit inside it — can still reach the context, and so
+          one registration survives navigation. It stays inert until an agent
+          explicitly goes online, so mounting it on public pages costs nothing. */}
+      <SoftphoneProvider>
+        {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+        <Outlet />
+      </SoftphoneProvider>
       <Toaster richColors position="top-right" />
     </QueryClientProvider>
   );

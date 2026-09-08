@@ -109,7 +109,7 @@ function AdminLoginPage() {
                   id="admin-email"
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => setEmail(e.target.value.toLowerCase())}
                   className="border-sidebar-border bg-sidebar text-sidebar-accent-foreground"
                 />
               </div>

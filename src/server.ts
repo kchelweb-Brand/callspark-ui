@@ -2,6 +2,42 @@ import "./lib/error-capture";
 
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
+import { getMediaBucket, setCloudflareEnv } from "./backend/cf-env";
+import { handleTelnyxVoiceWebhook } from "./backend/inbound";
+
+/**
+ * Serves greeting audio straight from R2.
+ *
+ * Deliberately unauthenticated: the carrier's media server fetches this URL
+ * when playing a greeting and has no session. Keys embed a random UUID, so
+ * URLs are unguessable, and nothing sensitive is ever stored here.
+ */
+async function serveMedia(pathname: string): Promise<Response> {
+  const key = decodeURIComponent(pathname.slice("/media/".length));
+
+  // Defence in depth: only the greetings prefix is publicly readable, and no
+  // traversal outside it.
+  if (!key.startsWith("greetings/") || key.includes("..")) {
+    return new Response("Not found", { status: 404 });
+  }
+
+  const bucket = await getMediaBucket();
+  if (!bucket) return new Response("Storage unavailable", { status: 503 });
+
+  const object = await bucket.get(key);
+  if (!object) return new Response("Not found", { status: 404 });
+
+  return new Response(object.body, {
+    headers: {
+      "content-type": object.httpMetadata?.contentType ?? "application/octet-stream",
+      // Greeting files are immutable — a new upload gets a new key.
+      "cache-control": "public, max-age=31536000, immutable",
+    },
+  });
+}
+
+/** Paste this path (on your own origin) into the Telnyx Call Control app. */
+export const VOICE_WEBHOOK_PATH = "/api/voice/telnyx";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -46,7 +82,26 @@ function isH3SwallowedErrorBody(body: string): boolean {
 
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
+    // Bindings (R2 etc.) arrive here and nowhere else — stash them before
+    // anything downstream might need them.
+    setCloudflareEnv(env);
+
     try {
+      const url = new URL(request.url);
+      if (url.pathname.startsWith("/media/")) {
+        return await serveMedia(url.pathname);
+      }
+
+      // Inbound calls. This has to be a plain route rather than a server
+      // function: the carrier posts its own JSON envelope with no session,
+      // and the Ed25519 signature is computed over the raw bytes.
+      if (url.pathname === VOICE_WEBHOOK_PATH) {
+        if (request.method !== "POST") {
+          return new Response("Method not allowed", { status: 405 });
+        }
+        return await handleTelnyxVoiceWebhook(request);
+      }
+
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
       return await normalizeCatastrophicSsrResponse(response);
