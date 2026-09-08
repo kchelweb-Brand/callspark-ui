@@ -223,7 +223,9 @@ function CallHistoryPage() {
           </div>
         ) : (
           <>
-            <div className="overflow-x-auto">
+            {/* Seven columns can't fit a phone. Rather than make people drag a
+                table sideways, the same rows render as cards below md. */}
+            <div className="hidden overflow-x-auto md:block">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -289,6 +291,51 @@ function CallHistoryPage() {
                 </TableBody>
               </Table>
             </div>
+
+            <ul className="divide-y divide-border md:hidden">
+              {calls.length === 0 ? (
+                <li className="px-4 py-12 text-center text-sm text-muted-foreground">
+                  No calls match these filters.
+                </li>
+              ) : (
+                calls.map((c) => {
+                  const number = c.direction === "outbound" ? c.to_number : c.from_number;
+                  return (
+                    <li key={c.id} className="flex flex-col gap-2 px-4 py-3.5">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate font-semibold">{c.contact_name ?? number ?? "Unknown"}</p>
+                          <p className="truncate font-mono text-xs text-muted-foreground">
+                            {number ?? "—"}
+                          </p>
+                        </div>
+                        <StatusPill status={c.outcome ?? c.status} />
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                        <span>{formatWhen(c.started_at)}</span>
+                        <span className="font-mono">{formatDuration(c.duration_seconds)}</span>
+                        {c.agent_email && <span className="truncate">{c.agent_email}</span>}
+                      </div>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="self-start"
+                        disabled={!online || !number || state.call !== "idle"}
+                        onClick={() =>
+                          void dial(number!, {
+                            ...(c.contact_id ? { contactId: c.contact_id } : {}),
+                          })
+                        }
+                      >
+                        <Phone className="size-3.5" /> {online ? "Call back" : "Go online first"}
+                      </Button>
+                    </li>
+                  );
+                })
+              )}
+            </ul>
 
             {totalPages > 1 && (
               <div className="flex items-center justify-between border-t border-border px-4 py-3">

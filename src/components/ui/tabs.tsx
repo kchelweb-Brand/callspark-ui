@@ -13,6 +13,9 @@ const TabsList = React.forwardRef<
     ref={ref}
     className={cn(
       "inline-flex h-9 items-center justify-center rounded-lg bg-muted p-1 text-muted-foreground",
+      // Triggers keep their natural width so a scrolling strip actually
+      // scrolls instead of squeezing every label into unreadable slivers.
+      "[&>*]:shrink-0",
       className,
     )}
     {...props}

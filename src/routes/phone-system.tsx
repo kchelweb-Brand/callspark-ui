@@ -169,7 +169,10 @@ function PhoneSystemPage() {
       }
     >
       <Tabs defaultValue="connection">
-        <TabsList className="flex-wrap">
+        {/* Eight tabs wrap onto three stacked rows on a phone, which buries the
+            page content below a block of chrome. Scrolling the strip sideways
+            keeps it one row at every width. */}
+        <TabsList className="w-full justify-start overflow-x-auto sm:w-auto sm:flex-wrap sm:justify-center">
           <TabsTrigger value="connection">Connection</TabsTrigger>
           <TabsTrigger value="inbound">Inbound</TabsTrigger>
           <TabsTrigger value="numbers">Numbers</TabsTrigger>

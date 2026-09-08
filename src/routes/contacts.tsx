@@ -384,7 +384,9 @@ function ContactsPage() {
           </div>
         ) : (
           <>
-            <div className="overflow-x-auto">
+            {/* Eight columns don't belong on a phone; the same rows render as
+                cards below md, selection checkbox and all. */}
+            <div className="hidden overflow-x-auto md:block">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -470,6 +472,68 @@ function ContactsPage() {
                 </TableBody>
               </Table>
             </div>
+
+            <ul className="divide-y divide-border md:hidden">
+              {contacts.map((c) => (
+                <li key={c.id} className="flex items-start gap-3 px-4 py-3.5">
+                  <Checkbox
+                    className="mt-1"
+                    aria-label={`Select ${c.company || c.phone}`}
+                    checked={selected.has(c.id)}
+                    onCheckedChange={() => toggle(c.id)}
+                  />
+
+                  <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                    <p className="truncate font-semibold">{c.company || c.person || "—"}</p>
+                    <p className="truncate font-mono text-xs text-muted-foreground">
+                      {formatPhone(c.phone)}
+                      {c.person && c.company ? ` · ${c.person}` : ""}
+                    </p>
+
+                    {(c.tags.length > 0 || c.do_not_sms) && (
+                      <div className="flex flex-wrap gap-1">
+                        {c.tags.map((tag) => (
+                          <span
+                            key={tag}
+                            className="rounded-full border border-primary/25 bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary"
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                        {c.do_not_sms && (
+                          <span className="rounded-full border border-destructive/25 bg-destructive/10 px-2 py-0.5 text-[11px] font-semibold text-destructive">
+                            No SMS
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {c.list_name && (
+                      <p className="truncate text-xs text-muted-foreground">{c.list_name}</p>
+                    )}
+                  </div>
+
+                  <ActionButton
+                    variant="outline"
+                    size="sm"
+                    className="shrink-0"
+                    disabled={!canCall || c.do_not_call}
+                    title={
+                      c.do_not_call
+                        ? "This contact is marked do-not-call"
+                        : canCall
+                          ? `Call ${formatPhone(c.phone)}`
+                          : "Go online from Live Calls first"
+                    }
+                    onClick={() =>
+                      void dial(c.phone, { contactId: c.id, label: c.company || c.person || c.phone })
+                    }
+                  >
+                    <Phone className="size-3.5" />
+                  </ActionButton>
+                </li>
+              ))}
+            </ul>
 
             {totalPages > 1 && (
               <div className="flex items-center justify-between border-t border-border px-4 py-3">
