@@ -59,12 +59,16 @@ export const Route = createFileRoute("/billing")({
 
 type PlanUsage = Awaited<ReturnType<typeof getPlanUsage>>;
 type Catalog = Awaited<ReturnType<typeof listPlans>>["plans"];
+type Checkout = Awaited<ReturnType<typeof listPlans>>["checkout"];
 
 function BillingPage() {
   // The plan a tenant is on is server state, not a local choice — it gates
   // what they can actually do, so it can only come from the backend.
   const [planUsage, setPlanUsage] = useState<PlanUsage | null>(null);
   const [catalog, setCatalog] = useState<Catalog>([]);
+  const [checkout, setCheckout] = useState<Checkout>([]);
+  // Named to avoid shadowing the global setInterval in this scope.
+  const [billingInterval, setBillingInterval] = useState<"monthly" | "annual">("monthly");
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [billingEmail, setBillingEmail] = useState("");
@@ -80,7 +84,10 @@ function BillingPage() {
         // Non-fatal — the rest of the page still renders.
       });
     void listPlans()
-      .then((r) => setCatalog(r.plans))
+      .then((r) => {
+        setCatalog(r.plans);
+        setCheckout(r.checkout);
+      })
       .catch(() => {});
   }, []);
 
@@ -349,11 +356,64 @@ function BillingPage() {
             })}
           </div>
 
-          {/* Plans change only once payment clears, so this deliberately has no
-              self-serve switch — a button here would hand out paid limits free. */}
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant={billingInterval === "monthly" ? "default" : "outline"}
+              onClick={() => setBillingInterval("monthly")}
+            >
+              Monthly
+            </Button>
+            <Button
+              size="sm"
+              variant={billingInterval === "annual" ? "default" : "outline"}
+              onClick={() => setBillingInterval("annual")}
+            >
+              Annual — 2 months free
+            </Button>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            {checkout
+              .filter((o) => o.interval === billingInterval)
+              .map((o) => {
+                const planName = catalog.find((p) => p.id === o.planId)?.name ?? o.planId;
+                return (
+                  <div
+                    key={o.url}
+                    className="flex items-center justify-between gap-3 rounded-lg border border-border p-3"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold">
+                        {planName} · {o.seats} seat{o.seats === 1 ? "" : "s"}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        ${o.amountUsd} {o.interval === "annual" ? "per year" : "per month"}
+                      </p>
+                    </div>
+                    {/* noreferrer as well as noopener: the payment page should
+                        not receive this workspace's URL as a referrer. */}
+                    <Button size="sm" asChild>
+                      <a href={o.url} target="_blank" rel="noopener noreferrer">
+                        Pay ${o.amountUsd}
+                      </a>
+                    </Button>
+                  </div>
+                );
+              })}
+            {checkout.filter((o) => o.interval === billingInterval).length === 0 && (
+              <p className="py-4 text-center text-sm text-muted-foreground">
+                No {billingInterval} options available yet.
+              </p>
+            )}
+          </div>
+
+          {/* Paying does not grant the plan — activation is manual, so say so
+              here rather than letting a customer wonder why nothing changed. */}
           <p className="text-xs text-muted-foreground">
-            To move plans, contact us and we'll send a payment link. Your plan updates as soon as
-            payment clears.
+            After you pay, we verify the payment and activate your account — you&apos;ll get an
+            email confirming it, usually within a few hours. Need a different seat count, or the
+            Managed plan? Contact us and we&apos;ll send a link.
           </p>
 
           <DialogFooter>

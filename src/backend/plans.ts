@@ -201,3 +201,51 @@ export function trialDaysRemaining(
   if (!Number.isFinite(ends.getTime())) return null;
   return Math.max(0, Math.ceil((ends.getTime() - now.getTime()) / 86_400_000));
 }
+
+// ---------------------------------------------------------------------------
+// Checkout
+// ---------------------------------------------------------------------------
+
+export type BillingInterval = "monthly" | "annual";
+
+export interface CheckoutOption {
+  planId: PlanId;
+  seats: number;
+  interval: BillingInterval;
+  amountUsd: number;
+  /** Flutterwave hosted payment page. Fixed-amount, hence one link per tier. */
+  url: string;
+}
+
+/**
+ * Payment links, one per seat tier.
+ *
+ * Flutterwave hosted links are fixed-amount, so a seat count can't be chosen
+ * at checkout — each combination needs its own link. Amounts here were read
+ * off the live pages rather than assumed, because a mismatch would charge a
+ * customer one price and grant them a different plan.
+ *
+ * Paying does NOT activate anything. An operator confirms the payment in
+ * Flutterwave and activates the account (see activateTenantFn), which is what
+ * keeps a paid plan behind a human who has seen the money.
+ */
+export const CHECKOUT_OPTIONS: CheckoutOption[] = [
+  // Starter — monthly
+  { planId: "starter", seats: 1, interval: "monthly", amountUsd: 29, url: "https://flutterwave.com/pay/pgesxwxsjiqc" },
+  { planId: "starter", seats: 3, interval: "monthly", amountUsd: 87, url: "https://flutterwave.com/pay/fqmecqqv6ij8" },
+  { planId: "starter", seats: 5, interval: "monthly", amountUsd: 145, url: "https://flutterwave.com/pay/tpcvtlwwuund" },
+  // Professional — monthly
+  { planId: "professional", seats: 1, interval: "monthly", amountUsd: 59, url: "https://flutterwave.com/pay/fa7ud7yi3t6y" },
+  { planId: "professional", seats: 3, interval: "monthly", amountUsd: 177, url: "https://flutterwave.com/pay/f2yqb3yrt2wi" },
+  { planId: "professional", seats: 5, interval: "monthly", amountUsd: 295, url: "https://flutterwave.com/pay/303kjupgfy6d" },
+  { planId: "professional", seats: 10, interval: "monthly", amountUsd: 590, url: "https://flutterwave.com/pay/okdaspf3w9fq" },
+  // Annual — two months free
+  { planId: "starter", seats: 1, interval: "annual", amountUsd: 290, url: "https://flutterwave.com/pay/rgjlitvdbkij" },
+  { planId: "professional", seats: 1, interval: "annual", amountUsd: 590, url: "https://flutterwave.com/pay/jroblvkfoagm" },
+];
+
+export function checkoutOptionsFor(planId: PlanId, interval?: BillingInterval): CheckoutOption[] {
+  return CHECKOUT_OPTIONS.filter(
+    (o) => o.planId === planId && (interval ? o.interval === interval : true),
+  );
+}

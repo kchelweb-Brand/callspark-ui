@@ -3,7 +3,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { sql } from "./db";
 import { verifyToken } from "./tokens";
 import { getUsageSummary } from "./entitlements";
-import { PLANS, getPlan, isPlanId, type PlanId } from "./plans";
+import { CHECKOUT_OPTIONS, PLANS, getPlan, isPlanId, type PlanId } from "./plans";
 import { sendAccountActivatedEmail } from "./email";
 
 async function requireTenant(token: string): Promise<string> {
@@ -31,6 +31,9 @@ export const listPlansFn = createServerFn({ method: "POST" })
       managedSip: p.managedSip,
       limits: p.limits,
     })),
+    // Seat tiers a customer can actually pay for. Managed has none — it's
+    // quoted, not self-serve, until the carrier side is approved.
+    checkout: CHECKOUT_OPTIONS,
   }));
 
 /** Current plan plus real usage, for the Billing page. */
