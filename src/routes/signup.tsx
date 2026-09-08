@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Loader2, Check, X, CircleCheck } from "lucide-react";
+import { Loader2, Check, X, CircleCheck, TriangleAlert } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -34,6 +34,9 @@ function SignupPage() {
   const navigate = useNavigate();
   const [step, setStep] = useState<Step>("details");
   const [busy, setBusy] = useState(false);
+  // A delivery failure needs to stay on screen — a toast disappears before
+  // someone has finished reading why their code never arrived.
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const [accountType, setAccountType] = useState<AccountType>("business");
   const [fullName, setFullName] = useState("");
@@ -87,6 +90,7 @@ function SignupPage() {
     }
 
     setBusy(true);
+    setSubmitError(null);
     try {
       await submitSignup({
         fullName: fullName.trim(),
@@ -98,7 +102,9 @@ function SignupPage() {
       toast.success("Verification code sent", { description: `Check ${email}.` });
       setStep("code");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not create your account.");
+      const message = err instanceof Error ? err.message : "Could not create your account.";
+      setSubmitError(message);
+      toast.error(message);
     } finally {
       setBusy(false);
     }
@@ -261,6 +267,16 @@ function SignupPage() {
                   </p>
                 )}
               </div>
+
+              {submitError && (
+                <div
+                  role="alert"
+                  className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/8 p-3 text-sm text-destructive"
+                >
+                  <TriangleAlert className="mt-0.5 size-4 shrink-0" />
+                  <span>{submitError}</span>
+                </div>
+              )}
 
               <Button type="submit" className="w-full" disabled={busy}>
                 {busy ? <Loader2 className="size-4 animate-spin" /> : null}

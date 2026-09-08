@@ -20,15 +20,57 @@ function renderHtml(code: string, purpose: string): string {
   `;
 }
 
+export interface SendResult {
+  delivered: boolean;
+  /** No API key configured — the code was logged instead, on purpose. */
+  devMode?: boolean;
+  /** Present when delivery failed; phrased for the person who is waiting. */
+  error?: string;
+}
+
+/**
+ * Turns a Resend rejection into something the person staring at the screen can
+ * act on. The provider's own text is appended for the operator's benefit but
+ * the lead sentence is what matters to a user.
+ */
+function explainSendFailure(status: number, body: string): string {
+  const text = body.toLowerCase();
+
+  if (status === 403 && text.includes("domain is not verified")) {
+    return "Email delivery isn't set up yet: the sending domain hasn't been verified, so the provider refused the message. Nothing you did wrong — this needs fixing on our side.";
+  }
+  if (status === 403 && text.includes("testing emails")) {
+    return "Email delivery is still in test mode and can only reach the account owner's address. This needs fixing on our side before other addresses can receive codes.";
+  }
+  if (status === 422) {
+    return "The email provider rejected the message as invalid. Double-check the address, and if it looks right this needs fixing on our side.";
+  }
+  if (status === 429) {
+    return "Too many emails have been sent in a short window. Wait a minute and try again.";
+  }
+  if (status >= 500) {
+    return "The email provider is having trouble right now. Try again in a moment.";
+  }
+  return `The email couldn't be sent (provider returned ${status}). Try again, and if it keeps happening this needs fixing on our side.`;
+}
+
 /**
  * Sends the one-time code by email via Resend. If RESEND_API_KEY isn't set
  * yet, logs the code instead so the flow is fully testable before email is
  * wired up (visible in `wrangler tail` in production, or the terminal in dev).
+ *
+ * Returns whether it actually went out. Callers decide what to do with that —
+ * a signup can say so plainly, while the login flow stays deliberately vague
+ * to avoid revealing which addresses have accounts.
  */
-export async function sendCodeEmail(to: string, code: string, purpose: string): Promise<void> {
+export async function sendCodeEmail(
+  to: string,
+  code: string,
+  purpose: string,
+): Promise<SendResult> {
   if (!env.resendApiKey) {
     console.log(`[email:dev-mode] ${purpose} code for ${to}: ${code} (expires in ${CODE_TTL_MINUTES}m)`);
-    return;
+    return { delivered: true, devMode: true };
   }
 
   const copy = PURPOSE_COPY[purpose] ?? PURPOSE_COPY["login"]!;
@@ -48,12 +90,14 @@ export async function sendCodeEmail(to: string, code: string, purpose: string): 
 
   if (!res.ok) {
     const body = await res.text().catch(() => "");
-    console.error(`Resend send failed (${res.status}): ${body}`);
-    // Don't leak delivery failures to the client — fall back to a log so the
-    // requester still gets *a* success response (matches the "don't reveal
-    // whether an email exists" behavior below) while we can see it failed.
+    console.error(`[email] Resend rejected ${purpose} code for ${to} (${res.status}): ${body}`);
+    // Still logged, so an operator can read the code out of the tail and
+    // unblock someone by hand while delivery is broken.
     console.log(`[email:fallback] ${purpose} code for ${to}: ${code}`);
+    return { delivered: false, error: explainSendFailure(res.status, body) };
   }
+
+  return { delivered: true };
 }
 
 // ---------- generic sender ----------

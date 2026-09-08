@@ -81,7 +81,7 @@ async function issueCode(email: string, purpose: Purpose) {
     insert into otp_codes (email, code_hash, purpose, expires_at)
     values (${email}, ${codeHash}, ${purpose}, ${expiresAt})
   `;
-  await sendCodeEmail(email, code, purpose);
+  return sendCodeEmail(email, code, purpose);
 }
 
 // ---------- request-code ----------
@@ -103,7 +103,14 @@ export const requestLoginCodeFn = createServerFn({ method: "POST" })
           select id from users where tenant_id = ${tenant.id} and email = ${email} limit 1
         `;
         if (users.length > 0) {
-          await issueCode(email, "login");
+          const sent = await issueCode(email, "login");
+          // Deliberately not surfaced: reporting a delivery failure here would
+          // only ever happen for addresses that have an account, which is
+          // exactly what the generic response below exists to hide. The
+          // operator sees it in the logs instead.
+          if (!sent.delivered) {
+            console.error(`[auth] login code for ${email} was not delivered: ${sent.error}`);
+          }
         }
       }
     } else {
@@ -111,7 +118,10 @@ export const requestLoginCodeFn = createServerFn({ method: "POST" })
         select id from users where email = ${email} and is_super_admin = true limit 1
       `;
       if (users.length > 0) {
-        await issueCode(email, "admin_login");
+        const sent = await issueCode(email, "admin_login");
+        if (!sent.delivered) {
+          console.error(`[auth] admin code for ${email} was not delivered: ${sent.error}`);
+        }
       }
     }
 
@@ -221,7 +231,14 @@ export const submitSignupFn = createServerFn({ method: "POST" })
       insert into signup_requests (email, full_name, account_type, company_name, workspace_slug)
       values (${email}, ${fullName}, ${data.accountType}, ${data.companyName || null}, ${slug})
     `;
-    await issueCode(email, "signup");
+    // Signup can report a delivery failure honestly: this flow already tells
+    // the caller whether an email or workspace is taken, so there is no account
+    // to leak. Telling someone "check your email" when nothing was sent leaves
+    // them waiting on a message that will never arrive.
+    const sent = await issueCode(email, "signup");
+    if (!sent.delivered) {
+      throw new Error(sent.error ?? "We couldn't send your verification code. Please try again.");
+    }
 
     return { ok: true as const, message: "Verification code sent.", expiresInMinutes: CODE_TTL_MINUTES };
   });
