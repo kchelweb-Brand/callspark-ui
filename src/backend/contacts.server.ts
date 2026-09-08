@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 
 import { sql, sqlQuery } from "./db";
 import { verifyToken } from "./tokens";
+import { requireCanCreate } from "./entitlements";
 
 async function requireTenant(token: string): Promise<string> {
   const payload = await verifyToken(token);
@@ -138,6 +139,8 @@ export const createContactFn = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const tenantId = await requireTenant(data.token);
+    await requireCanCreate(tenantId, "contacts");
+
     const phone = normalizePhone(data.phone);
     if (!isValidPhone(phone)) throw new Error("Enter a valid phone number.");
 
@@ -162,6 +165,10 @@ export const importContactsFn = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const tenantId = await requireTenant(data.token);
+    // Checked against the whole batch before anything is written — a partial
+    // import that stops halfway would leave the user reconciling by hand.
+    await requireCanCreate(tenantId, "contacts", data.rows.length);
+
     const listId = data.listName?.trim() ? await findOrCreateList(tenantId, data.listName.trim()) : null;
 
     const existingRows = await sql`select phone from contacts where tenant_id = ${tenantId}`;

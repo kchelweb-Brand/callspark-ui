@@ -4,6 +4,7 @@ import { sql } from "./db";
 import { verifyToken } from "./tokens";
 import { sendTicketRaisedEmail } from "./email";
 import type { JsonObject } from "./phone-system.server";
+import { requireCanCreate } from "./entitlements";
 
 async function requireTenant(token: string): Promise<string> {
   const payload = await verifyToken(token);
@@ -186,6 +187,7 @@ export const createSmsCampaignFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const tenantId = await requireTenant(data.token);
     const name = data.name.trim() || "Untitled SMS campaign";
+    await requireCanCreate(tenantId, "smsCampaigns");
 
     const rows = await sql`
       insert into sms_campaigns (tenant_id, name, status, list_name, body)

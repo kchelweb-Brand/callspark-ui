@@ -377,6 +377,24 @@ async function main() {
   // dialable as call destinations by the carrier, so they're worth storing.
   await sql`alter table sip_connections add column if not exists sip_transport text not null default 'wss'`;
 
+  // ---------- plans / entitlements ----------
+  // Which plan a tenant is on and, for trials, when it lapses. Limits
+  // themselves live in code (src/backend/plans.ts) rather than the database:
+  // they are product pricing, they change together, and a per-row copy would
+  // drift from what the marketing page promises.
+  await sql`alter table tenants add column if not exists plan text not null default 'trial'`;
+  await sql`alter table tenants add column if not exists trial_ends_at timestamptz`;
+
+  // Existing tenants predate plans entirely. Giving them a fresh 14-day trial
+  // rather than an already-expired one avoids locking out real accounts the
+  // moment this ships.
+  await sql`
+    update tenants set trial_ends_at = now() + interval '14 days'
+    where plan = 'trial' and trial_ends_at is null
+  `;
+  // The QA sandbox must never hit a limit mid-test.
+  await sql`update tenants set plan = 'managed' where workspace_slug = 'qa-sandbox'`;
+
   console.log("Schema is up to date.");
 }
 

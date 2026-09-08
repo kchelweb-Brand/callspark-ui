@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 
 import { sql } from "./db";
 import { verifyToken } from "./tokens";
+import { requireCanCreate } from "./entitlements";
 
 async function requireTenant(token: string): Promise<string> {
   const payload = await verifyToken(token);
@@ -55,6 +56,8 @@ export const createAgentFn = createServerFn({ method: "POST" })
       `;
       extension = String(Number((rows[0] as { top: number }).top) + 1);
     }
+
+    await requireCanCreate(tenantId, "agents");
 
     const inserted = await sql`
       insert into agents (tenant_id, name, email, extension, role, status)

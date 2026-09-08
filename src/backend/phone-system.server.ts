@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 
 import { sql } from "./db";
 import { verifyToken } from "./tokens";
+import { requireCountWithinLimit } from "./entitlements";
 
 async function requireTenant(token: string): Promise<string> {
   const payload = await verifyToken(token);
@@ -83,6 +84,7 @@ export const savePhoneSystemFn = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const tenantId = await requireTenant(data.token);
+    await requireCountWithinLimit(tenantId, "ivrMenus", data.menus.length);
 
     await sql`
       insert into phone_system_settings
@@ -126,6 +128,7 @@ export const savePhoneNumbersFn = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const tenantId = await requireTenant(data.token);
+    await requireCountWithinLimit(tenantId, "phoneNumbers", data.numbers.length);
 
     const keep = data.numbers.map((n) => n.number);
     if (keep.length === 0) {

@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 
 import { sql } from "./db";
 import { verifyToken } from "./tokens";
+import { requireCanCreate } from "./entitlements";
 
 async function requireTenant(token: string): Promise<string> {
   const payload = await verifyToken(token);
@@ -52,6 +53,7 @@ export const createCampaignFn = createServerFn({ method: "POST" })
     const tenantId = await requireTenant(data.token);
     const name = data.name.trim();
     if (!name) throw new Error("Give the campaign a name.");
+    await requireCanCreate(tenantId, "campaigns");
 
     const rows = await sql`
       insert into campaigns (tenant_id, name, status, list_name, owner, script)
@@ -89,6 +91,9 @@ export const duplicateCampaignFn = createServerFn({ method: "POST" })
   .validator((data: { token: string; id: string }) => data)
   .handler(async ({ data }) => {
     const tenantId = await requireTenant(data.token);
+
+    // A duplicate is still a new campaign as far as the plan is concerned.
+    await requireCanCreate(tenantId, "campaigns");
 
     // Copies the setup but not the results — a duplicate starts fresh.
     const rows = await sql`

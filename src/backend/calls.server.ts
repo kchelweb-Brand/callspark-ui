@@ -3,6 +3,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { sql, sqlQuery } from "./db";
 import { verifyToken } from "./tokens";
 import { findContactByPhone } from "./phone-numbers";
+import { requireCanCreate } from "./entitlements";
 
 async function requireSession(token: string) {
   const payload = await verifyToken(token);
@@ -43,6 +44,12 @@ export const startCallFn = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const payload = await requireSession(data.token);
+
+    // Enforced here, where a person deliberately starts a call. Inbound calls
+    // still count toward usage but are never blocked mid-flight — dropping a
+    // real caller who already dialled in is not an acceptable way to enforce
+    // a quota.
+    await requireCanCreate(payload.tenantId!, "calls");
 
     // An inbound call arrives as a bare number. Resolving it to a contact here
     // is what puts a name (rather than a number) in Call History and links the

@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 
 import { sql } from "./db";
+import { getPlan } from "./plans";
 import { verifyToken } from "./tokens";
 import { sendTicketStatusEmail } from "./email";
 
@@ -11,15 +12,14 @@ async function requireSuperAdmin(token: string) {
 }
 
 /**
- * Monthly price per plan. Lives here rather than in the DB because it's a
- * pricing decision, not tenant data — a tenant row only records which plan
- * was chosen. Keep in sync with PLANS in src/routes/billing.tsx.
+ * Revenue is priced per agent seat, so MRR is the plan's seat price times the
+ * seats a tenant actually has. Prices come from src/backend/plans.ts — the
+ * same catalog the Billing page renders and the entitlement checks enforce,
+ * so the admin console can't drift from what customers are charged.
  */
-const PLAN_PRICES: Record<string, number> = {
-  Growth: 620,
-  Scale: 1480,
-  Enterprise: 5900,
-};
+function monthlyRevenue(planId: string | null | undefined, seats: number): number {
+  return getPlan(planId).pricePerAgentMonthly * Math.max(0, seats);
+}
 
 function num(value: unknown): number {
   return Number(value ?? 0);
@@ -69,24 +69,27 @@ export const getPlatformOverviewFn = createServerFn({ method: "POST" })
       order by m
     `;
 
-    // Plan mix drives MRR — tenants with no saved plan contribute nothing.
+    // Plan mix drives MRR. Seats are counted per tenant and floored at one —
+    // a paying workspace always has at least its owner on it, so counting zero
+    // would understate revenue for anyone who hasn't invited a team yet.
     const planRows = await sql`
-      select coalesce(s.billing->>'plan', 'None') as plan, count(*)::int as tenants
+      select t.plan as plan,
+             count(*)::int as tenants,
+             coalesce(sum(greatest((select count(*) from agents a where a.tenant_id = t.id), 1)), 0)::int as seats
       from tenants t
-      left join tenant_settings s on s.tenant_id = t.id
       where t.status = 'active' and t.is_internal = false
       group by 1
     `;
-    const plans = (planRows as { plan: string; tenants: number }[]).map((p) => ({
-      plan: p.plan,
+    const plans = (planRows as { plan: string; tenants: number; seats: number }[]).map((p) => ({
+      plan: getPlan(p.plan).name,
       tenants: p.tenants,
-      mrr: (PLAN_PRICES[p.plan] ?? 0) * p.tenants,
+      mrr: monthlyRevenue(p.plan, p.seats),
     }));
     const mrr = plans.reduce((sum, p) => sum + p.mrr, 0);
 
     const largest = await sql`
       select t.id, t.name, t.workspace_slug, t.status,
-             coalesce(s.billing->>'plan', '—') as plan,
+             t.plan as plan,
              (select count(*)::int from users u where u.tenant_id = t.id) as users,
              (select count(*)::int from contacts c where c.tenant_id = t.id) as contacts,
              (select count(*)::int from calls c where c.tenant_id = t.id) as calls,
@@ -144,7 +147,8 @@ export const getPlatformRevenueFn = createServerFn({ method: "POST" })
 
     const byTenant = await sql`
       select t.id, t.name, t.workspace_slug, t.status,
-             coalesce(s.billing->>'plan', '—') as plan,
+             t.plan as plan,
+             greatest((select count(*)::int from agents a where a.tenant_id = t.id), 1) as seats,
              (select coalesce(sum(duration_seconds), 0)::int from calls c where c.tenant_id = t.id) as talk_seconds,
              (select coalesce(sum(sent), 0)::int from sms_campaigns sc where sc.tenant_id = t.id) as sms_sent,
              coalesce(w.balance_cents, 0)::int as wallet_cents
@@ -162,13 +166,15 @@ export const getPlatformRevenueFn = createServerFn({ method: "POST" })
         workspace_slug: string;
         status: string;
         plan: string;
+        seats: number;
         talk_seconds: number;
         sms_sent: number;
         wallet_cents: number;
       }[]
     ).map((r) => ({
       ...r,
-      mrr: PLAN_PRICES[r.plan] ?? 0,
+      plan: getPlan(r.plan).name,
+      mrr: monthlyRevenue(r.plan, r.seats),
     }));
 
     const topups = await sql`

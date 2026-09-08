@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { CreditCard, Download, Minus, Plus, ShieldCheck } from "lucide-react";
+import { CreditCard, Download, Minus, Plus, ShieldCheck, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -34,6 +34,7 @@ interface Invoice {
 }
 const invoices: Invoice[] = [];
 import { getTenantSettings, saveTenantSettings } from "@/lib/workspace-api";
+import { USAGE_LABELS, formatUsage, getPlanUsage, listPlans } from "@/lib/billing-api";
 import { downloadTextFile } from "@/lib/download";
 import { cn } from "@/lib/utils";
 
@@ -56,14 +57,14 @@ export const Route = createFileRoute("/billing")({
   component: BillingPage,
 });
 
-const PLANS = [
-  { name: "Growth", price: "$620/mo", minutes: "100,000 minutes" },
-  { name: "Scale", price: "$1,480/mo", minutes: "250,000 minutes" },
-  { name: "Enterprise", price: "$5,900/mo", minutes: "1,000,000 minutes" },
-];
+type PlanUsage = Awaited<ReturnType<typeof getPlanUsage>>;
+type Catalog = Awaited<ReturnType<typeof listPlans>>["plans"];
 
 function BillingPage() {
-  const [plan, setPlan] = useState<string | null>(null);
+  // The plan a tenant is on is server state, not a local choice — it gates
+  // what they can actually do, so it can only come from the backend.
+  const [planUsage, setPlanUsage] = useState<PlanUsage | null>(null);
+  const [catalog, setCatalog] = useState<Catalog>([]);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [billingEmail, setBillingEmail] = useState("");
@@ -72,7 +73,18 @@ function BillingPage() {
   const [trunkPacks, setTrunkPacks] = useState<{ item: string; date: string; status: string }[]>([]);
   const [loaded, setLoaded] = useState(false);
 
-  // Restore previously chosen plan / billing email / trunk orders.
+  useEffect(() => {
+    void getPlanUsage()
+      .then(setPlanUsage)
+      .catch(() => {
+        // Non-fatal — the rest of the page still renders.
+      });
+    void listPlans()
+      .then((r) => setCatalog(r.plans))
+      .catch(() => {});
+  }, []);
+
+  // Restore billing email / trunk orders.
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -80,11 +92,9 @@ function BillingPage() {
         const settings = await getTenantSettings();
         if (cancelled || !settings.saved) return;
         const b = settings.billing as {
-          plan?: string;
           billingEmail?: string;
           trunkPacks?: { item: string; date: string; status: string }[];
         };
-        if (b.plan) setPlan(b.plan);
         if (b.billingEmail) setBillingEmail(b.billingEmail);
         if (Array.isArray(b.trunkPacks)) setTrunkPacks(b.trunkPacks);
       } catch {
@@ -129,6 +139,12 @@ function BillingPage() {
     toast.success(`${trunkCount} trunk${trunkCount === 1 ? "" : "s"} ordered`);
   }
 
+  /** "3 of 5" for a stat card, or an em dash before usage has loaded. */
+  function usageValue(key: string): string {
+    const row = planUsage?.usage.find((u) => u.key === key);
+    return row ? formatUsage(row.used, row.limit) : "—";
+  }
+
   const periodLabel = new Date().toLocaleDateString(undefined, { month: "long", year: "numeric" });
 
   return (
@@ -141,38 +157,74 @@ function BillingPage() {
           <Button variant="outline" onClick={() => setPaymentOpen(true)}>
             Payment method
           </Button>
-          <Button onClick={() => setUpgradeOpen(true)}>{plan ? "Change plan" : "Choose a plan"}</Button>
+          <Button onClick={() => setUpgradeOpen(true)}>
+            {planUsage?.plan.id === "trial" ? "Upgrade" : "Compare plans"}
+          </Button>
         </>
       }
     >
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Current plan"
-          value={plan ?? "No plan yet"}
-          hint={plan ? PLANS.find((p) => p.name === plan)?.price ?? "" : "pick one to get started"}
+          value={planUsage?.plan.name ?? "…"}
+          hint={
+            planUsage
+              ? planUsage.plan.price === 0
+                ? "free"
+                : `$${planUsage.plan.price}/agent/month`
+              : "loading"
+          }
           icon={CreditCard}
         />
-        <StatCard label="Minutes used" value="0" hint="no usage yet" />
-        <StatCard label="Overage estimate" value="$0.00" hint="0 minutes over" />
-        <StatCard label="Next invoice" value="—" hint="no plan active" />
+        <StatCard
+          label="Agents"
+          value={usageValue("agents")}
+          hint="seats in use"
+          icon={Users}
+        />
+        <StatCard label="Contacts" value={usageValue("contacts")} hint="stored" />
+        <StatCard
+          label={planUsage?.plan.id === "trial" ? "Trial" : "Status"}
+          value={
+            planUsage?.plan.id === "trial"
+              ? planUsage.trialExpired
+                ? "Ended"
+                : `${planUsage.daysRemaining ?? 0}d left`
+              : "Active"
+          }
+          hint={planUsage?.trialExpired ? "upgrade to resume" : "in good standing"}
+        />
       </div>
 
       <div className="grid gap-4 xl:grid-cols-3">
-        <Panel title="Usage this period" className="xl:col-span-2" bodyClassName="p-5">
+        <Panel
+          title="Plan usage"
+          description="What you're using against what your plan allows"
+          className="xl:col-span-2"
+          bodyClassName="p-5"
+        >
           <div className="flex flex-col gap-5">
-            {[
-              { label: "Outbound minutes", unit: "" },
-              { label: "Recording storage", unit: "GB" },
-              { label: "Concurrent channels (peak)", unit: "" },
-            ].map((row) => (
-              <div key={row.label}>
-                <div className="mb-2 flex items-center justify-between text-sm">
-                  <span className="font-medium">{row.label}</span>
-                  <span className="font-mono text-xs text-muted-foreground">0 {row.unit}</span>
+            {(planUsage?.usage ?? []).map((row) => {
+              const limit = row.limit;
+              const unlimited = limit === null;
+              const pct = limit === null || limit === 0 ? 0 : Math.min(100, (row.used / limit) * 100);
+              return (
+                <div key={row.key}>
+                  <div className="mb-2 flex items-center justify-between text-sm">
+                    <span className="font-medium">{USAGE_LABELS[row.key] ?? row.key}</span>
+                    <span className="font-mono text-xs text-muted-foreground">
+                      {formatUsage(row.used, row.limit)}
+                    </span>
+                  </div>
+                  <Meter
+                    value={unlimited ? 0 : row.used}
+                    max={unlimited ? 1 : Math.max(1, limit)}
+                    label={unlimited ? "unlimited" : `${Math.round(pct)}% used`}
+                  />
                 </div>
-                <Meter value={0} max={1} label="0% used" />
-              </div>
-            ))}
+              );
+            })}
+            {!planUsage && <p className="text-sm text-muted-foreground">Loading usage…</p>}
           </div>
         </Panel>
 
@@ -248,41 +300,65 @@ function BillingPage() {
       </Panel>
 
       <Dialog open={upgradeOpen} onOpenChange={setUpgradeOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Choose a plan</DialogTitle>
+            <DialogTitle>Plans</DialogTitle>
+            <DialogDescription>
+              Priced per agent seat. Your carrier minutes are billed by your own SIP provider
+              unless you are on Managed.
+            </DialogDescription>
           </DialogHeader>
+
           <div className="flex flex-col gap-2">
-            {PLANS.map((p) => (
-              <button
-                key={p.name}
-                type="button"
-                onClick={() => setPlan(p.name)}
-                className={cn(
-                  "flex items-center justify-between rounded-lg border p-4 text-left transition-colors",
-                  plan === p.name ? "border-primary bg-primary/8" : "border-border hover:border-primary/40",
-                )}
-              >
-                <span>
-                  <span className="block text-sm font-semibold">{p.name}</span>
-                  <span className="text-xs text-muted-foreground">{p.minutes}</span>
-                </span>
-                <span className="font-mono text-sm font-semibold">{p.price}</span>
-              </button>
-            ))}
+            {catalog.map((p) => {
+              const current = planUsage?.plan.id === p.id;
+              return (
+                <div
+                  key={p.id}
+                  className={cn(
+                    "rounded-lg border p-4",
+                    current ? "border-primary bg-primary/8" : "border-border",
+                  )}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold">
+                        {p.name}
+                        {current && (
+                          <span className="ml-2 rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-semibold text-primary">
+                            Current
+                          </span>
+                        )}
+                      </p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">{p.blurb}</p>
+                    </div>
+                    <span className="shrink-0 font-mono text-sm font-semibold">
+                      {p.price === 0 ? "Free" : `$${p.price}`}
+                      {p.price > 0 && (
+                        <span className="text-xs font-normal text-muted-foreground">/agent</span>
+                      )}
+                    </span>
+                  </div>
+                  <p className="mt-2 font-mono text-[11px] text-muted-foreground">
+                    {p.limits.agents === null ? "unlimited" : p.limits.agents} agents ·{" "}
+                    {p.limits.contacts === null ? "unlimited" : p.limits.contacts.toLocaleString()} contacts ·{" "}
+                    {p.limits.ivrMenus === null ? "unlimited" : p.limits.ivrMenus} IVR menus
+                  </p>
+                </div>
+              );
+            })}
           </div>
+
+          {/* Plans change only once payment clears, so this deliberately has no
+              self-serve switch — a button here would hand out paid limits free. */}
+          <p className="text-xs text-muted-foreground">
+            To move plans, contact us and we'll send a payment link. Your plan updates as soon as
+            payment clears.
+          </p>
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setUpgradeOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={() => {
-                setUpgradeOpen(false);
-                void persistBilling({ plan });
-                toast.success(`Switched to the ${plan} plan`, { description: "Takes effect on your next billing cycle." });
-              }}
-            >
-              Confirm
+              Close
             </Button>
           </DialogFooter>
         </DialogContent>
