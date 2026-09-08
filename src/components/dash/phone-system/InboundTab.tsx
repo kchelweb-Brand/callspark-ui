@@ -13,8 +13,32 @@ import type {
   VoicemailSettings,
 } from "@/lib/phone-system-data";
 
-/** Must match VOICE_WEBHOOK_PATH in src/server.ts. */
-const WEBHOOK_PATH = "/api/voice/telnyx";
+/** Must match the paths exported from src/server.ts. */
+const CARRIERS = [
+  {
+    id: "signalwire",
+    name: "SignalWire",
+    path: "/api/voice/signalwire",
+    keyName: "SIGNALWIRE_SIGNING_KEY",
+    steps: [
+      "In the SignalWire dashboard open Phone Numbers and pick the number you registered here.",
+      'Set "Handle calls using" to a LaML webhook, and paste the URL above into "When a call comes in" with method POST.',
+      "Copy the signing key from API Credentials so webhook signatures can be verified.",
+    ],
+  },
+  {
+    id: "telnyx",
+    name: "Telnyx",
+    path: "/api/voice/telnyx",
+    keyName: "TELNYX_PUBLIC_KEY",
+    steps: [
+      "In the Telnyx portal open Voice → Call Control and create an application.",
+      'Set the Webhook URL on that application to the address above, with API version "API v2".',
+      "Under Numbers, assign each number you registered here to that Call Control application.",
+      "Copy your public key from Account Settings → Keys & Credentials so signatures can be verified.",
+    ],
+  },
+] as const;
 
 interface CheckItem {
   done: boolean;
@@ -41,7 +65,11 @@ export function InboundTab({
   const [origin, setOrigin] = useState("");
   useEffect(() => setOrigin(window.location.origin), []);
 
-  const webhookUrl = origin ? `${origin}${WEBHOOK_PATH}` : WEBHOOK_PATH;
+  // Both carriers are wired; the tenant uses whichever they have an account
+  // with, so show both rather than guessing.
+  const [carrierId, setCarrierId] = useState<(typeof CARRIERS)[number]["id"]>("signalwire");
+  const carrier = CARRIERS.find((c) => c.id === carrierId) ?? CARRIERS[0];
+  const webhookUrl = origin ? `${origin}${carrier.path}` : carrier.path;
 
   const assigned = numbers.filter((n) => n.ivrMenuId);
   const reachableExtensions = extensions.filter((e) => e.forwardsTo.trim());
@@ -146,6 +174,22 @@ export function InboundTab({
           </div>
 
           <div className="flex flex-col gap-2">
+            <p className="text-sm font-semibold">Your carrier</p>
+            <div className="flex flex-wrap gap-2">
+              {CARRIERS.map((c) => (
+                <Button
+                  key={c.id}
+                  size="sm"
+                  variant={c.id === carrierId ? "default" : "outline"}
+                  onClick={() => setCarrierId(c.id)}
+                >
+                  {c.name}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2">
             <p className="text-sm font-semibold">Webhook URL</p>
             <div className="flex flex-wrap items-center gap-2">
               <code className="min-w-0 flex-1 overflow-x-auto rounded-lg border border-border bg-muted/60 px-3 py-2 font-mono text-xs">
@@ -162,27 +206,17 @@ export function InboundTab({
           </div>
 
           <div className="flex flex-col gap-2">
-            <p className="text-sm font-semibold">Pointing Telnyx at it</p>
+            <p className="text-sm font-semibold">Pointing {carrier.name} at it</p>
             <ol className="flex list-decimal flex-col gap-1.5 pl-5 text-sm text-muted-foreground">
-              <li>
-                In the Telnyx portal open <span className="font-medium text-foreground">Voice → Call Control</span> and
-                create an application (or open your existing one).
-              </li>
-              <li>
-                Set <span className="font-medium text-foreground">Webhook URL</span> to the address above and the API
-                version to <span className="font-mono text-foreground">API v2</span>.
-              </li>
-              <li>
-                Under <span className="font-medium text-foreground">Numbers</span>, assign each number you registered
-                here to that Call Control application.
-              </li>
-              <li>
-                Copy your public key from{" "}
-                <span className="font-medium text-foreground">Account Settings → Keys &amp; Credentials</span> and have
-                it stored as <span className="font-mono text-foreground">TELNYX_PUBLIC_KEY</span>. Until that is set,
-                webhooks are accepted without signature checks.
-              </li>
+              {carrier.steps.map((step) => (
+                <li key={step}>{step}</li>
+              ))}
             </ol>
+            <p className="text-xs text-muted-foreground">
+              Until <span className="font-mono text-foreground">{carrier.keyName}</span> is set,
+              webhooks are accepted without signature checks — fine while testing, not for
+              production.
+            </p>
           </div>
         </div>
       </Panel>

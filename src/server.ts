@@ -4,6 +4,7 @@ import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
 import { getMediaBucket, setCloudflareEnv } from "./backend/cf-env";
 import { handleTelnyxVoiceWebhook } from "./backend/inbound";
+import { handleSignalWireVoiceWebhook } from "./backend/inbound-signalwire";
 
 /**
  * Serves greeting audio straight from R2.
@@ -38,6 +39,8 @@ async function serveMedia(pathname: string): Promise<Response> {
 
 /** Paste this path (on your own origin) into the Telnyx Call Control app. */
 export const VOICE_WEBHOOK_PATH = "/api/voice/telnyx";
+/** Paste this one into a SignalWire phone number's "when a call comes in". */
+export const SIGNALWIRE_VOICE_WEBHOOK_PATH = "/api/voice/signalwire";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -100,6 +103,16 @@ export default {
           return new Response("Method not allowed", { status: 405 });
         }
         return await handleTelnyxVoiceWebhook(request);
+      }
+
+      // Same phone system, second carrier. Each provider posts to its own
+      // path, so the adapter is chosen by the URL rather than by sniffing the
+      // request shape.
+      if (url.pathname === SIGNALWIRE_VOICE_WEBHOOK_PATH) {
+        if (request.method !== "POST") {
+          return new Response("Method not allowed", { status: 405 });
+        }
+        return await handleSignalWireVoiceWebhook(request);
       }
 
       const handler = await getServerEntry();
