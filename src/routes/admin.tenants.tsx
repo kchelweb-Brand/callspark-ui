@@ -15,6 +15,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { listTenants, setTenantStatus, type AdminTenant } from "@/lib/auth-api";
+import { ActivateTenantDialog } from "@/components/dash/ActivateTenantDialog";
 
 export const Route = createFileRoute("/admin/tenants")({
   head: () => ({
@@ -58,6 +59,7 @@ function AdminTenantsPage() {
   const [search, setSearch] = useState("");
   // Tracks which row is mid-update so we can disable just that row's buttons.
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [activating, setActivating] = useState<AdminTenant | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -182,6 +184,7 @@ function AdminTenantsPage() {
                   <TableHead>Account</TableHead>
                   <TableHead>Workspace</TableHead>
                   <TableHead>Owner</TableHead>
+                  <TableHead>Plan</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Users</TableHead>
                   <TableHead>Joined</TableHead>
@@ -204,6 +207,11 @@ function AdminTenantsPage() {
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {t.owner_email || "—"}
+                      </TableCell>
+                      <TableCell>
+                        <span className="rounded-full border border-border bg-muted px-2.5 py-0.5 text-[11px] font-semibold capitalize text-muted-foreground">
+                          {t.plan}
+                        </span>
                       </TableCell>
                       <TableCell>
                         <StatusPill status={t.status} />
@@ -237,6 +245,14 @@ function AdminTenantsPage() {
                               Suspend
                             </ActionButton>
                           )}
+                          <ActionButton
+                            size="sm"
+                            variant="outline"
+                            disabled={busy}
+                            onClick={() => setActivating(t)}
+                          >
+                            Activate
+                          </ActionButton>
                           {t.status === "suspended" && (
                             <ActionButton
                               size="sm"
@@ -257,6 +273,15 @@ function AdminTenantsPage() {
           </div>
         )}
       </Panel>
+      <ActivateTenantDialog
+        tenant={activating}
+        onClose={() => setActivating(null)}
+        onActivated={() => {
+          setActivating(null);
+          void load();
+        }}
+      />
+
     </Shell>
   );
 }

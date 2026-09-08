@@ -4,6 +4,7 @@ import { sql } from "./db";
 import { verifyToken } from "./tokens";
 import { getUsageSummary } from "./entitlements";
 import { PLANS, getPlan, isPlanId, type PlanId } from "./plans";
+import { sendAccountActivatedEmail } from "./email";
 
 async function requireTenant(token: string): Promise<string> {
   const payload = await verifyToken(token);
@@ -86,4 +87,76 @@ export const setTenantPlanFn = createServerFn({ method: "POST" })
     }
 
     return { ok: true as const, plan: plan.id as PlanId };
+  });
+
+/**
+ * Activates a tenant after payment has been confirmed.
+ *
+ * The confirmation itself happens outside this system — an operator verifies
+ * the payment in Flutterwave and then activates here. That manual step is the
+ * point: nothing in this codebase can be tricked into granting a paid plan,
+ * because granting one requires a human who has seen the money.
+ *
+ * Sets the plan, marks the tenant active, and emails the owner. Emailing is
+ * best-effort — a mail failure must not leave the account unactivated, since
+ * the customer has already paid.
+ */
+export const activateTenantFn = createServerFn({ method: "POST" })
+  .validator(
+    (data: { token: string; tenantId: string; plan: string; notify?: boolean; origin?: string }) =>
+      data,
+  )
+  .handler(async ({ data }) => {
+    await requireSuperAdmin(data.token);
+
+    if (!isPlanId(data.plan)) throw new Error(`"${data.plan}" is not a known plan.`);
+    const plan = getPlan(data.plan);
+
+    // Paid plans clear the trial clock. Activating onto a trial still needs an
+    // end date — leaving it null would read as a trial that never expires.
+    const trialDays = plan.id === "trial" ? (plan.trialDays ?? 14) : null;
+    const updated = trialDays
+      ? await sql`
+          update tenants
+          set plan = ${plan.id}, status = 'active',
+              trial_ends_at = now() + (${trialDays} || ' days')::interval
+          where id = ${data.tenantId}
+          returning name, workspace_slug
+        `
+      : await sql`
+          update tenants
+          set plan = ${plan.id}, status = 'active', trial_ends_at = null
+          where id = ${data.tenantId}
+          returning name, workspace_slug
+        `;
+    const tenant = updated[0] as { name: string; workspace_slug: string } | undefined;
+    if (!tenant) throw new Error("Could not find that tenant.");
+
+    // The owner is the account that signed up; fall back to the earliest user
+    // so an activation notice still reaches someone.
+    const ownerRows = await sql`
+      select email from users
+      where tenant_id = ${data.tenantId}
+      order by (role = 'tenant_owner') desc, created_at asc
+      limit 1
+    `;
+    const ownerEmail = (ownerRows[0] as { email: string } | undefined)?.email ?? null;
+
+    let notified = false;
+    if (data.notify !== false && ownerEmail) {
+      try {
+        await sendAccountActivatedEmail(ownerEmail, {
+          workspaceName: tenant.name,
+          workspaceSlug: tenant.workspace_slug,
+          planName: plan.name,
+          agentLimit: plan.limits.agents,
+          signInUrl: `${data.origin ?? ""}/login`,
+        });
+        notified = true;
+      } catch (err) {
+        console.error("[activate] could not email the owner", err);
+      }
+    }
+
+    return { ok: true as const, plan: plan.id as PlanId, ownerEmail, notified };
   });

@@ -167,3 +167,57 @@ export async function sendTicketStatusEmail(to: string, ticket: TicketEmailData)
 
   await send(to, `${ticket.ref} is now ${ticket.status ?? "updated"}`, shell("Support update", body), "ticket-status");
 }
+
+// ---------- account activation ----------
+
+export interface ActivationEmailData {
+  workspaceName: string;
+  workspaceSlug: string;
+  planName: string;
+  /** Null on unlimited plans — the email then simply omits the line. */
+  agentLimit: number | null;
+  signInUrl: string;
+}
+
+/**
+ * Sent once a super admin confirms payment and activates the account.
+ *
+ * Deliberately states the plan and its seat limit: the most common support
+ * ticket after an upgrade is "why can't I add another agent?", and answering
+ * it before it's asked is cheaper than answering it afterwards.
+ */
+export async function sendAccountActivatedEmail(
+  to: string,
+  data: ActivationEmailData,
+): Promise<void> {
+  const rows = [
+    detailRow("Workspace", data.workspaceName),
+    detailRow("Plan", data.planName),
+    data.agentLimit === null
+      ? detailRow("Agents", "Unlimited")
+      : detailRow("Agents", `Up to ${data.agentLimit}`),
+  ].join("");
+
+  const html = shell(
+    "Your account is active",
+    `
+      <p style="font-size:14px;line-height:1.6;color:#334155">
+        Payment confirmed — your Kchel Dialer workspace is live and ready to use.
+      </p>
+      <table style="width:100%;border-collapse:collapse;margin:16px 0">${rows}</table>
+      <p style="margin:24px 0">
+        <a href="${escapeHtml(data.signInUrl)}"
+           style="display:inline-block;background:#0f766e;color:#fff;text-decoration:none;
+                  padding:11px 20px;border-radius:8px;font-size:14px;font-weight:600">
+          Sign in to your workspace
+        </a>
+      </p>
+      <p style="font-size:13px;line-height:1.6;color:#64748b">
+        Connect your SIP trunk under Phone System &rarr; Connection to start making calls.
+        Reply to this email if you need a hand.
+      </p>
+    `,
+  );
+
+  await send(to, `Your Kchel Dialer account is active — ${data.planName}`, html, "activation");
+}

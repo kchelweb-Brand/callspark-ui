@@ -153,6 +153,9 @@ export interface AdminTenant {
   created_at: string;
   user_count: number;
   owner_email: string | null;
+  /** Plan id from src/backend/plans.ts — drives the admin activate action. */
+  plan: string;
+  trial_ends_at: string | null;
 }
 
 export async function listTenants(status?: string) {

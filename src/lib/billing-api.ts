@@ -1,5 +1,6 @@
 // Client wrappers around src/backend/billing.server.ts.
 import {
+  activateTenantFn,
   getPlanUsageFn,
   listPlansFn,
   setTenantPlanFn,
@@ -40,3 +41,21 @@ export const USAGE_LABELS: Record<string, string> = {
   calls: "Calls",
   smsCampaigns: "SMS campaigns",
 };
+
+/**
+ * Activates a tenant on a plan and emails the owner.
+ *
+ * `origin` is passed from the browser so the sign-in link in the email points
+ * at whatever host the admin is actually using, rather than a baked-in URL.
+ */
+export function activateTenant(tenantId: string, plan: string, notify = true) {
+  return activateTenantFn({
+    data: {
+      token: requireToken(),
+      tenantId,
+      plan,
+      notify,
+      origin: typeof window === "undefined" ? "" : window.location.origin,
+    },
+  });
+}

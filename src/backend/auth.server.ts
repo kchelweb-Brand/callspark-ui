@@ -58,6 +58,8 @@ interface TenantRow {
   workspace_slug: string;
   status: "pending" | "active" | "suspended";
   created_at: string;
+  plan?: string | null;
+  trial_ends_at?: string | null;
 }
 
 function toAuthUser(user: UserRow, workspaceSlug: string | null) {
@@ -302,6 +304,9 @@ function toAdminTenant(row: TenantRow & { user_count: number | string; owner_ema
     created_at: row.created_at,
     user_count: Number(row.user_count),
     owner_email: row.owner_email,
+    // Which plan the tenant is on drives the admin console's activate action.
+    plan: row.plan ?? "trial",
+    trial_ends_at: row.trial_ends_at ?? null,
   };
 }
 
@@ -312,7 +317,7 @@ export const listTenantsFn = createServerFn({ method: "POST" })
 
     const rows = data.status
       ? await sql`
-          select t.id, t.name, t.workspace_slug, t.status, t.created_at,
+          select t.id, t.name, t.workspace_slug, t.status, t.created_at, t.plan, t.trial_ends_at,
             (select count(*) from users u where u.tenant_id = t.id) as user_count,
             (select u.email from users u where u.tenant_id = t.id order by (u.role = 'tenant_owner') desc, u.created_at asc limit 1) as owner_email
           from tenants t
@@ -320,7 +325,7 @@ export const listTenantsFn = createServerFn({ method: "POST" })
           order by t.created_at desc
         `
       : await sql`
-          select t.id, t.name, t.workspace_slug, t.status, t.created_at,
+          select t.id, t.name, t.workspace_slug, t.status, t.created_at, t.plan, t.trial_ends_at,
             (select count(*) from users u where u.tenant_id = t.id) as user_count,
             (select u.email from users u where u.tenant_id = t.id order by (u.role = 'tenant_owner') desc, u.created_at asc limit 1) as owner_email
           from tenants t
@@ -344,7 +349,7 @@ export const setTenantStatusFn = createServerFn({ method: "POST" })
     if (updated.length === 0) throw new Error("Could not find that tenant.");
 
     const rows = await sql`
-      select t.id, t.name, t.workspace_slug, t.status, t.created_at,
+      select t.id, t.name, t.workspace_slug, t.status, t.created_at, t.plan, t.trial_ends_at,
         (select count(*) from users u where u.tenant_id = t.id) as user_count,
         (select u.email from users u where u.tenant_id = t.id order by (u.role = 'tenant_owner') desc, u.created_at asc limit 1) as owner_email
       from tenants t where t.id = ${data.id}
