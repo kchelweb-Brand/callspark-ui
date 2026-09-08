@@ -9,7 +9,6 @@ import {
   Headset,
   MessageSquare,
   PhoneCall,
-  Radio,
   ShieldCheck,
   Voicemail,
   Workflow,
@@ -17,6 +16,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { listPlans } from "@/lib/billing-api";
+import { LogoMark } from "@/components/brand/Logo";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -390,9 +390,7 @@ function SiteHeader() {
     <header className="sticky top-0 z-50 border-b border-white/10 bg-brand-black/90 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
         <Link to="/" className="flex items-center gap-2.5">
-          <span className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <Radio className="size-4.5" />
-          </span>
+          <LogoMark className="size-9" />
           <span className="font-bold tracking-tight text-white">Kchel Dialer</span>
         </Link>
 
@@ -427,9 +425,7 @@ function SiteFooter() {
     <footer className="bg-brand-black">
       <div className="mx-auto flex max-w-6xl flex-col gap-6 border-t border-white/10 px-6 py-10 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2.5">
-          <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <Radio className="size-4" />
-          </span>
+          <LogoMark className="size-8" />
           <span className="text-sm font-semibold text-white">Kchel Dialer</span>
         </div>
 

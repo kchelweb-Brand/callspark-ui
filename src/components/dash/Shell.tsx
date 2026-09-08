@@ -1,5 +1,5 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { Menu, Radio, Search, Bell, ArrowLeftRight, LogOut } from "lucide-react";
+import { Menu, Search, Bell, ArrowLeftRight, LogOut } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -10,6 +10,7 @@ import { AuthGuard } from "@/components/auth/AuthGuard";
 import { SoftphoneBar } from "@/components/dash/SoftphoneBar";
 import { clearSession, getSessionUser } from "@/lib/auth-api";
 import { tenantNav, adminNav, type NavItem } from "./nav";
+import { LogoMark } from "@/components/brand/Logo";
 
 type Scope = "tenant" | "admin";
 
@@ -51,9 +52,7 @@ function SidebarBody({ scope, onNavigate }: { scope: Scope; onNavigate?: (() => 
   return (
     <div className="flex h-full flex-col bg-sidebar py-5">
       <div className="mb-6 flex items-center gap-3 px-6">
-        <span className="flex size-9 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-          <Radio className="size-5" />
-        </span>
+        <LogoMark className="size-9" />
         <span className="leading-tight">
           <span className="block text-sm font-bold tracking-tight text-sidebar-accent-foreground">
             Kchel Dialer

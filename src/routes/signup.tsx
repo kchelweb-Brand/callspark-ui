@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Radio, Loader2, Check, X, CircleCheck } from "lucide-react";
+import { Loader2, Check, X, CircleCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -12,6 +12,7 @@ import {
   verifySignup,
   type AccountType,
 } from "@/lib/auth-api";
+import { LogoMark } from "@/components/brand/Logo";
 
 export const Route = createFileRoute("/signup")({
   head: () => ({
@@ -124,9 +125,7 @@ function SignupPage() {
     <div className="grid min-h-screen w-full lg:grid-cols-2">
       <div className="hidden flex-col justify-between bg-sidebar p-12 lg:flex">
         <div className="flex items-center gap-3">
-          <span className="flex size-10 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-            <Radio className="size-5" />
-          </span>
+          <LogoMark className="size-10" />
           <span className="text-lg font-bold tracking-tight text-sidebar-accent-foreground">
             Kchel Dialer
           </span>
@@ -149,9 +148,7 @@ function SignupPage() {
         {step === "details" && (
           <form className="w-full max-w-sm" onSubmit={handleSubmitDetails}>
             <div className="mb-8 flex items-center gap-3 lg:hidden">
-              <span className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                <Radio className="size-4.5" />
-              </span>
+              <LogoMark className="size-9" />
               <span className="font-bold tracking-tight">Kchel Dialer</span>
             </div>
 
