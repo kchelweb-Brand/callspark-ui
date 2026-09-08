@@ -1,6 +1,38 @@
 import { env } from "./env";
 import { CODE_TTL_MINUTES } from "./codes";
 
+/**
+ * Where the app is reachable, for absolute URLs in email.
+ *
+ * Email clients have no page to resolve a relative path against, so an image
+ * or link must be fully qualified or it simply doesn't render.
+ */
+const PUBLIC_ORIGIN = "https://kchel-dialer.kchelweb.workers.dev";
+
+/**
+ * The logo lockup at the top of every email.
+ *
+ * A PNG rather than the SVG: Gmail and Outlook strip inline SVG entirely, so
+ * the raster icon we already ship for favicons is what actually renders. The
+ * wordmark stays live text beside it, so the brand still reads when a client
+ * blocks images by default — which most do on first contact from a new sender.
+ */
+function brandHeader(): string {
+  return `
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 20px">
+      <tr>
+        <td style="padding-right:10px;vertical-align:middle">
+          <img src="${PUBLIC_ORIGIN}/icon-192.png" width="32" height="32" alt="Kchel Dialer"
+               style="display:block;width:32px;height:32px;border-radius:8px;border:0" />
+        </td>
+        <td style="vertical-align:middle">
+          <span style="font-size:15px;font-weight:800;letter-spacing:-.02em;color:#16181d">Kchel Dialer</span>
+        </td>
+      </tr>
+    </table>
+  `;
+}
+
 const PURPOSE_COPY: Record<string, { subject: string; heading: string }> = {
   login: { subject: "Your Kchel Dialer login code", heading: "Sign in to Kchel Dialer" },
   admin_login: { subject: "Your Kchel admin login code", heading: "Sign in to the Kchel admin console" },
@@ -11,7 +43,7 @@ function renderHtml(code: string, purpose: string): string {
   const copy = PURPOSE_COPY[purpose] ?? PURPOSE_COPY["login"]!;
   return `
     <div style="font-family:-apple-system,Segoe UI,sans-serif;max-width:420px;margin:0 auto;padding:32px 24px">
-      <p style="font-size:13px;font-weight:700;letter-spacing:.08em;color:#0f766e;text-transform:uppercase">Kchel Dialer</p>
+      ${brandHeader()}
       <h1 style="font-size:20px;margin:12px 0 4px">${copy.heading}</h1>
       <p style="font-size:14px;color:#475569;margin:0 0 24px">Enter this code to continue. It expires in ${CODE_TTL_MINUTES} minutes.</p>
       <p style="font-family:monospace;font-size:32px;font-weight:700;letter-spacing:.3em;background:#f1f5f9;padding:16px 20px;border-radius:10px;text-align:center;margin:0 0 24px">${code}</p>
@@ -90,7 +122,10 @@ export async function sendCodeEmail(
 
   if (!res.ok) {
     const body = await res.text().catch(() => "");
-    console.error(`[email] Resend rejected ${purpose} code for ${to} (${res.status}): ${body}`);
+    console.error(
+      `[email] Resend rejected ${purpose} code for ${to} (${res.status}): ${body} ` +
+        `| from=${JSON.stringify(env.resendFromEmail)}`,
+    );
     // Still logged, so an operator can read the code out of the tail and
     // unblock someone by hand while delivery is broken.
     console.log(`[email:fallback] ${purpose} code for ${to}: ${code}`);
@@ -145,7 +180,7 @@ function escapeHtml(value: string): string {
 function shell(heading: string, bodyHtml: string): string {
   return `
     <div style="font-family:-apple-system,Segoe UI,sans-serif;max-width:520px;margin:0 auto;padding:32px 24px">
-      <p style="font-size:13px;font-weight:700;letter-spacing:.08em;color:#0f766e;text-transform:uppercase">Kchel Dialer</p>
+      ${brandHeader()}
       <h1 style="font-size:20px;margin:12px 0 16px">${escapeHtml(heading)}</h1>
       ${bodyHtml}
     </div>

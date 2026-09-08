@@ -227,16 +227,25 @@ export const submitSignupFn = createServerFn({ method: "POST" })
     if (issue) throw new Error(issue);
     if (await isSlugTaken(slug)) throw new Error("This workspace name is already taken.");
 
-    await sql`
+    const inserted = await sql`
       insert into signup_requests (email, full_name, account_type, company_name, workspace_slug)
       values (${email}, ${fullName}, ${data.accountType}, ${data.companyName || null}, ${slug})
+      returning id
     `;
+    const signupId = (inserted[0] as { id: string }).id;
+
     // Signup can report a delivery failure honestly: this flow already tells
     // the caller whether an email or workspace is taken, so there is no account
     // to leak. Telling someone "check your email" when nothing was sent leaves
     // them waiting on a message that will never arrive.
     const sent = await issueCode(email, "signup");
+
     if (!sent.delivered) {
+      // Undo the reservation. A pending signup holds its workspace name for an
+      // hour, so leaving this row behind would make the retry fail with "this
+      // workspace name is already taken" — the user blocked by their own
+      // failed attempt, and no way to tell that from a genuine collision.
+      await sql`delete from signup_requests where id = ${signupId} and verified_at is null`;
       throw new Error(sent.error ?? "We couldn't send your verification code. Please try again.");
     }
 
