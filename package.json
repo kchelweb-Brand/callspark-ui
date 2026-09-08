@@ -11,7 +11,8 @@
     "deploy": "vite build && node scripts/deploy.mjs",
     "migrate": "node scripts/migrate.mjs",
     "lint": "eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "icons": "node scripts/generate-icons.mjs"
   },
   "overrides": {
     "rolldown": "1.2.1"

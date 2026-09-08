@@ -1,0 +1,13 @@
+{
+  "name": "Kchel Dialer",
+  "short_name": "Kchel",
+  "description": "Cloud dialer and phone system — IVR, call routing and a browser softphone.",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#16181D",
+  "theme_color": "#16181D",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}
