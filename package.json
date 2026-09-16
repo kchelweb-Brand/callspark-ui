@@ -12,7 +12,8 @@
     "migrate": "node scripts/migrate.mjs",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "icons": "node scripts/generate-icons.mjs"
+    "icons": "node scripts/generate-icons.mjs",
+    "brand": "node scripts/export-brand-assets.mjs"
   },
   "overrides": {
     "rolldown": "1.2.1"
