@@ -71,13 +71,13 @@ const FEATURES = [
   },
   {
     icon: MessageSquare,
-    title: "SMS campaigns",
-    body: "Follow up in writing from the same contact list your agents are dialling.",
+    title: "Contacts your team dials",
+    body: "Import a list in bulk, tag it, flag do-not-call, and dial straight from a contact record.",
   },
   {
     icon: AudioLines,
-    title: "Campaigns and contacts",
-    body: "Import a list, launch a campaign, and watch it work through the queue with live progress.",
+    title: "Call history you can search",
+    body: "Every call logged against the contact it belongs to, with its outcome, duration and recording.",
   },
 ];
 
@@ -190,8 +190,8 @@ function HomePage() {
             A full phone system, not a dialer bolted onto a CRM
           </h2>
           <p className="mt-4 text-lg text-muted-foreground">
-            Every plan gets the whole product. The difference between tiers is how many people and
-            contacts you bring, not which features you unlock.
+            Every plan gets the calling, menus, routing and reporting. Tiers differ by how many
+            people and contacts you bring — and, at the top, by who runs the carrier for you.
           </p>
         </div>
 
@@ -238,11 +238,12 @@ function HomePage() {
         <div className="mx-auto max-w-2xl text-center">
           <p className="text-sm font-bold uppercase tracking-[0.14em] text-primary">Pricing</p>
           <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
-            Priced per agent. Nothing hidden.
+            Per agent as you grow. Flat once you scale.
           </h2>
           <p className="mt-4 text-lg text-muted-foreground">
             On Starter and Professional you bring your own SIP trunk, so your call minutes stay on
-            your carrier bill at your rates. We only charge for the dialer.
+            your carrier bill at your rates. On Managed Enterprise we supply the trunk, run the
+            carrier relationship, and charge one flat fee however large your team gets.
           </p>
         </div>
 
@@ -268,10 +269,18 @@ function HomePage() {
 
                 <p className="mt-5">
                   <span className="text-3xl font-bold tracking-tight">
-                    {p.price === 0 ? "Free" : `$${p.price}`}
+                    {p.priceFlatMonthly !== null
+                      ? `$${p.priceFlatMonthly.toLocaleString()}`
+                      : p.price === 0
+                        ? "Free"
+                        : `$${p.price}`}
                   </span>
-                  {p.price > 0 && (
-                    <span className="text-sm text-muted-foreground"> /agent/month</span>
+                  {p.priceFlatMonthly !== null ? (
+                    <span className="text-sm text-muted-foreground"> /month, any team size</span>
+                  ) : (
+                    p.price > 0 && (
+                      <span className="text-sm text-muted-foreground"> /agent/month</span>
+                    )
                   )}
                 </p>
 
@@ -280,10 +289,6 @@ function HomePage() {
                   <PlanLine value={p.limits.contacts} one="contact" many="contacts" />
                   <PlanLine value={p.limits.ivrMenus} one="IVR menu" many="IVR menus" />
                   <PlanLine value={p.limits.phoneNumbers} one="phone number" many="phone numbers" />
-                  <Line
-                    on={p.limits.smsCampaigns === null || p.limits.smsCampaigns > 0}
-                    text="SMS campaigns"
-                  />
                   <Line
                     on={p.limits.recordingRetentionDays !== 0}
                     text={
@@ -302,7 +307,15 @@ function HomePage() {
                   variant={featured ? "default" : "outline"}
                   asChild
                 >
-                  <Link to="/signup">{p.price === 0 ? "Start free" : "Get started"}</Link>
+                  {/* The flat-priced tier is quoted, not self-serve, so it must
+                      not inherit the trial's "Start free" from a zero seat price. */}
+                  <Link to="/signup">
+                    {p.priceFlatMonthly !== null
+                      ? "Talk to us"
+                      : p.price === 0
+                        ? "Start free"
+                        : "Get started"}
+                  </Link>
                 </Button>
               </div>
             );

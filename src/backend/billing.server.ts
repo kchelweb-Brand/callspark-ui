@@ -27,6 +27,8 @@ export const listPlansFn = createServerFn({ method: "POST" })
       id: p.id,
       name: p.name,
       price: p.pricePerAgentMonthly,
+      // Null on per-seat plans, so the UI can tell the two models apart.
+      priceFlatMonthly: p.priceFlatMonthly ?? null,
       blurb: p.blurb,
       managedSip: p.managedSip,
       limits: p.limits,
@@ -49,6 +51,7 @@ export const getPlanUsageFn = createServerFn({ method: "POST" })
         id: plan.plan.id,
         name: plan.plan.name,
         price: plan.plan.pricePerAgentMonthly,
+        priceFlatMonthly: plan.plan.priceFlatMonthly ?? null,
         blurb: plan.plan.blurb,
         managedSip: plan.plan.managedSip,
       },

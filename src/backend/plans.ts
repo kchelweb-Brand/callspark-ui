@@ -25,8 +25,17 @@ export interface PlanLimits {
 export interface Plan {
   id: PlanId;
   name: string;
-  /** USD per agent seat per month. Zero for the trial. */
+  /** USD per agent seat per month. Zero on the trial and on flat-priced plans. */
   pricePerAgentMonthly: number;
+  /**
+   * USD per month regardless of seat count, on plans sold as a flat fee.
+   *
+   * Once seats are unlimited the seat stops being a sensible billing unit —
+   * charging per agent for "unlimited agents" is a contradiction. Read this
+   * through `monthlyPrice` rather than directly, so nothing has to remember
+   * which plans are priced which way.
+   */
+  priceFlatMonthly?: number;
   blurb: string;
   limits: PlanLimits;
   /** Trial only: how long before it lapses. */
@@ -79,7 +88,7 @@ export const PLANS: Record<PlanId, Plan> = {
     id: "professional",
     name: "Professional",
     pricePerAgentMonthly: 59,
-    blurb: "Campaigns, SMS and analytics for a working floor.",
+    blurb: "More seats, more numbers and deeper analytics for a working floor.",
     managedSip: false,
     limits: {
       agents: 25,
@@ -94,9 +103,13 @@ export const PLANS: Record<PlanId, Plan> = {
   },
   managed: {
     id: "managed",
-    name: "Managed",
-    pricePerAgentMonthly: 59,
-    blurb: "We supply the trunk and bill your minutes.",
+    name: "Managed Enterprise",
+    // Flat, because every limit on this tier is unlimited. Professional caps
+    // at 25 agents, which is $1,475/mo at $59 a seat — so this is where the
+    // curve continues, and the cost per agent falls as the team grows.
+    pricePerAgentMonthly: 0,
+    priceFlatMonthly: 2500,
+    blurb: "Unlimited everything, we run the carrier, and a named account manager.",
     managedSip: true,
     limits: {
       agents: null,
@@ -112,6 +125,18 @@ export const PLANS: Record<PlanId, Plan> = {
 };
 
 export const DEFAULT_PLAN: PlanId = "trial";
+
+/**
+ * What a tenant on `plan` pays per month at `seats` seats.
+ *
+ * The single place the two pricing models meet, so the marketing page, the
+ * billing page and the admin console's MRR can't disagree about what a
+ * customer is charged.
+ */
+export function monthlyPrice(plan: Plan, seats: number): number {
+  if (plan.priceFlatMonthly !== undefined) return plan.priceFlatMonthly;
+  return plan.pricePerAgentMonthly * Math.max(0, seats);
+}
 
 export function isPlanId(value: string | null | undefined): value is PlanId {
   return value === "trial" || value === "starter" || value === "professional" || value === "managed";

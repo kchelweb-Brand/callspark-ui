@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 
 import { sql } from "./db";
-import { getPlan } from "./plans";
+import { getPlan, monthlyPrice } from "./plans";
 import { verifyToken } from "./tokens";
 import { sendTicketStatusEmail } from "./email";
 
@@ -12,13 +12,14 @@ async function requireSuperAdmin(token: string) {
 }
 
 /**
- * Revenue is priced per agent seat, so MRR is the plan's seat price times the
- * seats a tenant actually has. Prices come from src/backend/plans.ts — the
- * same catalog the Billing page renders and the entitlement checks enforce,
- * so the admin console can't drift from what customers are charged.
+ * MRR for one tenant. Per-seat plans bill seats; Managed Enterprise is a flat
+ * monthly fee, so `monthlyPrice` resolves whichever applies. Prices come from
+ * src/backend/plans.ts — the same catalog the Billing page renders and the
+ * entitlement checks enforce, so the admin console can't drift from what
+ * customers are actually charged.
  */
 function monthlyRevenue(planId: string | null | undefined, seats: number): number {
-  return getPlan(planId).pricePerAgentMonthly * Math.max(0, seats);
+  return monthlyPrice(getPlan(planId), seats);
 }
 
 function num(value: unknown): number {

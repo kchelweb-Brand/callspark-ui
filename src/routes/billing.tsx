@@ -176,9 +176,11 @@ function BillingPage() {
           value={planUsage?.plan.name ?? "…"}
           hint={
             planUsage
-              ? planUsage.plan.price === 0
-                ? "free"
-                : `$${planUsage.plan.price}/agent/month`
+              ? planUsage.plan.priceFlatMonthly !== null
+                ? `$${planUsage.plan.priceFlatMonthly.toLocaleString()}/month, any team size`
+                : planUsage.plan.price === 0
+                  ? "free"
+                  : `$${planUsage.plan.price}/agent/month`
               : "loading"
           }
           icon={CreditCard}
@@ -311,8 +313,9 @@ function BillingPage() {
           <DialogHeader>
             <DialogTitle>Plans</DialogTitle>
             <DialogDescription>
-              Priced per agent seat. Your carrier minutes are billed by your own SIP provider
-              unless you are on Managed.
+              Starter and Professional are priced per agent seat; Managed Enterprise is a flat
+              monthly fee at any team size. Your carrier minutes are billed by your own SIP
+              provider unless you are on Managed Enterprise.
             </DialogDescription>
           </DialogHeader>
 
@@ -340,9 +343,17 @@ function BillingPage() {
                       <p className="mt-0.5 text-xs text-muted-foreground">{p.blurb}</p>
                     </div>
                     <span className="shrink-0 font-mono text-sm font-semibold">
-                      {p.price === 0 ? "Free" : `$${p.price}`}
-                      {p.price > 0 && (
-                        <span className="text-xs font-normal text-muted-foreground">/agent</span>
+                      {p.priceFlatMonthly !== null
+                        ? `$${p.priceFlatMonthly.toLocaleString()}`
+                        : p.price === 0
+                          ? "Free"
+                          : `$${p.price}`}
+                      {p.priceFlatMonthly !== null ? (
+                        <span className="text-xs font-normal text-muted-foreground">/month</span>
+                      ) : (
+                        p.price > 0 && (
+                          <span className="text-xs font-normal text-muted-foreground">/agent</span>
+                        )
                       )}
                     </span>
                   </div>
@@ -412,8 +423,8 @@ function BillingPage() {
               here rather than letting a customer wonder why nothing changed. */}
           <p className="text-xs text-muted-foreground">
             After you pay, we verify the payment and activate your account — you&apos;ll get an
-            email confirming it, usually within a few hours. Need a different seat count, or the
-            Managed plan? Contact us and we&apos;ll send a link.
+            email confirming it, usually within a few hours. Need a different seat count, or
+            Managed Enterprise? Contact us and we&apos;ll send a link.
           </p>
 
           <DialogFooter>
