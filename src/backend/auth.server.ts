@@ -2,7 +2,9 @@ import { createServerFn } from "@tanstack/react-start";
 
 import { sql } from "./db";
 import { CODE_TTL_MINUTES, generateCode, hashCode, isAttemptsExceeded } from "./codes";
+import { getTenantPlan } from "./entitlements";
 import { sendCodeEmail } from "./email";
+import { PLANS } from "./plans";
 import { signToken, verifyToken } from "./tokens";
 
 type Purpose = "login" | "admin_login" | "signup";
@@ -172,13 +174,21 @@ export const verifyLoginCodeFn = createServerFn({ method: "POST" })
 
     let workspaceSlug: string | null = null;
     if (user.tenant_id) {
-      const tenants = await sql`select workspace_slug, status from tenants where id = ${user.tenant_id} limit 1`;
-      const tenant = tenants[0] as { workspace_slug: string; status: string } | undefined;
-      if (data.purpose === "login" && tenant) {
-        if (tenant.status === "suspended") throw new Error("This workspace has been suspended. Contact support.");
-        if (tenant.status === "pending") throw new Error("This workspace is awaiting approval — we'll email you once it's live.");
-      }
+      const tenants = await sql`select workspace_slug from tenants where id = ${user.tenant_id} limit 1`;
+      const tenant = tenants[0] as { workspace_slug: string } | undefined;
       workspaceSlug = tenant?.workspace_slug ?? null;
+
+      // Ordinary logins only — an admin logging into the console isn't
+      // blocked by a customer tenant's own state. Routed through
+      // getTenantPlan rather than reading status directly, because that's
+      // also where a lapsed trial gets suspended: this is the moment that
+      // almost always notices it first, since it's exactly what someone
+      // does after being away for two weeks.
+      if (data.purpose === "login" && tenant) {
+        const { status } = await getTenantPlan(user.tenant_id);
+        if (status === "suspended") throw new Error("This workspace has been suspended. Contact support.");
+        if (status === "pending") throw new Error("This workspace is awaiting approval — we'll email you once it's live.");
+      }
     }
 
     const token = await signToken({
@@ -290,10 +300,18 @@ export const verifySignupFn = createServerFn({ method: "POST" })
 
     await sql`update signup_requests set verified_at = now() where id = ${signup.id}`;
 
+    // Live immediately, no approval queue — the trial clock starts at this
+    // exact insert, not whenever a human next looks at it. Same interval
+    // setTenantPlanFn uses when the admin console puts a tenant back on
+    // trial, so there's one place that decides what "14 days" means.
     const tenantName = signup.company_name?.trim() || signup.full_name;
+    const trialDays = PLANS.trial.trialDays ?? 14;
     const tenants = await sql`
-      insert into tenants (name, workspace_slug, status)
-      values (${tenantName}, ${signup.workspace_slug}, 'pending')
+      insert into tenants (name, workspace_slug, status, trial_ends_at)
+      values (
+        ${tenantName}, ${signup.workspace_slug}, 'active',
+        now() + (${trialDays} || ' days')::interval
+      )
       returning id
     `;
     const tenant = tenants[0] as { id: string };
@@ -305,8 +323,8 @@ export const verifySignupFn = createServerFn({ method: "POST" })
 
     return {
       ok: true as const,
-      status: "pending",
-      message: "Your workspace has been created and is awaiting approval.",
+      status: "active",
+      message: `Your workspace is live. Your ${trialDays}-day trial starts now.`,
       workspaceSlug: signup.workspace_slug,
     };
   });

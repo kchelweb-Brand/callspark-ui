@@ -339,14 +339,15 @@ function SignupPage() {
             <span className="mx-auto flex size-12 items-center justify-center rounded-full bg-success/15 text-success">
               <CircleCheck className="size-6" />
             </span>
-            <h1 className="mt-5 text-2xl font-bold tracking-tight">Email verified</h1>
+            <h1 className="mt-5 text-2xl font-bold tracking-tight">You're live</h1>
             <p className="mt-2 text-sm text-muted-foreground">
               Your workspace{" "}
-              <span className="font-mono font-medium text-foreground">{slug}.kchel.app</span> has
-              been created and is awaiting approval. We'll email you as soon as it's live.
+              <span className="font-mono font-medium text-foreground">{slug}.kchel.app</span> is
+              ready right now — no approval to wait on. Your 14-day trial started the moment you
+              verified, so it's worth signing in and getting your first call routed today.
             </p>
             <Button className="mt-7 w-full" onClick={() => navigate({ to: "/login" })}>
-              Back to sign in
+              Sign in and get started
             </Button>
           </div>
         )}

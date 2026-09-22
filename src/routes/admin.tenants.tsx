@@ -55,7 +55,11 @@ function AdminTenantsPage() {
   const [tenants, setTenants] = useState<AdminTenant[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<string>("pending");
+  // Signups go live immediately now — nothing lands in "pending" on its own,
+  // so defaulting there would show an empty tab on every page load. The
+  // filter itself stays: an admin can still move a tenant back to pending by
+  // hand, and this is where they'd go to find it again.
+  const [filter, setFilter] = useState<string>("active");
   const [search, setSearch] = useState("");
   // Tracks which row is mid-update so we can disable just that row's buttons.
   const [updatingId, setUpdatingId] = useState<string | null>(null);

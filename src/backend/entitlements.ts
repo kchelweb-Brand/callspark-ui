@@ -19,6 +19,8 @@ export interface TenantPlan {
   trialEndsAt: string | null;
   trialExpired: boolean;
   daysRemaining: number | null;
+  /** Reflects the write below — 'suspended' the instant this function notices expiry. */
+  status: string;
 }
 
 /** A blocked action. Thrown so callers surface the message verbatim. */
@@ -30,20 +32,42 @@ export class PlanLimitError extends Error {
   }
 }
 
+/**
+ * A trial that ran out unpaid is suspended the moment anything next checks
+ * it — a login attempt, a write, the billing page loading. There's no
+ * scheduler in this app to sweep for it on a timer instead, so whichever
+ * request notices first is the one that flips the switch. It's the same
+ * outcome a founder gets from the admin console's own Suspend button, just
+ * triggered by the calendar instead of a click.
+ *
+ * Guarded on the current status so it only ever moves a tenant out of
+ * 'active' — it can't clobber a state an admin set deliberately (back to
+ * 'pending', say), and calling it twice after the first flip is a no-op.
+ */
 export async function getTenantPlan(tenantId: string): Promise<TenantPlan> {
   const rows = await sql`
-    select plan, trial_ends_at from tenants where id = ${tenantId} limit 1
+    select plan, trial_ends_at, status from tenants where id = ${tenantId} limit 1
   `;
-  const row = rows[0] as { plan: string | null; trial_ends_at: string | null } | undefined;
+  const row = rows[0] as
+    | { plan: string | null; trial_ends_at: string | null; status: string | null }
+    | undefined;
 
   const plan = getPlan(row?.plan);
   const trialEndsAt = row?.trial_ends_at ?? null;
+  const trialExpired = isTrialExpired(plan.id, trialEndsAt);
+  let status = row?.status ?? "active";
+
+  if (trialExpired && plan.id === "trial" && status === "active") {
+    await sql`update tenants set status = 'suspended' where id = ${tenantId} and status = 'active'`;
+    status = "suspended";
+  }
 
   return {
     plan,
     trialEndsAt,
-    trialExpired: isTrialExpired(plan.id, trialEndsAt),
+    trialExpired,
     daysRemaining: trialDaysRemaining(plan.id, trialEndsAt),
+    status,
   };
 }
 
@@ -102,11 +126,15 @@ export async function requireWithinLimit(
 }
 
 /**
- * Blocks work once a trial has lapsed.
+ * Blocks new work once a trial has lapsed, inside a session that was already
+ * open when it did.
  *
- * Reads stay open on purpose: an expired customer can still sign in, see their
- * contacts and export them. Locking people out of their own data to pressure
- * an upgrade is hostile, and it makes the eventual upgrade less likely.
+ * The account itself is fully suspended by now — getTenantPlan already wrote
+ * that the moment it noticed — so the next sign-in is refused outright. This
+ * only covers the gap before that: a tab left open across the expiry moment
+ * can still read and export what's already there, just not create anything
+ * new, until the token itself runs out or they sign in again and find the
+ * door shut.
  */
 export async function requireActivePlan(tenantId: string): Promise<void> {
   const { plan, trialExpired } = await getTenantPlan(tenantId);
