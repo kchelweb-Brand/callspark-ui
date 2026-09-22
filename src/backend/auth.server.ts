@@ -4,6 +4,7 @@ import { sql } from "./db";
 import { CODE_TTL_MINUTES, generateCode, hashCode, isAttemptsExceeded } from "./codes";
 import { getTenantPlan } from "./entitlements";
 import { sendCodeEmail } from "./email";
+import { callingCodeFromE164 } from "./phone-numbers";
 import { PLANS } from "./plans";
 import { signToken, verifyToken } from "./tokens";
 
@@ -224,6 +225,7 @@ export const submitSignupFn = createServerFn({ method: "POST" })
       email: string;
       accountType: "individual" | "business";
       companyName?: string;
+      phone?: string;
       workspaceSlug: string;
     }) => data,
   )
@@ -238,8 +240,11 @@ export const submitSignupFn = createServerFn({ method: "POST" })
     if (await isSlugTaken(slug)) throw new Error("This workspace name is already taken.");
 
     const inserted = await sql`
-      insert into signup_requests (email, full_name, account_type, company_name, workspace_slug)
-      values (${email}, ${fullName}, ${data.accountType}, ${data.companyName || null}, ${slug})
+      insert into signup_requests (email, full_name, account_type, company_name, phone, workspace_slug)
+      values (
+        ${email}, ${fullName}, ${data.accountType}, ${data.companyName || null},
+        ${data.phone?.trim() || null}, ${slug}
+      )
       returning id
     `;
     const signupId = (inserted[0] as { id: string }).id;
@@ -285,12 +290,19 @@ export const verifySignupFn = createServerFn({ method: "POST" })
     await sql`update otp_codes set consumed_at = now() where id = ${row.id}`;
 
     const pending = await sql`
-      select id, full_name, account_type, company_name, workspace_slug from signup_requests
+      select id, full_name, account_type, company_name, phone, workspace_slug from signup_requests
       where email = ${email} and verified_at is null
       order by created_at desc limit 1
     `;
     const signup = pending[0] as
-      | { id: string; full_name: string; account_type: string; company_name: string | null; workspace_slug: string }
+      | {
+          id: string;
+          full_name: string;
+          account_type: string;
+          company_name: string | null;
+          phone: string | null;
+          workspace_slug: string;
+        }
       | undefined;
     if (!signup) throw new Error("Signup request not found. Please start over.");
 
@@ -320,6 +332,35 @@ export const verifySignupFn = createServerFn({ method: "POST" })
       insert into users (tenant_id, email, role, is_super_admin)
       values (${tenant.id}, ${email}, 'tenant_owner', false)
     `;
+
+    // Prefill from what signup already collected, so Settings and Phone
+    // System open with real information instead of blanks the owner has to
+    // remember to fill in a second time. Both are genuine upserts (the row
+    // doesn't exist yet for a brand-new tenant) and neither invents data the
+    // customer didn't provide — a business phone left blank at signup just
+    // means the dial code stays blank too, same as today.
+    await sql`
+      insert into tenant_settings (tenant_id, workspace, updated_at)
+      values (
+        ${tenant.id},
+        ${JSON.stringify({ company: tenantName, phone: signup.phone })}::jsonb,
+        now()
+      )
+      on conflict (tenant_id) do update set
+        workspace = tenant_settings.workspace || excluded.workspace,
+        updated_at = now()
+    `;
+
+    const dialCode = signup.phone ? callingCodeFromE164(signup.phone) : "";
+    if (dialCode) {
+      await sql`
+        insert into phone_system_settings (tenant_id, routing, updated_at)
+        values (${tenant.id}, ${JSON.stringify({ defaultDialCode: dialCode })}::jsonb, now())
+        on conflict (tenant_id) do update set
+          routing = phone_system_settings.routing || excluded.routing,
+          updated_at = now()
+      `;
+    }
 
     return {
       ok: true as const,

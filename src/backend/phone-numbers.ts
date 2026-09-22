@@ -17,6 +17,22 @@ export function normalizeNumber(value: string): string {
   return digits.length > 10 ? digits.slice(-10) : digits;
 }
 
+/**
+ * The calling code from a full international number, or "" if it's too
+ * short to have one — the mirror image of normalizeNumber, which keeps the
+ * last 10 digits and throws the calling code away.
+ *
+ * Used once, at signup: a business phone number in full international
+ * format is the one piece of "which country is this workspace in" info
+ * signup already collects, so Routing's default dial code (otherwise blank
+ * until someone notices local-format numbers won't resolve) can start
+ * correct instead of empty. "+2348034064184" -> "234", "+14155550134" -> "1".
+ */
+export function callingCodeFromE164(value: string): string {
+  const digits = value.replace(/\D/g, "");
+  return digits.length > 10 ? digits.slice(0, digits.length - 10) : "";
+}
+
 /** The contact this number belongs to, scoped to one tenant. */
 export async function findContactByPhone(
   tenantId: string,

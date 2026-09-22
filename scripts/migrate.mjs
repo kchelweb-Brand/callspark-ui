@@ -67,6 +67,11 @@ async function main() {
   await sql`create index if not exists idx_signup_requests_email on signup_requests (email)`;
   await sql`create index if not exists idx_signup_requests_slug on signup_requests (workspace_slug)`;
 
+  // Carried through to verifySignupFn so a fresh tenant's workspace profile
+  // and routing default dial code are prefilled from it instead of starting
+  // blank — see verifySignupFn in auth.server.ts.
+  await sql`alter table signup_requests add column if not exists phone text`;
+
   await sql`
     create table if not exists contact_lists (
       id uuid primary key default gen_random_uuid(),

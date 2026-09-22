@@ -120,6 +120,8 @@ export interface SignupParams {
   email: string;
   accountType: AccountType;
   companyName?: string | undefined;
+  /** Full international format. Seeds the workspace's default dial code. */
+  phone?: string | undefined;
   workspaceSlug: string;
 }
 
@@ -135,6 +137,7 @@ export async function submitSignup(params: SignupParams) {
       accountType: params.accountType,
       workspaceSlug: params.workspaceSlug,
       ...(params.companyName ? { companyName: params.companyName } : {}),
+      ...(params.phone ? { phone: params.phone } : {}),
     },
   });
 }

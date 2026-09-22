@@ -41,6 +41,7 @@ function SignupPage() {
   const [accountType, setAccountType] = useState<AccountType>("business");
   const [fullName, setFullName] = useState("");
   const [companyName, setCompanyName] = useState("");
+  const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [slug, setSlug] = useState("");
   const [code, setCode] = useState("");
@@ -97,6 +98,7 @@ function SignupPage() {
         email,
         accountType,
         companyName: accountType === "business" ? companyName.trim() : undefined,
+        phone: phone.trim() || undefined,
         workspaceSlug: slug,
       });
       toast.success("Verification code sent", { description: `Check ${email}.` });
@@ -213,6 +215,24 @@ function SignupPage() {
                   />
                 </div>
               )}
+
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="signupPhone">
+                  Business phone <span className="text-muted-foreground">(optional)</span>
+                </Label>
+                <Input
+                  id="signupPhone"
+                  type="tel"
+                  placeholder="+234 803 406 4184"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  autoComplete="tel"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Full international format. We use it to set your call routing&apos;s default
+                  country code, so local-format numbers dial correctly from day one.
+                </p>
+              </div>
 
               <div className="flex flex-col gap-2">
                 <Label htmlFor="signupEmail">Email</Label>

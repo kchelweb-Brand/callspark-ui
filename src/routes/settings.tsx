@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowRight, Download, KeyRound, ShieldCheck, Workflow } from "lucide-react";
+import { ArrowRight, Clock, Download, KeyRound, Phone, ShieldCheck, Workflow } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -59,11 +59,13 @@ function SettingsPage() {
     { label: "Whisper coaching for supervisors", on: false },
   ]);
 
+  // Prefilled from signup where there's something to prefill (company,
+  // phone) — a fresh workspace shouldn't ask the owner to retype what they
+  // already gave it. Falls back to the workspace slug only until the real
+  // fetch below resolves, and only for accounts that skipped a company name.
   const [profile, setProfile] = useState({
     company: user?.workspace_slug ?? "",
-    tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
-    callerId: "",
-    hours: "08:00 – 19:00",
+    phone: "",
   });
 
   function rotateSecret() {
@@ -233,29 +235,43 @@ function SettingsPage() {
             />
           </div>
           <div className="flex flex-col gap-2">
-            <Label htmlFor="tz">Default timezone</Label>
-            <Input id="tz" value={profile.tz} onChange={(e) => setProfile({ ...profile, tz: e.target.value })} />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="cid">Default caller ID</Label>
+            <Label htmlFor="phone">Business phone</Label>
             <Input
-              id="cid"
-              placeholder="Set up in Phone System"
-              value={profile.callerId}
-              onChange={(e) => setProfile({ ...profile, callerId: e.target.value })}
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="hours">Dialing window</Label>
-            <Input
-              id="hours"
-              value={profile.hours}
-              onChange={(e) => setProfile({ ...profile, hours: e.target.value })}
+              id="phone"
+              type="tel"
+              placeholder="+234 803 406 4184"
+              value={profile.phone}
+              onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
             />
           </div>
         </div>
+
+        {/* Caller ID, business hours and the default dial code are real,
+            enforced settings — they live in Phone System, not here, so
+            editing them here would be a second copy that quietly drifts. */}
+        <Link
+          to="/phone-system"
+          className="mt-5 flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/40 p-4 transition-colors hover:bg-muted/70"
+        >
+          <div className="flex items-center gap-3">
+            <span className="flex size-9 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+              <Clock className="size-4.5" />
+            </span>
+            <div>
+              <p className="text-sm font-semibold">Caller ID, business hours & dial code</p>
+              <p className="text-xs text-muted-foreground">
+                Configured in Phone System, where they actually take effect
+              </p>
+            </div>
+          </div>
+          <ArrowRight className="size-4 shrink-0 text-muted-foreground" />
+        </Link>
+
         <div className="mt-5 flex items-center justify-between gap-2">
-          <p className="text-xs text-muted-foreground">Changes apply to new calls only.</p>
+          <p className="text-xs text-muted-foreground">
+            <Phone className="mr-1 inline size-3.5 align-[-2px]" />
+            Used for your workspace record — not a caller ID.
+          </p>
           <ActionButton disabled={saving} onClick={() => void saveProfile()}>
             {saving ? "Saving…" : "Save changes"}
           </ActionButton>
