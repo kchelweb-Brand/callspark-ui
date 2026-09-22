@@ -4,6 +4,7 @@ import { toast } from "sonner";
 
 import { Panel } from "@/components/dash/bits";
 import { Button } from "@/components/ui/button";
+import { getCarrierSecurityStatus } from "@/lib/phone-system-api";
 import type {
   BusinessHoursConfig,
   Extension,
@@ -64,6 +65,21 @@ export function InboundTab({
   // Rendered on the server too, where there's no location — resolve after mount.
   const [origin, setOrigin] = useState("");
   useEffect(() => setOrigin(window.location.origin), []);
+
+  // Whether each carrier's signing key actually exists right now — not a
+  // static line of setup copy that stays on screen forever once it's done.
+  const [security, setSecurity] = useState<{ signalwire: boolean; telnyx: boolean } | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    void getCarrierSecurityStatus()
+      .then((s) => !cancelled && setSecurity(s))
+      .catch(() => {
+        // Non-fatal — the panel just won't claim either state until it loads.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Both carriers are wired; the tenant uses whichever they have an account
   // with, so show both rather than guessing.
@@ -212,11 +228,22 @@ export function InboundTab({
                 <li key={step}>{step}</li>
               ))}
             </ol>
-            <p className="text-xs text-muted-foreground">
-              Until <span className="font-mono text-foreground">{carrier.keyName}</span> is set,
-              webhooks are accepted without signature checks — fine while testing, not for
-              production.
-            </p>
+            {(() => {
+              const armed = carrierId === "signalwire" ? security?.signalwire : security?.telnyx;
+              if (armed === undefined) return null; // still loading — no claim either way
+              return armed ? (
+                <p className="flex items-center gap-1.5 text-xs font-medium text-success">
+                  <Check className="size-3.5" /> Signature verification is on — {carrier.keyName}{" "}
+                  is set, and unsigned webhooks are rejected.
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Until <span className="font-mono text-foreground">{carrier.keyName}</span> is
+                  set, webhooks are accepted without signature checks — fine while testing, not
+                  for production.
+                </p>
+              );
+            })()}
           </div>
         </div>
       </Panel>

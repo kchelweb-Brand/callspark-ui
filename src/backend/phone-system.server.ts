@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 
 import { sql } from "./db";
+import { env } from "./env";
 import { verifyToken } from "./tokens";
 import { requireCountWithinLimit } from "./entitlements";
 
@@ -108,6 +109,27 @@ export const savePhoneSystemFn = createServerFn({ method: "POST" })
     `;
 
     return { ok: true as const };
+  });
+
+/**
+ * Whether each carrier's webhook signature checks are actually armed —
+ * never the key values themselves, just whether they exist.
+ *
+ * The Inbound tab used to state this as a static line of copy ("until
+ * SIGNALWIRE_SIGNING_KEY is set...") that stayed on screen even after the
+ * key was set, because nothing about it was ever read from anywhere real.
+ * True the moment a `wrangler secret put` actually lands — no redeploy
+ * needed, since Workers pick up a new secret on the next request.
+ */
+export const getCarrierSecurityStatusFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string }) => data)
+  .handler(async ({ data }) => {
+    await requireTenant(data.token); // any signed-in tenant may see this — it's platform config, not tenant data
+    return {
+      ok: true as const,
+      signalwire: Boolean(env.signalwireSigningKey),
+      telnyx: Boolean(env.telnyxPublicKey),
+    };
   });
 
 /** Numbers are stored separately so inbound routing can find a tenant by number. */
