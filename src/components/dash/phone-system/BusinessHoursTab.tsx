@@ -17,13 +17,16 @@ import {
 } from "@/components/ui/select";
 import { nextId, type BusinessHoursConfig } from "@/lib/phone-system-data";
 
-const TIMEZONES = [
-  "America/Los_Angeles",
-  "America/Denver",
-  "America/Chicago",
-  "America/New_York",
-  "Europe/London",
-];
+// The full IANA set the JS engine itself ships — not a hand-picked handful
+// of US/UK zones. A product sold specifically on working for a business
+// anywhere, not just North America, can't then only offer North American
+// and UK timezones on the one screen that decides when calls ring through:
+// a tenant on any other zone couldn't select their own, and — worse — their
+// real saved value (set correctly elsewhere, e.g. at signup) would render
+// as a blank Select here since Radix shows nothing for a value with no
+// matching item, inviting exactly the kind of "fix" that overwrites it with
+// a wrong one.
+const TIMEZONES = Intl.supportedValuesOf("timeZone");
 
 export function BusinessHoursTab({
   hours,

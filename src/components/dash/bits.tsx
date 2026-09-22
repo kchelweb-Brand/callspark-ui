@@ -186,6 +186,12 @@ export function ActionButton({
   return <Button {...props}>{children}</Button>;
 }
 
+/**
+ * There is no carrier messaging integration behind this yet — a bulk send
+ * queues a record and nothing leaves the platform. "US numbers only" would
+ * be the wrong caveat once sending is real, but right now it's the wrong
+ * caveat regardless of number origin: nothing sends today, from any number.
+ */
 export function SmsNotice({ className }: { className?: string }) {
   return (
     <p
@@ -194,7 +200,7 @@ export function SmsNotice({ className }: { className?: string }) {
         className,
       )}
     >
-      <MessageSquare className="size-3.5" /> SMS available for US numbers only
+      <MessageSquare className="size-3.5" /> SMS sending isn&apos;t live yet
     </p>
   );
 }

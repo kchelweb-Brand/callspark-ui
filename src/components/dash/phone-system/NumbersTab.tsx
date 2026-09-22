@@ -108,7 +108,7 @@ export function NumbersTab({
   return (
     <Panel
       title="Phone numbers"
-      description="Caller IDs available to voice and SMS campaigns, and the IVR menu each answers to"
+      description="Caller IDs available to voice calling, and the IVR menu each answers to"
       actions={
         <Button size="sm" onClick={() => setAddOpen(true)}>
           <Plus className="size-4" /> Add number
@@ -118,9 +118,6 @@ export function NumbersTab({
     >
       <div className="flex flex-wrap items-center gap-3 border-b border-border p-4">
         <SmsNotice />
-        <span className="text-xs text-muted-foreground">
-          Non-US numbers can place calls but cannot send or receive SMS.
-        </span>
       </div>
       <div className="overflow-x-auto">
         <Table>
@@ -252,7 +249,6 @@ function ConfigureDialog({
   onSave: (n: PhoneNumber) => void;
 }) {
   const [num, setNum] = useState(initial);
-  const isUs = num.region.startsWith("US");
 
   return (
     <Dialog open onOpenChange={(open) => !open && onCancel()}>
@@ -289,14 +285,9 @@ function ConfigureDialog({
               <Label htmlFor="num-sms" className="text-sm font-medium">
                 SMS enabled
               </Label>
-              {!isUs && <p className="text-xs text-muted-foreground">Only available for US numbers</p>}
+              <p className="text-xs text-muted-foreground">Not live yet — see Phone numbers above</p>
             </div>
-            <Switch
-              id="num-sms"
-              checked={num.smsEnabled}
-              disabled={!isUs}
-              onCheckedChange={(smsEnabled) => setNum({ ...num, smsEnabled })}
-            />
+            <Switch id="num-sms" checked={false} disabled onCheckedChange={() => {}} />
           </div>
         </div>
         <DialogFooter>

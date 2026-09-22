@@ -174,12 +174,12 @@ export function IvrTab({
         description="Greeting, timeout and keypress routing for this menu"
         actions={
           <>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={menus.length <= 1}
-              onClick={() => setDeleteTarget(selected)}
-            >
+            {/* No floor on how many menus can exist — the empty state above
+                (!selected) already handles zero correctly, and "No menu —
+                ring routing directly" is a real, supported option on the
+                Numbers tab. Refusing to delete the last one would trap
+                anyone who tries an IVR menu and decides against it. */}
+            <Button variant="outline" size="sm" onClick={() => setDeleteTarget(selected)}>
               <Trash2 className="size-3.5" /> Delete menu
             </Button>
             <Button
