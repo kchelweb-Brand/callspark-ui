@@ -81,6 +81,10 @@ export class Softphone {
   private audio: HTMLAudioElement | undefined;
   private config: AgentSipConfig | undefined;
   private state: SoftphoneState = { ...initialSoftphoneState };
+  // Settled by whichever of onRegistered/onUnregistered/onServerDisconnect
+  // actually fires first during a connect() — see the comment on register()
+  // below for why this exists at all.
+  private pendingRegistration: { resolve: () => void; reject: (err: Error) => void } | undefined;
 
   constructor(private readonly onChange: (state: SoftphoneState) => void) {}
 
@@ -161,25 +165,64 @@ export class Softphone {
             muted: false,
             held: false,
           }),
-        onRegistered: () => this.patch({ status: "ready", error: null }),
-        onUnregistered: () => this.patch({ status: "offline" }),
-        onServerDisconnect: (error?: Error) =>
+        onRegistered: () => {
+          this.patch({ status: "ready", error: null });
+          this.pendingRegistration?.resolve();
+          this.pendingRegistration = undefined;
+        },
+        onUnregistered: () => {
+          this.patch({ status: "offline" });
+          // Firing here — rather than onRegistered — is itself the failure
+          // signal on a carrier that answers a bad password with a second
+          // 401 instead of a transport error: register() below resolves
+          // regardless (confirmed against SignalWire — the promise settles
+          // the instant that second 401 arrives, not once the registration
+          // actually succeeded), so trusting it alone reports success for a
+          // registration the carrier never accepted.
+          this.pendingRegistration?.reject(
+            new Error("The carrier rejected these credentials. Check the SIP username, password and realm."),
+          );
+          this.pendingRegistration = undefined;
+        },
+        onServerDisconnect: (error?: Error) => {
           this.patch({
             status: "failed",
             error: error?.message ?? "Lost connection to the carrier.",
-          }),
+          });
+          this.pendingRegistration?.reject(new Error(error?.message ?? "Lost connection to the carrier."));
+          this.pendingRegistration = undefined;
+        },
       },
     });
 
     this.user = user;
 
+    // register()'s own promise isn't trustworthy on its own (see
+    // onUnregistered above), so the real outcome is whichever of
+    // onRegistered / onUnregistered / onServerDisconnect the delegate
+    // actually fires. A carrier that never responds at all would otherwise
+    // hang here forever, so a bounded wait stands in for a signal that
+    // never comes.
+    const confirmedRegistration = new Promise<void>((resolve, reject) => {
+      this.pendingRegistration = { resolve, reject };
+    });
+    const timeout = new Promise<never>((_, reject) =>
+      setTimeout(
+        () => reject(new Error("The carrier did not respond. Check the WebSocket URL and that your account is active.")),
+        8000,
+      ),
+    );
+
     try {
       await user.connect();
       await user.register();
+      await Promise.race([confirmedRegistration, timeout]);
     } catch (err) {
+      this.pendingRegistration = undefined;
       const raw = err instanceof Error ? err.message : "Could not register with the carrier.";
-      this.patch({ status: "failed", error: explainRegistrationError(raw, config) });
-      throw new Error(explainRegistrationError(raw, config));
+      const message = explainRegistrationError(raw, config);
+      this.patch({ status: "failed", error: message });
+      throw new Error(message);
     }
   }
 
