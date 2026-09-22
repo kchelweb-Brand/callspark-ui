@@ -37,6 +37,35 @@ async function serveMedia(pathname: string): Promise<Response> {
   });
 }
 
+/**
+ * Serves the desktop app installer straight from R2, same pattern as
+ * serveMedia — unauthenticated (the landing page's download button has no
+ * session either), scoped to one prefix, immutable cache headers because a
+ * new build gets a new filename.
+ */
+async function serveDownload(pathname: string): Promise<Response> {
+  const key = decodeURIComponent(pathname.slice("/dl/".length));
+
+  if (!key.startsWith("downloads/") || key.includes("..")) {
+    return new Response("Not found", { status: 404 });
+  }
+
+  const bucket = await getMediaBucket();
+  if (!bucket) return new Response("Storage unavailable", { status: 503 });
+
+  const object = await bucket.get(key);
+  if (!object) return new Response("Not found", { status: 404 });
+
+  const filename = key.split("/").pop() ?? "kchel-dialer-setup.exe";
+  return new Response(object.body, {
+    headers: {
+      "content-type": object.httpMetadata?.contentType ?? "application/octet-stream",
+      "content-disposition": `attachment; filename="${filename}"`,
+      "cache-control": "public, max-age=31536000, immutable",
+    },
+  });
+}
+
 /** Paste this path (on your own origin) into the Telnyx Call Control app. */
 export const VOICE_WEBHOOK_PATH = "/api/voice/telnyx";
 /** Paste this one into a SignalWire phone number's "when a call comes in". */
@@ -93,6 +122,10 @@ export default {
       const url = new URL(request.url);
       if (url.pathname.startsWith("/media/")) {
         return await serveMedia(url.pathname);
+      }
+
+      if (url.pathname.startsWith("/dl/")) {
+        return await serveDownload(url.pathname);
       }
 
       // Inbound calls. This has to be a plain route rather than a server

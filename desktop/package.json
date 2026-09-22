@@ -1,0 +1,81 @@
+{
+  "name": "kchel-dialer-desktop",
+  "version": "1.0.0",
+  "description": "Kchel Dialer as a standalone desktop app — its own window, icon and process, not a browser tab.",
+  "private": true,
+  "main": "src/main.js",
+  "author": "Kchel Business Hub",
+  "scripts": {
+    "start": "electron .",
+    "icons": "node build/make-icons.mjs",
+    "dist:win": "electron-builder --win --publish never",
+    "dist:mac": "electron-builder --mac --publish never",
+    "dist:linux": "electron-builder --linux --publish never"
+  },
+  "devDependencies": {
+    "electron": "44.4.3",
+    "electron-builder": "26.15.3",
+    "png2icons": "2.0.1"
+  },
+  "build": {
+    "appId": "com.kchelbusinesshub.dialer",
+    "productName": "Kchel Dialer",
+    "copyright": "Copyright © 2026 Kchel Business Hub",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Kchel Dialer",
+      "artifactName": "Kchel-Dialer-Setup-${version}.${ext}"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "universal"
+          ]
+        }
+      ],
+      "icon": "build/icon.icns",
+      "category": "public.app-category.business",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "category": "Office"
+    }
+  },
+  "allowScripts": {
+    "electron-winstaller@5.4.0": true
+  }
+}

@@ -6,8 +6,10 @@ import {
   BarChart3,
   Check,
   Clock,
+  Download,
   Headset,
   MessageSquare,
+  MonitorCheck,
   PhoneCall,
   ShieldCheck,
   Voicemail,
@@ -334,6 +336,58 @@ function HomePage() {
           </Link>
           .
         </p>
+      </section>
+
+      {/* ---------- desktop app ---------- */}
+      <section className="border-t border-border bg-muted/30 py-20">
+        <div className="mx-auto grid max-w-6xl items-center gap-10 px-6 md:grid-cols-2">
+          <div>
+            <p className="text-sm font-bold uppercase tracking-[0.14em] text-primary">
+              Desktop app
+            </p>
+            <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
+              Kchel Dialer, off to the side of your browser
+            </h2>
+            <p className="mt-4 text-lg text-muted-foreground">
+              A real Windows app — its own icon, its own window, its own taskbar entry. Closing
+              it keeps you reachable in the tray instead of hanging up on a caller.
+            </p>
+            <ul className="mt-6 flex flex-col gap-2.5 text-sm">
+              <li className="flex items-start gap-2.5">
+                <Check className="mt-0.5 size-4 shrink-0 text-primary" />
+                <span>Everything the web app does, in its own window — nothing left out</span>
+              </li>
+              <li className="flex items-start gap-2.5">
+                <Check className="mt-0.5 size-4 shrink-0 text-primary" />
+                <span>Stays reachable in the tray when the window is closed</span>
+              </li>
+              <li className="flex items-start gap-2.5">
+                <Check className="mt-0.5 size-4 shrink-0 text-primary" />
+                <span>Same account, same workspace — sign in once</span>
+              </li>
+            </ul>
+            <div className="mt-8 flex flex-wrap items-center gap-4">
+              <Button size="lg" asChild className="h-12 px-7 text-base">
+                <a href="/dl/downloads/Kchel-Dialer-Setup-1.0.0.exe">
+                  <Download className="size-4" /> Download for Windows
+                </a>
+              </Button>
+              <span className="text-xs text-muted-foreground">
+                Windows 10/11 · macOS and Linux coming soon
+              </span>
+            </div>
+          </div>
+          <div className="card-surface flex flex-col items-center gap-4 p-10 text-center">
+            <div className="flex size-16 items-center justify-center rounded-2xl bg-primary/10">
+              <MonitorCheck className="size-8 text-primary" />
+            </div>
+            <p className="font-semibold">Built from the same product</p>
+            <p className="max-w-xs text-sm text-muted-foreground">
+              The desktop app loads your live workspace directly — no separate build to fall
+              behind, no second login to manage.
+            </p>
+          </div>
+        </div>
       </section>
 
       {/* ---------- closing CTA ---------- */}
