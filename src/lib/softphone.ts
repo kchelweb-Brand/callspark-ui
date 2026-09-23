@@ -145,6 +145,16 @@ export class Softphone {
         authorizationUsername: config.username,
         authorizationPassword: config.password,
         displayName: config.username,
+        // Without a STUN server the peer connection only gathers host
+        // candidates — private LAN addresses the carrier's media server
+        // can't send RTP to. Early media (183) still arrives since that's
+        // pure signaling, but real audio never establishes, so the carrier
+        // tears the call down as unreachable once its grace period elapses.
+        sessionDescriptionHandlerFactoryOptions: {
+          peerConnectionConfiguration: {
+            iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+          },
+        },
       },
       delegate: {
         onCallCreated: () => this.patch({ call: "dialing" }),

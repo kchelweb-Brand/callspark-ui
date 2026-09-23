@@ -1,10 +1,15 @@
-import { useEffect, useState } from "react";
-import { Check, Copy, PhoneIncoming, X } from "lucide-react";
-import { toast } from "sonner";
+import {
+  Check,
+  Mailbox,
+  MessageSquare,
+  Phone,
+  PhoneIncoming,
+  Users,
+  X,
+} from "lucide-react";
 
 import { Panel } from "@/components/dash/bits";
 import { Button } from "@/components/ui/button";
-import { getCarrierSecurityStatus } from "@/lib/phone-system-api";
 import type {
   BusinessHoursConfig,
   Extension,
@@ -14,37 +19,56 @@ import type {
   VoicemailSettings,
 } from "@/lib/phone-system-data";
 
-/** Must match the paths exported from src/server.ts. */
-const CARRIERS = [
-  {
-    id: "signalwire",
-    name: "SignalWire",
-    path: "/api/voice/signalwire",
-    keyName: "SIGNALWIRE_SIGNING_KEY",
-    steps: [
-      "In the SignalWire dashboard open Phone Numbers and pick the number you registered here.",
-      'Set "Handle calls using" to a LaML webhook, and paste the URL above into "When a call comes in" with method POST.',
-      "Copy the signing key from API Credentials so webhook signatures can be verified.",
-    ],
-  },
-  {
-    id: "telnyx",
-    name: "Telnyx",
-    path: "/api/voice/telnyx",
-    keyName: "TELNYX_PUBLIC_KEY",
-    steps: [
-      "In the Telnyx portal open Voice → Call Control and create an application.",
-      'Set the Webhook URL on that application to the address above, with API version "API v2".',
-      "Under Numbers, assign each number you registered here to that Call Control application.",
-      "Copy your public key from Account Settings → Keys & Credentials so signatures can be verified.",
-    ],
-  },
-] as const;
-
 interface CheckItem {
   done: boolean;
   label: string;
   detail: string;
+}
+
+/** "09:00"-"17:00" -> "9:00 AM – 5:00 PM". */
+function formatRange(start: string, end: string): string {
+  const fmt = (t: string) => {
+    const [h, m] = t.split(":").map(Number);
+    const period = h >= 12 ? "PM" : "AM";
+    const hour12 = h % 12 === 0 ? 12 : h % 12;
+    return m ? `${hour12}:${String(m).padStart(2, "0")} ${period}` : `${hour12} ${period}`;
+  };
+  return `${fmt(start)} – ${fmt(end)}`;
+}
+
+const DAY_ABBR: Record<string, string> = {
+  Monday: "Mon",
+  Tuesday: "Tue",
+  Wednesday: "Wed",
+  Thursday: "Thu",
+  Friday: "Fri",
+  Saturday: "Sat",
+  Sunday: "Sun",
+};
+
+/** Groups consecutive open days that share the same hours, the way a real schedule reads. */
+function summarizeHours(days: BusinessHoursConfig["days"]): string[] {
+  const open = days.filter((d) => d.open);
+  if (open.length === 0) return ["Closed every day — every call goes to your after-hours routing"];
+
+  const groups: { start: string; end: string; names: string[] }[] = [];
+  for (const d of days) {
+    if (!d.open) continue;
+    const last = groups[groups.length - 1];
+    if (last && last.start === d.start && last.end === d.end) {
+      last.names.push(DAY_ABBR[d.day] ?? d.day);
+    } else {
+      groups.push({ start: d.start, end: d.end, names: [DAY_ABBR[d.day] ?? d.day] });
+    }
+  }
+  const lines = groups.map((g) => {
+    const range = g.names.length > 1 ? `${g.names[0]}–${g.names[g.names.length - 1]}` : g.names[0];
+    return `${range} · ${formatRange(g.start, g.end)}`;
+  });
+
+  const closedDays = days.filter((d) => !d.open).map((d) => DAY_ABBR[d.day] ?? d.day);
+  if (closedDays.length) lines.push(`Closed ${closedDays.join(", ")}`);
+  return lines;
 }
 
 export function InboundTab({
@@ -54,6 +78,7 @@ export function InboundTab({
   routing,
   voicemail,
   businessHours,
+  onNavigate,
 }: {
   numbers: PhoneNumber[];
   menus: IvrMenu[];
@@ -61,51 +86,28 @@ export function InboundTab({
   routing: RoutingRule;
   voicemail: VoicemailSettings;
   businessHours: BusinessHoursConfig;
+  onNavigate: (tab: string) => void;
 }) {
-  // Rendered on the server too, where there's no location — resolve after mount.
-  const [origin, setOrigin] = useState("");
-  useEffect(() => setOrigin(window.location.origin), []);
-
-  // Whether each carrier's signing key actually exists right now — not a
-  // static line of setup copy that stays on screen forever once it's done.
-  const [security, setSecurity] = useState<{ signalwire: boolean; telnyx: boolean } | null>(null);
-  useEffect(() => {
-    let cancelled = false;
-    void getCarrierSecurityStatus()
-      .then((s) => !cancelled && setSecurity(s))
-      .catch(() => {
-        // Non-fatal — the panel just won't claim either state until it loads.
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  // Both carriers are wired; the tenant uses whichever they have an account
-  // with, so show both rather than guessing.
-  const [carrierId, setCarrierId] = useState<(typeof CARRIERS)[number]["id"]>("signalwire");
-  const carrier = CARRIERS.find((c) => c.id === carrierId) ?? CARRIERS[0];
-  const webhookUrl = origin ? `${origin}${carrier.path}` : carrier.path;
-
   const assigned = numbers.filter((n) => n.ivrMenuId);
   const reachableExtensions = extensions.filter((e) => e.forwardsTo.trim());
   const hasRouting = routing.ringOrder.length > 0;
   const hasVoicemailGreeting = Boolean(
     voicemail.greetingText.trim() || voicemail.greetingFile?.url,
   );
+  const menuById = new Map(menus.map((m) => [m.id, m]));
 
   const checks: CheckItem[] = [
     {
       done: numbers.length > 0,
-      label: "A phone number is registered",
+      label: "A phone number is set up",
       detail:
         numbers.length > 0
-          ? `${numbers.length} number${numbers.length === 1 ? "" : "s"} on the Numbers tab`
-          : "Add the number you bought from your carrier on the Numbers tab",
+          ? `${numbers.length} number${numbers.length === 1 ? "" : "s"} ready`
+          : "Add a number on the Numbers tab",
     },
     {
       done: menus.length > 0,
-      label: "An IVR menu exists",
+      label: "A greeting menu exists",
       detail:
         menus.length > 0
           ? `${menus.length} menu${menus.length === 1 ? "" : "s"} built`
@@ -120,132 +122,164 @@ export function InboundTab({
           : menus.length === 1
             ? "Your only menu answers every number — assign one explicitly once you add a second"
             : hasRouting
-              ? "Calls ring your routing list directly"
+              ? "Calls ring your team directly"
               : "Assign a menu on the Numbers tab, or add a ring order under Call Routing",
     },
     {
       done: reachableExtensions.length > 0,
-      label: "At least one extension can be reached",
+      label: "Someone can actually be reached",
       detail:
         reachableExtensions.length > 0
           ? `${reachableExtensions.length} extension${reachableExtensions.length === 1 ? "" : "s"} forward to a real destination`
-          : "Extensions need a 'Forwards to' number or SIP address — an extension number alone can't be dialled",
+          : "Extensions need a phone number or SIP address to ring",
     },
     {
       done: hasVoicemailGreeting,
-      label: "Voicemail is set up",
+      label: "Voicemail has a greeting",
       detail: hasVoicemailGreeting
         ? "Unanswered calls record a message"
-        : "Optional — a default greeting is used if you leave this empty",
+        : "Optional — a default greeting plays if you leave this empty",
     },
     {
       done: Boolean(businessHours.days?.length),
-      label: "Business hours are defined",
+      label: "Business hours are set",
       detail: businessHours.days?.length
-        ? `${businessHours.timezone} — after-hours calls follow your routing fallback`
+        ? businessHours.timezone
         : "Optional — with no hours set, calls are answered around the clock",
     },
   ];
-
   const ready = checks.slice(0, 4).every((c) => c.done);
-
-  async function copyWebhook() {
-    try {
-      await navigator.clipboard.writeText(webhookUrl);
-      toast.success("Webhook URL copied");
-    } catch {
-      toast.error("Couldn't copy — select the URL and copy it manually.");
-    }
-  }
 
   return (
     <div className="flex flex-col gap-4">
-      <Panel
-        title="Inbound calling"
-        description="What your carrier needs so calls to your numbers reach this workspace"
-        bodyClassName="p-5"
-      >
-        <div className="flex flex-col gap-5">
-          <div
-            className={
-              "flex items-start gap-3 rounded-lg border p-4 " +
-              (ready
-                ? "border-success/30 bg-success/10"
-                : "border-border bg-muted/40")
-            }
-          >
-            <PhoneIncoming
-              className={"mt-0.5 size-5 shrink-0 " + (ready ? "text-success" : "text-muted-foreground")}
-            />
-            <div className="min-w-0">
-              <p className="text-sm font-semibold">
-                {ready ? "Ready to receive calls" : "Not receiving calls yet"}
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {ready
-                  ? "Your flow is complete on this side. Calls will be answered as soon as your carrier is pointed at the webhook below."
-                  : "Finish the unchecked items below, then point your carrier at the webhook URL."}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <p className="text-sm font-semibold">Your carrier</p>
-            <div className="flex flex-wrap gap-2">
-              {CARRIERS.map((c) => (
-                <Button
-                  key={c.id}
-                  size="sm"
-                  variant={c.id === carrierId ? "default" : "outline"}
-                  onClick={() => setCarrierId(c.id)}
-                >
-                  {c.name}
-                </Button>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <p className="text-sm font-semibold">Webhook URL</p>
-            <div className="flex flex-wrap items-center gap-2">
-              <code className="min-w-0 flex-1 overflow-x-auto rounded-lg border border-border bg-muted/60 px-3 py-2 font-mono text-xs">
-                {webhookUrl}
-              </code>
-              <Button variant="outline" size="sm" onClick={() => void copyWebhook()}>
-                <Copy className="size-3.5" /> Copy
-              </Button>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Your carrier posts every call event here. It must be reachable over HTTPS — this URL
-              already is.
+      <Panel bodyClassName="p-5">
+        <div
+          className={
+            "flex items-start gap-3 rounded-lg border p-4 " +
+            (ready ? "border-success/30 bg-success/10" : "border-border bg-muted/40")
+          }
+        >
+          <PhoneIncoming
+            className={"mt-0.5 size-5 shrink-0 " + (ready ? "text-success" : "text-muted-foreground")}
+          />
+          <div className="min-w-0">
+            <p className="text-sm font-semibold">
+              {ready ? "Your team is ready to take calls" : "Not quite ready to take calls"}
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {ready
+                ? "Every call to your numbers will be answered the way you've set up below."
+                : "Finish the unchecked items below to start answering calls."}
             </p>
           </div>
-
-          <div className="flex flex-col gap-2">
-            <p className="text-sm font-semibold">Pointing {carrier.name} at it</p>
-            <ol className="flex list-decimal flex-col gap-1.5 pl-5 text-sm text-muted-foreground">
-              {carrier.steps.map((step) => (
-                <li key={step}>{step}</li>
-              ))}
-            </ol>
-            {(() => {
-              const armed = carrierId === "signalwire" ? security?.signalwire : security?.telnyx;
-              if (armed === undefined) return null; // still loading — no claim either way
-              return armed ? (
-                <p className="flex items-center gap-1.5 text-xs font-medium text-success">
-                  <Check className="size-3.5" /> Signature verification is on — {carrier.keyName}{" "}
-                  is set, and unsigned webhooks are rejected.
-                </p>
-              ) : (
-                <p className="text-xs text-muted-foreground">
-                  Until <span className="font-mono text-foreground">{carrier.keyName}</span> is
-                  set, webhooks are accepted without signature checks — fine while testing, not
-                  for production.
-                </p>
-              );
-            })()}
-          </div>
         </div>
+      </Panel>
+
+      <Panel title="How a call is answered" bodyClassName="p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-2">
+          {[
+            { icon: PhoneIncoming, label: "Call comes in", sub: "Matched to your number" },
+            {
+              icon: Users,
+              label: menus.length ? "Greeting plays" : "Rings your team",
+              sub: menus.length ? "Caller picks an option" : "No menu set up",
+            },
+            { icon: Phone, label: "Rings your team", sub: "In the order you set" },
+            { icon: Mailbox, label: "No answer → voicemail", sub: "Shows up in Recordings" },
+          ].map((step, i, arr) => (
+            <div key={step.label} className="flex flex-1 items-center gap-2">
+              <div className="flex flex-1 flex-col items-center gap-2 rounded-lg border border-border bg-muted/30 p-3 text-center">
+                <step.icon className="size-5 text-primary" />
+                <p className="text-xs font-semibold">{step.label}</p>
+                <p className="text-[11px] text-muted-foreground">{step.sub}</p>
+              </div>
+              {i < arr.length - 1 && (
+                <span className="hidden text-muted-foreground sm:block" aria-hidden>
+                  →
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      </Panel>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Panel
+          title="Business hours"
+          actions={
+            <Button size="sm" variant="outline" onClick={() => onNavigate("hours")}>
+              Edit
+            </Button>
+          }
+          bodyClassName="p-5"
+        >
+          <ul className="flex flex-col gap-1.5 text-sm">
+            {summarizeHours(businessHours.days ?? []).map((line) => (
+              <li key={line} className="text-muted-foreground">
+                {line}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-3 text-xs text-muted-foreground">
+            {businessHours.timezone} · Outside these hours calls follow your after-hours routing
+          </p>
+        </Panel>
+
+        <Panel
+          title="Voicemail"
+          actions={
+            <Button size="sm" variant="outline" onClick={() => onNavigate("voicemail")}>
+              Edit
+            </Button>
+          }
+          bodyClassName="p-5"
+        >
+          <div className="flex flex-col gap-2 text-sm text-muted-foreground">
+            <p>{hasVoicemailGreeting ? "Custom greeting is set" : "Using the default greeting"}</p>
+            <p>{voicemail.transcriptionEnabled ? "Transcribes every message" : "Transcription is off"}</p>
+            <p>
+              {voicemail.emailNotifications && voicemail.notifyEmail
+                ? `Emails ${voicemail.notifyEmail} on every message`
+                : "No email notifications"}
+            </p>
+          </div>
+        </Panel>
+      </div>
+
+      <Panel
+        title="Your numbers"
+        actions={
+          <Button size="sm" variant="outline" onClick={() => onNavigate("numbers")}>
+            Manage numbers
+          </Button>
+        }
+        bodyClassName="p-0"
+      >
+        {numbers.length === 0 ? (
+          <div className="p-8 text-center text-sm text-muted-foreground">
+            No numbers yet — add one on the Numbers tab.
+          </div>
+        ) : (
+          <ul className="divide-y divide-border">
+            {numbers.map((n) => {
+              const menu = n.ivrMenuId ? menuById.get(n.ivrMenuId) : undefined;
+              return (
+                <li key={n.number} className="flex items-center justify-between gap-3 px-5 py-3.5">
+                  <div className="min-w-0">
+                    <p className="truncate font-mono text-sm font-semibold">{n.number}</p>
+                    <p className="text-xs text-muted-foreground">{n.label || n.region || "—"}</p>
+                  </div>
+                  <div className="flex items-center gap-2 text-right">
+                    <span className="text-xs text-muted-foreground">
+                      {menu ? menu.name : "Rings your team directly"}
+                    </span>
+                    {n.smsEnabled && <MessageSquare className="size-3.5 text-muted-foreground" />}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </Panel>
 
       <Panel title="Setup checklist" description="Read from your live configuration" bodyClassName="p-0">
@@ -267,23 +301,6 @@ export function InboundTab({
             </li>
           ))}
         </ul>
-      </Panel>
-
-      <Panel title="What happens on a call" bodyClassName="p-5">
-        <ol className="flex list-decimal flex-col gap-2 pl-5 text-sm text-muted-foreground">
-          <li>The number is matched to this workspace and a call record opens immediately.</li>
-          <li>
-            Business hours decide the path — open hours use the number&apos;s menu, after hours use your
-            routing fallback.
-          </li>
-          <li>The greeting plays and the caller&apos;s keypress selects an option.</li>
-          <li>
-            Ringing an extension dials it while keeping the caller on the line, so an unanswered
-            agent falls through to the next one rather than dropping the call.
-          </li>
-          <li>Unanswered calls take a voicemail, which appears under Recordings.</li>
-          <li>Every call lands in Call History with its outcome and duration.</li>
-        </ol>
       </Panel>
     </div>
   );

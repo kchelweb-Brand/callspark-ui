@@ -1,5 +1,4 @@
 import {
-  getCarrierSecurityStatusFn,
   getPhoneSystemFn,
   savePhoneNumbersFn,
   savePhoneSystemFn,
@@ -40,12 +39,6 @@ interface StoredNumber {
   status: string;
   ivr_menu_id: string | null;
   sms_enabled: boolean;
-}
-
-/** Whether each carrier's webhook signature check is actually armed. */
-export async function getCarrierSecurityStatus(): Promise<{ signalwire: boolean; telnyx: boolean }> {
-  const result = await getCarrierSecurityStatusFn({ data: { token: requireToken() } });
-  return { signalwire: result.signalwire, telnyx: result.telnyx };
 }
 
 export async function getPhoneSystem(): Promise<LoadedPhoneSystem> {

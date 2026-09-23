@@ -36,6 +36,11 @@ export function useSoftphone() {
   // so the generic "call went idle" handler doesn't log it as a plain connect.
   const pendingOutcomeRef = useRef<{ status: string; outcome: string } | null>(null);
   const prevCallRef = useRef<SoftphoneState["call"]>("idle");
+  const prevStatusRef = useRef<SoftphoneState["status"]>(initialSoftphoneState.status);
+  // Set right before a deliberate disconnect so the drop it causes isn't
+  // reported as a carrier failure — only an *unprompted* drop should correct
+  // sip_connections.status, since going offline on purpose isn't a failure.
+  const intentionalDisconnectRef = useRef(false);
 
   if (phoneRef.current === null) {
     phoneRef.current = new Softphone(setState);
@@ -91,6 +96,25 @@ export function useSoftphone() {
     }
   }, [state.call, state.remoteIdentity]);
 
+  // goOnline()'s own try/catch reports the outcome of the *initial* connect.
+  // This catches what it can't: a registration that was healthy and later
+  // drops on its own (socket lost, carrier kicked it) — without this,
+  // sip_connections.status stays stuck on "active" forever after that.
+  useEffect(() => {
+    const prev = prevStatusRef.current;
+    const now = state.status;
+    prevStatusRef.current = now;
+    if (prev !== "ready" || now === "ready") return;
+
+    if (intentionalDisconnectRef.current) {
+      intentionalDisconnectRef.current = false;
+      return;
+    }
+    void webrtcApi()
+      .then((api) => api.reportRegistration(false, state.error ?? "Lost connection to the carrier."))
+      .catch(() => {});
+  }, [state.status, state.error]);
+
   const goOnline = useCallback(async () => {
     setBusy(true);
     const api = await webrtcApi();
@@ -110,6 +134,7 @@ export function useSoftphone() {
 
   const goOffline = useCallback(async () => {
     setBusy(true);
+    intentionalDisconnectRef.current = true;
     try {
       await phoneRef.current!.disconnect();
       toast.success("Signed off — you won't receive calls");

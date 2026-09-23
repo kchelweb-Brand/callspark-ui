@@ -187,6 +187,7 @@ function RecordingsPage() {
         title={playing ? (playing.contact_name ?? "Call recording") : ""}
         description={playing ? new Date(playing.started_at).toLocaleString() : ""}
         duration={formatDuration(playing?.recording_seconds ?? playing?.duration_seconds ?? 0)}
+        audioUrl={playing?.recording_url}
       />
 
       <Dialog open={retentionOpen} onOpenChange={setRetentionOpen}>

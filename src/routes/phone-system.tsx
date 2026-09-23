@@ -8,6 +8,7 @@ import { Panel } from "@/components/dash/bits";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ConnectionTab } from "@/components/dash/phone-system/ConnectionTab";
 import { InboundTab } from "@/components/dash/phone-system/InboundTab";
+import { OutboundTab } from "@/components/dash/phone-system/OutboundTab";
 import { NumbersTab } from "@/components/dash/phone-system/NumbersTab";
 import { IvrTab } from "@/components/dash/phone-system/IvrTab";
 import { RoutingTab } from "@/components/dash/phone-system/RoutingTab";
@@ -62,6 +63,7 @@ function PhoneSystemPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
+  const [tab, setTab] = useState("inbound");
 
   // Suppresses the autosave that would otherwise fire from the initial load
   // writing state — we don't want mounting the page to count as an edit.
@@ -168,13 +170,14 @@ function PhoneSystemPage() {
         </span>
       }
     >
-      <Tabs defaultValue="connection">
-        {/* Eight tabs wrap onto three stacked rows on a phone, which buries the
+      <Tabs value={tab} onValueChange={setTab}>
+        {/* Nine tabs wrap onto three stacked rows on a phone, which buries the
             page content below a block of chrome. Scrolling the strip sideways
             keeps it one row at every width. */}
         <TabsList className="w-full justify-start overflow-x-auto sm:w-auto sm:flex-wrap sm:justify-center">
-          <TabsTrigger value="connection">Connection</TabsTrigger>
           <TabsTrigger value="inbound">Inbound</TabsTrigger>
+          <TabsTrigger value="outbound">Outbound</TabsTrigger>
+          <TabsTrigger value="connection">Connection</TabsTrigger>
           <TabsTrigger value="numbers">Numbers</TabsTrigger>
           <TabsTrigger value="ivr">IVR Menus</TabsTrigger>
           <TabsTrigger value="routing">Call Routing</TabsTrigger>
@@ -183,9 +186,6 @@ function PhoneSystemPage() {
           <TabsTrigger value="voicemail">Voicemail</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="connection" className="mt-4">
-          <ConnectionTab />
-        </TabsContent>
         <TabsContent value="inbound" className="mt-4">
           <InboundTab
             numbers={numbers}
@@ -194,7 +194,14 @@ function PhoneSystemPage() {
             routing={routing}
             voicemail={voicemail}
             businessHours={hours}
+            onNavigate={setTab}
           />
+        </TabsContent>
+        <TabsContent value="outbound" className="mt-4">
+          <OutboundTab onNavigate={setTab} />
+        </TabsContent>
+        <TabsContent value="connection" className="mt-4">
+          <ConnectionTab />
         </TabsContent>
         <TabsContent value="numbers" className="mt-4">
           <NumbersTab numbers={numbers} setNumbers={setNumbers} menus={menus} />
