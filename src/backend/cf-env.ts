@@ -79,3 +79,18 @@ export async function requireMediaBucket(): Promise<R2Bucket> {
   }
   return bucket;
 }
+
+export interface WorkersAi {
+  run(model: string, inputs: Record<string, unknown>): Promise<unknown>;
+}
+
+function isWorkersAi(value: unknown): value is WorkersAi {
+  return Boolean(value) && typeof (value as WorkersAi).run === "function";
+}
+
+/** Cloudflare's own free-tier LLM inference — null when running outside the Workers runtime. */
+export async function getWorkersAi(): Promise<WorkersAi | null> {
+  const env = await resolveEnv();
+  const binding = env?.["AI"];
+  return isWorkersAi(binding) ? binding : null;
+}

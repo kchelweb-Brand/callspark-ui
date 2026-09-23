@@ -5,6 +5,7 @@ import { renderErrorPage } from "./lib/error-page";
 import { getMediaBucket, setCloudflareEnv } from "./backend/cf-env";
 import { handleTelnyxVoiceWebhook } from "./backend/inbound";
 import { handleSignalWireVoiceWebhook } from "./backend/inbound-signalwire";
+import { CAMPAIGN_AI_WEBHOOK_PATH, handleCampaignAiWebhook } from "./backend/campaign-dialer";
 
 /**
  * Serves greeting audio straight from R2.
@@ -146,6 +147,15 @@ export default {
           return new Response("Method not allowed", { status: 405 });
         }
         return await handleSignalWireVoiceWebhook(request);
+      }
+
+      // AI-agent campaign calling — its own path since it returns SWML
+      // (hands the call to SignalWire's own voice agent) rather than cXML.
+      if (url.pathname === CAMPAIGN_AI_WEBHOOK_PATH) {
+        if (request.method !== "POST") {
+          return new Response("Method not allowed", { status: 405 });
+        }
+        return await handleCampaignAiWebhook(request);
       }
 
       const handler = await getServerEntry();

@@ -39,6 +39,8 @@ import {
   deleteCampaign,
   duplicateCampaign,
   listCampaigns,
+  pauseCampaignDialing,
+  startCampaignDialing,
   updateCampaign,
   type CampaignRecord,
 } from "@/lib/workspace-api";
@@ -75,10 +77,14 @@ interface Campaign {
   id: string;
   name: string;
   status: string;
+  mode: "manual" | "ai_agent";
   contacts: number;
   calls: number;
   connect: number;
   owner: string;
+  queueTotal: number;
+  queueCompleted: number;
+  queueFailed: number;
 }
 
 function toRow(record: CampaignRecord): Campaign {
@@ -86,10 +92,14 @@ function toRow(record: CampaignRecord): Campaign {
     id: record.id,
     name: record.name,
     status: record.status,
+    mode: record.mode ?? "manual",
     contacts: record.contacts_loaded,
     calls: record.calls_made,
     connect: record.connect_rate,
     owner: record.owner ?? "—",
+    queueTotal: record.queue_total ?? 0,
+    queueCompleted: record.queue_completed ?? 0,
+    queueFailed: record.queue_failed ?? 0,
   };
 }
 
@@ -127,6 +137,29 @@ function CampaignsPage() {
       toast.success(`${label} ${next.toLowerCase()}`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not update that campaign.");
+    }
+  }
+
+  // AI-agent campaigns can't go through the generic status update above —
+  // "Active" needs the call queue seeded first, which these dedicated
+  // endpoints handle before flipping status.
+  async function startAiCampaign(c: Campaign) {
+    try {
+      await startCampaignDialing(c.id, window.location.origin);
+      await load();
+      toast.success(`${c.name} is dialing`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not start dialing.");
+    }
+  }
+
+  async function pauseAiCampaign(c: Campaign) {
+    try {
+      await pauseCampaignDialing(c.id);
+      await load();
+      toast.success(`${c.name} paused`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not pause that campaign.");
     }
   }
 
@@ -228,7 +261,7 @@ function CampaignsPage() {
                 <TableHead>Campaign</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Contacts loaded</TableHead>
-                <TableHead className="text-right">Calls made</TableHead>
+                <TableHead className="text-right">Progress</TableHead>
                 <TableHead className="text-right">Connect rate</TableHead>
                 <TableHead>Owner</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -263,7 +296,14 @@ function CampaignsPage() {
               ) : (
                 visible.map((c) => (
                 <TableRow key={c.id}>
-                  <TableCell className="font-semibold">{c.name}</TableCell>
+                  <TableCell className="font-semibold">
+                    {c.name}
+                    {c.mode === "ai_agent" && (
+                      <span className="ml-2 rounded-full border border-border bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase text-muted-foreground">
+                        AI
+                      </span>
+                    )}
+                  </TableCell>
                   <TableCell>
                     <StatusPill status={c.status} />
                   </TableCell>
@@ -271,7 +311,9 @@ function CampaignsPage() {
                     {c.contacts.toLocaleString()}
                   </TableCell>
                   <TableCell className="text-right font-mono text-sm">
-                    {c.calls.toLocaleString()}
+                    {c.mode === "ai_agent"
+                      ? `${c.queueCompleted + c.queueFailed}/${c.queueTotal}`
+                      : c.calls.toLocaleString()}
                   </TableCell>
                   <TableCell className="text-right font-mono text-sm">
                     {c.connect.toFixed(1)}%
@@ -285,7 +327,17 @@ function CampaignsPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        {c.status === "Active" ? (
+                        {c.mode === "ai_agent" ? (
+                          c.status === "Active" ? (
+                            <DropdownMenuItem onClick={() => void pauseAiCampaign(c)}>
+                              <Pause className="size-3.5" /> Pause
+                            </DropdownMenuItem>
+                          ) : (
+                            <DropdownMenuItem onClick={() => void startAiCampaign(c)}>
+                              <Play className="size-3.5" /> {c.queueTotal > 0 ? "Resume" : "Start"} dialing
+                            </DropdownMenuItem>
+                          )
+                        ) : c.status === "Active" ? (
                           <DropdownMenuItem onClick={() => setCampaignStatus(c.id, "Paused")}>
                             <Pause className="size-3.5" /> Pause
                           </DropdownMenuItem>

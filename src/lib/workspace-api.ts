@@ -4,9 +4,15 @@ import {
   deleteCampaignFn,
   duplicateCampaignFn,
   listCampaignsFn,
+  reviewCampaignPromptFn,
   updateCampaignFn,
   type CampaignRecord,
 } from "@/backend/campaigns.server";
+import {
+  pauseCampaignDialingFn,
+  reconcileCampaignFn,
+  startCampaignDialingFn,
+} from "@/backend/campaign-dialer";
 import {
   createAgentFn,
   deleteAgentFn,
@@ -47,15 +53,22 @@ export function listCampaigns() {
 
 export function createCampaign(input: {
   name: string;
+  listId?: string;
   listName?: string;
   owner?: string;
   script?: string;
   status?: string;
+  mode?: "manual" | "ai_agent";
+  aiPrompt?: string;
+  complianceAck?: boolean;
 }) {
   return createCampaignFn({ data: { token: requireToken(), ...input } });
 }
 
-export function updateCampaign(id: string, changes: { name?: string; status?: string }) {
+export function updateCampaign(
+  id: string,
+  changes: { name?: string; status?: string; listId?: string; aiPrompt?: string; complianceAck?: boolean },
+) {
   return updateCampaignFn({ data: { token: requireToken(), id, ...changes } });
 }
 
@@ -65,6 +78,23 @@ export function duplicateCampaign(id: string) {
 
 export function deleteCampaign(id: string) {
   return deleteCampaignFn({ data: { token: requireToken(), id } });
+}
+
+export function reviewCampaignPrompt(prompt: string, businessName?: string) {
+  return reviewCampaignPromptFn({ data: { token: requireToken(), prompt, businessName } });
+}
+
+/** `origin` is the browser's own location — the webhook path SignalWire calls back into. */
+export function startCampaignDialing(campaignId: string, origin: string) {
+  return startCampaignDialingFn({ data: { token: requireToken(), campaignId, origin } });
+}
+
+export function pauseCampaignDialing(campaignId: string) {
+  return pauseCampaignDialingFn({ data: { token: requireToken(), campaignId } });
+}
+
+export function reconcileCampaign(campaignId: string, origin: string) {
+  return reconcileCampaignFn({ data: { token: requireToken(), campaignId, origin } });
 }
 
 // ---------- agents ----------

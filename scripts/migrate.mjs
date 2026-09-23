@@ -400,6 +400,47 @@ async function main() {
   // The QA sandbox must never hit a limit mid-test.
   await sql`update tenants set plan = 'managed' where workspace_slug = 'qa-sandbox'`;
 
+  // ---------- AI voice-agent campaigns ----------
+  // list_name stays for display/back-compat; list_id is the real FK the
+  // dialer actually resolves against, since names aren't unique per tenant.
+  await sql`alter table campaigns add column if not exists list_id uuid references contact_lists(id) on delete set null`;
+  await sql`alter table campaigns add column if not exists mode text not null default 'manual' check (mode in ('manual','ai_agent'))`;
+  await sql`alter table campaigns add column if not exists ai_prompt text`;
+  // An acknowledgment gate, not a compliance guarantee — there's no way for
+  // this app to verify actual consent, so this just records that the tenant
+  // was asked before an AI-agent campaign is allowed to start dialing.
+  await sql`alter table campaigns add column if not exists compliance_ack boolean not null default false`;
+  await sql`
+    update campaigns c set list_id = (
+      select cl.id from contact_lists cl
+      where cl.tenant_id = c.tenant_id and cl.name = c.list_name
+      order by cl.created_at desc limit 1
+    ) where c.list_id is null and c.list_name is not null
+  `;
+
+  await sql`alter table calls add column if not exists campaign_id uuid references campaigns(id) on delete set null`;
+  await sql`create index if not exists idx_calls_campaign on calls (campaign_id)`;
+
+  // Per-contact dial queue for a campaign run. unique(campaign_id, contact_id)
+  // means a contact is dialed at most once per campaign — no automatic
+  // retries; re-attempting means duplicating the campaign against a
+  // filtered list.
+  await sql`
+    create table if not exists campaign_calls (
+      id uuid primary key default gen_random_uuid(),
+      tenant_id uuid not null references tenants(id) on delete cascade,
+      campaign_id uuid not null references campaigns(id) on delete cascade,
+      contact_id uuid not null references contacts(id) on delete cascade,
+      call_id uuid references calls(id) on delete set null,
+      status text not null default 'pending' check (status in ('pending','calling','completed','failed','skipped')),
+      attempts int not null default 0,
+      created_at timestamptz not null default now(),
+      updated_at timestamptz not null default now(),
+      unique (campaign_id, contact_id)
+    )
+  `;
+  await sql`create index if not exists idx_campaign_calls_campaign_status on campaign_calls (campaign_id, status)`;
+
   console.log("Schema is up to date.");
 }
 

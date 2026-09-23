@@ -12,6 +12,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -26,6 +27,11 @@ import {
 import { getSessionUser } from "@/lib/auth-api";
 import { getContactsMeta } from "@/lib/contacts-api";
 import { createCampaign, type CampaignRecord } from "@/lib/workspace-api";
+import { PromptReviewPanel } from "@/components/dash/PromptReviewPanel";
+
+const DEFAULT_AI_PROMPT =
+  "Hi {{first_name}}, this is an automated assistant calling on behalf of [Your Business]. " +
+  "I'm reaching out about [reason for the call]. Is now an okay time to talk?";
 
 export function CreateCampaignDialog({
   trigger,
@@ -36,10 +42,13 @@ export function CreateCampaignDialog({
 }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
-  const [list, setList] = useState("");
+  const [listId, setListId] = useState("");
   const [owner, setOwner] = useState(() => getSessionUser()?.email ?? "");
   const [script, setScript] = useState("");
   const [startNow, setStartNow] = useState(true);
+  const [mode, setMode] = useState<"manual" | "ai_agent">("manual");
+  const [aiPrompt, setAiPrompt] = useState(DEFAULT_AI_PROMPT);
+  const [complianceAck, setComplianceAck] = useState(false);
   const [saving, setSaving] = useState(false);
   const [contactLists, setContactLists] = useState<{ id: string; name: string }[]>([]);
 
@@ -78,22 +87,35 @@ export function CreateCampaignDialog({
               toast.error("Give the campaign a name.");
               return;
             }
+            if (mode === "ai_agent" && !complianceAck) {
+              toast.error("Confirm the consent/disclosure checkbox before creating an AI campaign.");
+              return;
+            }
             void (async () => {
               setSaving(true);
               try {
                 const result = await createCampaign({
                   name: name.trim(),
-                  status: startNow ? "Active" : "Draft",
-                  ...(list ? { listName: list } : {}),
+                  status: mode === "manual" ? (startNow ? "Active" : "Draft") : "Draft",
+                  ...(listId ? { listId } : {}),
                   ...(owner.trim() ? { owner: owner.trim() } : {}),
-                  ...(script.trim() ? { script: script.trim() } : {}),
+                  mode,
+                  ...(mode === "manual"
+                    ? { ...(script.trim() ? { script: script.trim() } : {}) }
+                    : { aiPrompt: aiPrompt.trim(), complianceAck }),
                 });
                 onCreated?.(result.campaign);
+                const listLabel = contactLists.find((l) => l.id === listId)?.name ?? "No list yet";
                 toast.success(`Campaign “${result.campaign.name}” created`, {
-                  description: `${list || "No list yet"}${startNow ? " · dialing now" : " · saved as draft"}`,
+                  description:
+                    mode === "ai_agent"
+                      ? `${listLabel} · use "Start dialing" to begin`
+                      : `${listLabel}${startNow ? " · dialing now" : " · saved as draft"}`,
                 });
                 setName("");
                 setScript("");
+                setAiPrompt(DEFAULT_AI_PROMPT);
+                setComplianceAck(false);
                 setOpen(false);
               } catch (err) {
                 toast.error(err instanceof Error ? err.message : "Could not create that campaign.");
@@ -103,6 +125,26 @@ export function CreateCampaignDialog({
             })();
           }}
         >
+          <div className="flex flex-col gap-2">
+            <Label>How is this campaign dialed?</Label>
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                type="button"
+                variant={mode === "manual" ? "default" : "outline"}
+                onClick={() => setMode("manual")}
+              >
+                Human-dialed
+              </Button>
+              <Button
+                type="button"
+                variant={mode === "ai_agent" ? "default" : "outline"}
+                onClick={() => setMode("ai_agent")}
+              >
+                AI voice agent
+              </Button>
+            </div>
+          </div>
+
           <div className="flex flex-col gap-2">
             <Label htmlFor="camp-name">Campaign name</Label>
             <Input
@@ -116,13 +158,13 @@ export function CreateCampaignDialog({
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-2">
               <Label>Contact list</Label>
-              <Select value={list} onValueChange={setList} disabled={contactLists.length === 0}>
+              <Select value={listId} onValueChange={setListId} disabled={contactLists.length === 0}>
                 <SelectTrigger>
                   <SelectValue placeholder={contactLists.length === 0 ? "No lists yet" : "Choose a list"} />
                 </SelectTrigger>
                 <SelectContent>
                   {contactLists.map((l) => (
-                    <SelectItem key={l.id} value={l.name}>
+                    <SelectItem key={l.id} value={l.id}>
                       {l.name}
                     </SelectItem>
                   ))}
@@ -140,23 +182,61 @@ export function CreateCampaignDialog({
             </div>
           </div>
 
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="camp-script">Opening script (optional)</Label>
-            <Textarea
-              id="camp-script"
-              rows={4}
-              placeholder="Hi {{first_name}}, this is … calling about your renewal."
-              value={script}
-              onChange={(e) => setScript(e.target.value)}
-            />
-          </div>
+          {mode === "manual" ? (
+            <>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="camp-script">Opening script (optional)</Label>
+                <Textarea
+                  id="camp-script"
+                  rows={4}
+                  placeholder="Hi {{first_name}}, this is … calling about your renewal."
+                  value={script}
+                  onChange={(e) => setScript(e.target.value)}
+                />
+              </div>
 
-          <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-muted/40 p-3">
-            <Label htmlFor="camp-start" className="text-sm font-medium">
-              Start dialing immediately
-            </Label>
-            <Switch id="camp-start" checked={startNow} onCheckedChange={setStartNow} />
-          </div>
+              <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-muted/40 p-3">
+                <Label htmlFor="camp-start" className="text-sm font-medium">
+                  Start dialing immediately
+                </Label>
+                <Switch id="camp-start" checked={startNow} onCheckedChange={setStartNow} />
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="camp-ai-prompt">AI prompt</Label>
+                <Textarea
+                  id="camp-ai-prompt"
+                  rows={6}
+                  value={aiPrompt}
+                  onChange={(e) => setAiPrompt(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  This is read to the AI agent for every call — keep the disclosure line at the start.
+                </p>
+              </div>
+
+              <PromptReviewPanel prompt={aiPrompt} onApply={setAiPrompt} />
+
+              <div className="flex items-start gap-2.5 rounded-lg border border-border bg-muted/40 p-3">
+                <Checkbox
+                  id="camp-compliance"
+                  checked={complianceAck}
+                  onCheckedChange={(v) => setComplianceAck(v === true)}
+                />
+                <Label htmlFor="camp-compliance" className="text-xs leading-relaxed font-normal">
+                  I confirm these contacts consented to be called and I will disclose this is an
+                  automated call, as required by law in my jurisdiction.
+                </Label>
+              </div>
+
+              <p className="text-xs text-muted-foreground">
+                Saved as a draft — use <strong>Start dialing</strong> from the campaign list once you're
+                ready, since it needs to build the call queue first.
+              </p>
+            </>
+          )}
         </form>
 
         <DialogFooter>

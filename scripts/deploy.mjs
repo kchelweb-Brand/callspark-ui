@@ -23,9 +23,13 @@ config.compatibility_date = new Date().toISOString().slice(0, 10);
 // Greeting audio. Bindings are objects, not env strings — see src/backend/cf-env.ts.
 config.r2_buckets = [{ binding: "MEDIA_BUCKET", bucket_name: "kchel-dialer-media" }];
 
+// Workers AI — free tier (10k neurons/day), used for the campaign prompt
+// spam/scam checker instead of a paid third-party LLM key.
+config.ai = { binding: "AI" };
+
 writeFileSync(CONFIG, JSON.stringify(config, null, 2));
 console.log(
-  `Patched ${CONFIG}\n  name: ${config.name}\n  compatibility_date: ${config.compatibility_date}\n  r2: ${config.r2_buckets[0].bucket_name} -> env.${config.r2_buckets[0].binding}`,
+  `Patched ${CONFIG}\n  name: ${config.name}\n  compatibility_date: ${config.compatibility_date}\n  r2: ${config.r2_buckets[0].bucket_name} -> env.${config.r2_buckets[0].binding}\n  ai: env.${config.ai.binding}`,
 );
 
 // `shell: true` so this resolves npx via PATHEXT on Windows as well as POSIX.
