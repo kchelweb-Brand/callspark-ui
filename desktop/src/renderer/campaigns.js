@@ -9,6 +9,7 @@
 
   let initialized = false;
   let logPollTimer = null;
+  let apiBase = "";
 
   function escapeHtml(text) {
     const div = document.createElement("div");
@@ -78,7 +79,7 @@
 
   async function startCampaign(id) {
     try {
-      await window.kchel.api("campaigns/start-dialing", { campaignId: id, origin: "" });
+      await window.kchel.api("campaigns/start-dialing", { campaignId: id, origin: apiBase });
       await load();
     } catch (err) {
       alert(err.message);
@@ -119,7 +120,7 @@
     if (status === "Active") {
       logPollTimer = setInterval(async () => {
         try {
-          await window.kchel.api("campaigns/reconcile", { campaignId, origin: "" });
+          await window.kchel.api("campaigns/reconcile", { campaignId, origin: apiBase });
         } catch {
           // best-effort
         }
@@ -258,9 +259,10 @@
   }
 
   window.KchelCampaigns = {
-    init() {
+    async init() {
       if (initialized) return;
       initialized = true;
+      apiBase = await window.kchel.getApiBase();
       bind();
       void load();
     },
