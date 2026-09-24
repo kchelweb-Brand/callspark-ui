@@ -16,6 +16,24 @@ import { requestLoginCode, verifyLoginCode } from "./auth.server";
 import { startCall, answerCall, endCall } from "./calls.server";
 import { reportRegistration } from "./webrtc.server";
 import { isDialerAddonEnabled } from "./addons.server";
+import { listContacts, getContactsMeta, createContact, importContacts, deleteContacts } from "./contacts.server";
+import {
+  listCampaigns,
+  createCampaign,
+  updateCampaign,
+  duplicateCampaign,
+  deleteCampaign,
+} from "./campaigns.server";
+import { reviewCampaignPrompt } from "./prompt-review";
+import {
+  startCampaignDialing,
+  pauseCampaignDialing,
+  reconcileCampaign,
+  getCampaignCallLog,
+} from "./campaign-dialer";
+import { getPhoneSystem, savePhoneSystem, savePhoneNumbers } from "./phone-system.server";
+import { getSipConnection, saveByoSip, deleteSipConnection } from "./sip.server";
+import { getTenantSettings, saveTenantSettings } from "./workspace.server";
 
 export const NATIVE_API_PREFIX = "/api/native/";
 
@@ -189,6 +207,62 @@ export async function handleNativeApi(request: Request, pathname: string): Promi
         const result = await reportRegistration(body);
         return jsonOk(result);
       }
+
+      // ---------- contacts ----------
+      case "contacts/list":
+        return jsonOk(await listContacts(await readJson(request)));
+      case "contacts/meta":
+        return jsonOk(await getContactsMeta(await readJson(request)));
+      case "contacts/create":
+        return jsonOk(await createContact(await readJson(request)));
+      case "contacts/import":
+        return jsonOk(await importContacts(await readJson(request)));
+      case "contacts/delete":
+        return jsonOk(await deleteContacts(await readJson(request)));
+
+      // ---------- campaigns ----------
+      case "campaigns/list":
+        return jsonOk(await listCampaigns(await readJson(request)));
+      case "campaigns/create":
+        return jsonOk(await createCampaign(await readJson(request)));
+      case "campaigns/update":
+        return jsonOk(await updateCampaign(await readJson(request)));
+      case "campaigns/duplicate":
+        return jsonOk(await duplicateCampaign(await readJson(request)));
+      case "campaigns/delete":
+        return jsonOk(await deleteCampaign(await readJson(request)));
+      case "campaigns/review-prompt":
+        return jsonOk(await reviewCampaignPrompt(await readJson(request)));
+      case "campaigns/start-dialing":
+        return jsonOk(await startCampaignDialing(await readJson(request)));
+      case "campaigns/pause-dialing":
+        return jsonOk(await pauseCampaignDialing(await readJson(request)));
+      case "campaigns/reconcile":
+        return jsonOk(await reconcileCampaign(await readJson(request)));
+      case "campaigns/call-log":
+        return jsonOk(await getCampaignCallLog(await readJson(request)));
+
+      // ---------- phone system / IVR (menus live inside the same config) ----------
+      case "phone-system/get":
+        return jsonOk(await getPhoneSystem(await readJson(request)));
+      case "phone-system/save":
+        return jsonOk(await savePhoneSystem(await readJson(request)));
+      case "phone-system/save-numbers":
+        return jsonOk(await savePhoneNumbers(await readJson(request)));
+
+      // ---------- SIP configuration ----------
+      case "sip/get":
+        return jsonOk(await getSipConnection(await readJson(request)));
+      case "sip/save-byo":
+        return jsonOk(await saveByoSip(await readJson(request)));
+      case "sip/delete":
+        return jsonOk(await deleteSipConnection(await readJson(request)));
+
+      // ---------- settings ----------
+      case "settings/get":
+        return jsonOk(await getTenantSettings(await readJson(request)));
+      case "settings/save":
+        return jsonOk(await saveTenantSettings(await readJson(request)));
 
       default:
         return new Response("Not found", { status: 404 });

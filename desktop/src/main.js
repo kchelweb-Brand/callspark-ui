@@ -205,6 +205,17 @@ ipcMain.handle("calls:recent", async () => {
   return result.calls;
 });
 
+// Generic bridge for the duplicated pages (Contacts, Campaigns, SIP
+// Configuration, IVR, Settings) — each is a real native screen calling its
+// own native-api route directly, with the session token attached here so
+// the renderer never has to touch it. No AuthGuard, no idle timer: this is
+// a plain fetch, not the website's own React app.
+ipcMain.handle("api:call", async (_e, { route, body }) => {
+  const session = loadSession();
+  if (!session) throw new Error("Not signed in.");
+  return apiPost(route, { ...body, token: session.token });
+});
+
 ipcMain.handle("call:accept", async () => {
   const resp = await ensureBaresip().sendCommand("accept");
   if (!resp?.ok) throw new Error(resp?.data || "Could not accept the call.");
@@ -267,7 +278,6 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
-      webviewTag: true,
       preload: path.join(__dirname, "preload.js"),
     },
   });

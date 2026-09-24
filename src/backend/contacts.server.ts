@@ -54,11 +54,14 @@ async function findOrCreateList(tenantId: string, name: string): Promise<string>
 
 // ---------- list / meta ----------
 
-export const listContactsFn = createServerFn({ method: "POST" })
-  .validator(
-    (data: { token: string; search?: string; listId?: string; tag?: string; page?: number; pageSize?: number }) => data,
-  )
-  .handler(async ({ data }) => {
+export async function listContacts(data: {
+  token: string;
+  search?: string;
+  listId?: string;
+  tag?: string;
+  page?: number;
+  pageSize?: number;
+}) {
     const tenantId = await requireTenant(data.token);
     const page = Math.max(1, data.page || 1);
     const pageSize = Math.min(200, Math.max(1, data.pageSize || 50));
@@ -97,11 +100,15 @@ export const listContactsFn = createServerFn({ method: "POST" })
       page,
       pageSize,
     };
-  });
+}
 
-export const getContactsMetaFn = createServerFn({ method: "POST" })
-  .validator((data: { token: string }) => data)
-  .handler(async ({ data }) => {
+export const listContactsFn = createServerFn({ method: "POST" })
+  .validator(
+    (data: { token: string; search?: string; listId?: string; tag?: string; page?: number; pageSize?: number }) => data,
+  )
+  .handler(async ({ data }) => listContacts(data));
+
+export async function getContactsMeta(data: { token: string }) {
     const tenantId = await requireTenant(data.token);
 
     const lists = await sql`
@@ -121,23 +128,23 @@ export const getContactsMetaFn = createServerFn({ method: "POST" })
       lists: lists as unknown as { id: string; name: string; contact_count: number }[],
       tags: (tagRows as { tag: string }[]).map((r) => r.tag),
     };
-  });
+}
+
+export const getContactsMetaFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string }) => data)
+  .handler(async ({ data }) => getContactsMeta(data));
 
 // ---------- create / import / delete ----------
 
-export const createContactFn = createServerFn({ method: "POST" })
-  .validator(
-    (data: {
-      token: string;
-      company?: string;
-      person?: string;
-      phone: string;
-      email?: string;
-      tags?: string[];
-      listName?: string;
-    }) => data,
-  )
-  .handler(async ({ data }) => {
+export async function createContact(data: {
+  token: string;
+  company?: string;
+  person?: string;
+  phone: string;
+  email?: string;
+  tags?: string[];
+  listName?: string;
+}) {
     const tenantId = await requireTenant(data.token);
     await requireCanCreate(tenantId, "contacts");
 
@@ -153,17 +160,27 @@ export const createContactFn = createServerFn({ method: "POST" })
     `;
 
     return { ok: true as const, id: (inserted[0] as { id: string }).id };
-  });
+}
 
-export const importContactsFn = createServerFn({ method: "POST" })
+export const createContactFn = createServerFn({ method: "POST" })
   .validator(
     (data: {
       token: string;
-      rows: { company?: string; person?: string; phone: string; email?: string; tags?: string[] }[];
+      company?: string;
+      person?: string;
+      phone: string;
+      email?: string;
+      tags?: string[];
       listName?: string;
     }) => data,
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data }) => createContact(data));
+
+export async function importContacts(data: {
+  token: string;
+  rows: { company?: string; person?: string; phone: string; email?: string; tags?: string[] }[];
+  listName?: string;
+}) {
     const tenantId = await requireTenant(data.token);
     // Checked against the whole batch before anything is written — a partial
     // import that stops halfway would leave the user reconciling by hand.
@@ -205,18 +222,30 @@ export const importContactsFn = createServerFn({ method: "POST" })
       invalid,
       invalidCount: invalid.length,
     };
-  });
+}
+
+export const importContactsFn = createServerFn({ method: "POST" })
+  .validator(
+    (data: {
+      token: string;
+      rows: { company?: string; person?: string; phone: string; email?: string; tags?: string[] }[];
+      listName?: string;
+    }) => data,
+  )
+  .handler(async ({ data }) => importContacts(data));
+
+export async function deleteContacts(data: { token: string; ids: string[] }) {
+  const tenantId = await requireTenant(data.token);
+  if (data.ids.length === 0) return { ok: true as const, deleted: 0 };
+
+  const deleted = await sqlQuery(
+    `delete from contacts where tenant_id = $1 and id = any($2::uuid[]) returning id`,
+    [tenantId, data.ids],
+  );
+
+  return { ok: true as const, deleted: deleted.length };
+}
 
 export const deleteContactsFn = createServerFn({ method: "POST" })
   .validator((data: { token: string; ids: string[] }) => data)
-  .handler(async ({ data }) => {
-    const tenantId = await requireTenant(data.token);
-    if (data.ids.length === 0) return { ok: true as const, deleted: 0 };
-
-    const deleted = await sqlQuery(
-      `delete from contacts where tenant_id = $1 and id = any($2::uuid[]) returning id`,
-      [tenantId, data.ids],
-    );
-
-    return { ok: true as const, deleted: deleted.length };
-  });
+  .handler(async ({ data }) => deleteContacts(data));

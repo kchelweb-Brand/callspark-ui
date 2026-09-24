@@ -9,7 +9,14 @@
 <body>
 
   <section id="screen-login" class="screen">
-    <div class="brand">Kchel Dialer</div>
+    <div class="brand">
+      <svg viewBox="0 0 64 64" width="28" height="28" fill="none" aria-hidden="true">
+        <rect x="10" y="12" width="9" height="40" rx="4.5" fill="var(--accent)" />
+        <path d="M25 15 L41 32 L25 49" stroke="var(--brand-blue)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" />
+        <path d="M43 22 L53 32 L43 42" stroke="var(--brand-yellow)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+      Kchel Dialer
+    </div>
 
     <form id="form-request-code" class="stack">
       <label>Workspace
@@ -32,11 +39,19 @@
 
   <section id="screen-app" class="screen app-shell hidden">
     <nav class="sidebar">
-      <div class="brand-small">Kchel Dialer</div>
+      <div class="brand-small">
+        <svg viewBox="0 0 64 64" width="20" height="20" fill="none" aria-hidden="true">
+          <rect x="10" y="12" width="9" height="40" rx="4.5" fill="var(--accent)" />
+          <path d="M25 15 L41 32 L25 49" stroke="var(--brand-blue)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" />
+          <path d="M43 22 L53 32 L43 42" stroke="var(--brand-yellow)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+        Kchel Dialer
+      </div>
       <button class="nav-item active" data-view="dialer">Dialer</button>
-      <button class="nav-item" data-view="phone-system">Phone System</button>
+      <button class="nav-item" data-view="sip-config">SIP Configuration</button>
       <button class="nav-item" data-view="contacts">Contacts</button>
       <button class="nav-item" data-view="campaigns">Campaigns</button>
+      <button class="nav-item" data-view="ivr">IVR</button>
       <button class="nav-item" data-view="settings">Settings</button>
       <div class="sidebar-footer">
         <span id="reg-status" class="status status-pending">Connecting…</span>
@@ -89,13 +104,99 @@
         </div>
       </section>
 
-      <section id="view-phone-system" class="view hidden webview-view"></section>
-      <section id="view-contacts" class="view hidden webview-view"></section>
-      <section id="view-campaigns" class="view hidden webview-view"></section>
-      <section id="view-settings" class="view hidden webview-view"></section>
+      <section id="view-sip-config" class="view hidden">
+        <h1 class="page-title">SIP Configuration</h1>
+        <div class="panel" id="sip-status-panel"></div>
+        <form id="form-sip" class="stack panel">
+          <label>Label
+            <input id="sip-label" type="text" placeholder="My SIP trunk" />
+          </label>
+          <label>SIP username
+            <input id="sip-username" type="text" required />
+          </label>
+          <label>SIP password <span class="hint-inline">(leave blank to keep the saved one)</span>
+            <input id="sip-password" type="password" />
+          </label>
+          <label>Transport
+            <select id="sip-transport">
+              <option value="wss">WSS</option>
+              <option value="tls">TLS</option>
+              <option value="tcp">TCP</option>
+              <option value="udp">UDP</option>
+            </select>
+          </label>
+          <label>SIP host <span class="hint-inline">(for TLS/TCP/UDP)</span>
+            <input id="sip-host" type="text" placeholder="sip.yourprovider.com" />
+          </label>
+          <label>WSS URL <span class="hint-inline">(for WSS)</span>
+            <input id="sip-wss-url" type="text" placeholder="wss://sip.yourprovider.com:443" />
+          </label>
+          <label>Port <span class="hint-inline">(optional)</span>
+            <input id="sip-port" type="number" />
+          </label>
+          <label>Realm <span class="hint-inline">(optional)</span>
+            <input id="sip-realm" type="text" />
+          </label>
+          <button type="submit">Save connection</button>
+          <p class="hint" id="sip-hint"></p>
+        </form>
+      </section>
+
+      <section id="view-contacts" class="view hidden">
+        <div class="page-header">
+          <h1 class="page-title">Contacts</h1>
+          <div class="page-actions">
+            <input id="contacts-search" type="text" placeholder="Search contacts…" />
+            <label class="file-btn">Import CSV<input id="contacts-csv-input" type="file" accept=".csv" hidden /></label>
+          </div>
+        </div>
+        <p class="hint" id="contacts-hint"></p>
+        <div class="panel" id="contacts-table"></div>
+      </section>
+
+      <section id="view-campaigns" class="view hidden">
+        <div class="page-header">
+          <h1 class="page-title">Campaigns</h1>
+          <button id="btn-new-campaign">New campaign</button>
+        </div>
+        <div class="panel" id="campaigns-table"></div>
+      </section>
+
+      <section id="view-ivr" class="view hidden">
+        <div class="page-header">
+          <h1 class="page-title">IVR menus</h1>
+          <button id="btn-new-ivr-menu">New menu</button>
+        </div>
+        <p class="hint" id="ivr-hint"></p>
+        <div id="ivr-menus"></div>
+      </section>
+
+      <section id="view-settings" class="view hidden">
+        <h1 class="page-title">Settings</h1>
+        <form id="form-settings" class="stack panel">
+          <label>Company name
+            <input id="settings-company" type="text" />
+          </label>
+          <label>Business phone
+            <input id="settings-phone" type="text" />
+          </label>
+          <div class="checkbox-row"><input id="settings-pref-record" type="checkbox" /><label for="settings-pref-record">Record all inbound calls</label></div>
+          <div class="checkbox-row"><input id="settings-pref-transcribe" type="checkbox" /><label for="settings-pref-transcribe">Voicemail transcription</label></div>
+          <div class="checkbox-row"><input id="settings-pref-coach" type="checkbox" /><label for="settings-pref-coach">Whisper coaching for supervisors</label></div>
+          <button type="submit">Save settings</button>
+          <p class="hint" id="settings-hint"></p>
+        </form>
+      </section>
     </main>
   </section>
 
+  <div id="modal-root"></div>
+
   <script src="renderer.js"></script>
+  <script src="sip-config.js"></script>
+  <script src="contacts.js"></script>
+  <script src="campaigns.js"></script>
+  <script src="ivr.js"></script>
+  <script src="settings.js"></script>
 </body>
 </html>

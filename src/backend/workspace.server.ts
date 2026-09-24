@@ -14,26 +14,56 @@ async function requireTenant(token: string): Promise<string> {
 
 // ---------- workspace / call preferences / billing ----------
 
+export async function getTenantSettings(data: { token: string }) {
+  const tenantId = await requireTenant(data.token);
+  const rows = await sql`
+    select workspace, preferences, billing
+    from tenant_settings where tenant_id = ${tenantId} limit 1
+  `;
+  const row = rows[0] as
+    | { workspace: JsonObject; preferences: JsonObject; billing: JsonObject }
+    | undefined;
+
+  return {
+    ok: true as const,
+    saved: Boolean(row),
+    workspace: row?.workspace ?? {},
+    preferences: row?.preferences ?? {},
+    billing: row?.billing ?? {},
+  };
+}
+
 export const getTenantSettingsFn = createServerFn({ method: "POST" })
   .validator((data: { token: string }) => data)
-  .handler(async ({ data }) => {
-    const tenantId = await requireTenant(data.token);
-    const rows = await sql`
-      select workspace, preferences, billing
-      from tenant_settings where tenant_id = ${tenantId} limit 1
-    `;
-    const row = rows[0] as
-      | { workspace: JsonObject; preferences: JsonObject; billing: JsonObject }
-      | undefined;
+  .handler(async ({ data }) => getTenantSettings(data));
 
-    return {
-      ok: true as const,
-      saved: Boolean(row),
-      workspace: row?.workspace ?? {},
-      preferences: row?.preferences ?? {},
-      billing: row?.billing ?? {},
-    };
-  });
+export async function saveTenantSettings(data: {
+  token: string;
+  workspace?: JsonObject;
+  preferences?: JsonObject;
+  billing?: JsonObject;
+}) {
+  const tenantId = await requireTenant(data.token);
+
+  // Merge rather than replace, so saving the billing panel can't wipe the
+  // workspace profile the user set on a different screen.
+  await sql`
+    insert into tenant_settings (tenant_id, workspace, preferences, billing, updated_at)
+    values (
+      ${tenantId},
+      ${JSON.stringify(data.workspace ?? {})}::jsonb,
+      ${JSON.stringify(data.preferences ?? {})}::jsonb,
+      ${JSON.stringify(data.billing ?? {})}::jsonb,
+      now()
+    )
+    on conflict (tenant_id) do update set
+      workspace = tenant_settings.workspace || excluded.workspace,
+      preferences = tenant_settings.preferences || excluded.preferences,
+      billing = tenant_settings.billing || excluded.billing,
+      updated_at = now()
+  `;
+  return { ok: true as const };
+}
 
 export const saveTenantSettingsFn = createServerFn({ method: "POST" })
   .validator(
@@ -44,28 +74,7 @@ export const saveTenantSettingsFn = createServerFn({ method: "POST" })
       billing?: JsonObject;
     }) => data,
   )
-  .handler(async ({ data }) => {
-    const tenantId = await requireTenant(data.token);
-
-    // Merge rather than replace, so saving the billing panel can't wipe the
-    // workspace profile the user set on a different screen.
-    await sql`
-      insert into tenant_settings (tenant_id, workspace, preferences, billing, updated_at)
-      values (
-        ${tenantId},
-        ${JSON.stringify(data.workspace ?? {})}::jsonb,
-        ${JSON.stringify(data.preferences ?? {})}::jsonb,
-        ${JSON.stringify(data.billing ?? {})}::jsonb,
-        now()
-      )
-      on conflict (tenant_id) do update set
-        workspace = tenant_settings.workspace || excluded.workspace,
-        preferences = tenant_settings.preferences || excluded.preferences,
-        billing = tenant_settings.billing || excluded.billing,
-        updated_at = now()
-    `;
-    return { ok: true as const };
-  });
+  .handler(async ({ data }) => saveTenantSettings(data));
 
 // ---------- tenant-facing support ----------
 

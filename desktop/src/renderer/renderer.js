@@ -35,13 +35,17 @@ let timerInterval = null;
 let sipRegistered = false;
 let dialedNumber = "";
 
-const EMBEDDED_ROUTES = {
-  "phone-system": "/phone-system",
-  contacts: "/contacts",
-  campaigns: "/campaigns",
-  settings: "/settings",
+// Each of these pages (sip-config.js, contacts.js, campaigns.js, ivr.js,
+// settings.js) is a real native screen — its own DOM, its own calls to
+// window.kchel.api(), no embedded website page and no idle timer.
+const PAGE_INIT = {
+  "sip-config": () => window.KchelSipConfig?.init(),
+  contacts: () => window.KchelContacts?.init(),
+  campaigns: () => window.KchelCampaigns?.init(),
+  ivr: () => window.KchelIvr?.init(),
+  settings: () => window.KchelSettings?.init(),
 };
-const embeddedWebviews = {}; // view name -> <webview> element, created lazily
+const pageLoaded = {};
 
 function show(screen) {
   els.screenLogin.classList.toggle("hidden", screen !== "login");
@@ -53,47 +57,10 @@ function showView(name) {
   document.querySelectorAll(".nav-item").forEach((el) => el.classList.toggle("active", el.dataset.view === name));
   document.getElementById(`view-${name}`).classList.remove("hidden");
 
-  if (EMBEDDED_ROUTES[name]) openEmbeddedView(name);
-}
-
-/** Loads a real, already-working page from the website inside its own
- * <webview>, injecting this app's session so the person never has to sign
- * in twice. Built once per view, then just shown/hidden after that. */
-async function openEmbeddedView(name) {
-  if (embeddedWebviews[name]) return;
-
-  const container = document.getElementById(`view-${name}`);
-  const session = await window.kchel.getSession();
-  const apiBase = await window.kchel.getApiBase();
-  if (!session) return;
-
-  const webview = document.createElement("webview");
-  webview.setAttribute("partition", "persist:kchel-embedded");
-  webview.setAttribute("src", `${apiBase}${EMBEDDED_ROUTES[name]}`);
-  container.appendChild(webview);
-  embeddedWebviews[name] = webview;
-
-  const injectSession = () => {
-    const payload = JSON.stringify({ token: session.token, user: session.user });
-    webview.executeJavaScript(`
-      (function() {
-        var data = ${payload};
-        sessionStorage.setItem("kchel_dialer_token", data.token);
-        sessionStorage.setItem("kchel_dialer_user", JSON.stringify(data.user));
-        sessionStorage.setItem("kchel_dialer_last_active", String(Date.now()));
-      })();
-    `).catch(() => {});
-  };
-
-  webview.addEventListener("dom-ready", injectSession);
-  // Safety net: if the page's own auth check ran before injection landed and
-  // sent it to /login, inject again and bounce back to the real page.
-  webview.addEventListener("did-navigate", (e) => {
-    if (e.url.includes("/login")) {
-      injectSession();
-      webview.loadURL(`${apiBase}${EMBEDDED_ROUTES[name]}`);
-    }
-  });
+  if (PAGE_INIT[name] && !pageLoaded[name]) {
+    pageLoaded[name] = true;
+    PAGE_INIT[name]();
+  }
 }
 
 document.querySelectorAll(".nav-item").forEach((btn) => {

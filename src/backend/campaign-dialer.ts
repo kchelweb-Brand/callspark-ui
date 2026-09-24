@@ -268,66 +268,104 @@ function swml(doc: unknown): Response {
 }
 
 /** For a campaign's own detail view — flips rows stuck mid-flight (accepted but never got a status callback) so the chain doesn't stall forever. There's no cron here, so this only runs when someone's actually looking at the campaign. */
+export async function reconcileCampaign(data: { token: string; campaignId: string; origin: string }) {
+  const tenantId = await requireTenant(data.token);
+  const stalled = await sql`
+    update campaign_calls set status = 'failed', updated_at = now()
+    where campaign_id = ${data.campaignId} and tenant_id = ${tenantId}
+      and status = 'calling' and updated_at < now() - (${STALL_TIMEOUT_MINUTES}::int) * interval '1 minute'
+    returning id
+  `;
+  if (stalled.length > 0) {
+    await dialNextPendingContact(data.campaignId, data.origin);
+  }
+  return { ok: true as const, reconciled: stalled.length };
+}
+
 export const reconcileCampaignFn = createServerFn({ method: "POST" })
   .validator((data: { token: string; campaignId: string; origin: string }) => data)
-  .handler(async ({ data }) => {
-    const tenantId = await requireTenant(data.token);
-    const stalled = await sql`
-      update campaign_calls set status = 'failed', updated_at = now()
-      where campaign_id = ${data.campaignId} and tenant_id = ${tenantId}
-        and status = 'calling' and updated_at < now() - (${STALL_TIMEOUT_MINUTES}::int) * interval '1 minute'
-      returning id
-    `;
-    if (stalled.length > 0) {
-      await dialNextPendingContact(data.campaignId, data.origin);
-    }
-    return { ok: true as const, reconciled: stalled.length };
-  });
+  .handler(async ({ data }) => reconcileCampaign(data));
+
+export interface CampaignCallLogRow {
+  id: string;
+  contact_name: string | null;
+  phone: string | null;
+  status: string;
+  attempts: number;
+  outcome: string | null;
+  duration_seconds: number | null;
+  updated_at: string;
+}
+
+/** Per-contact dial log for a campaign's detail view — what actually happened, not just a count. */
+export async function getCampaignCallLog(data: { token: string; campaignId: string }) {
+  const tenantId = await requireTenant(data.token);
+
+  const rows = await sql`
+    select cc.id, coalesce(ct.company, ct.person) as contact_name, ct.phone,
+           cc.status, cc.attempts, c.outcome, c.duration_seconds, cc.updated_at
+    from campaign_calls cc
+    join contacts ct on ct.id = cc.contact_id
+    left join calls c on c.id = cc.call_id
+    where cc.campaign_id = ${data.campaignId} and cc.tenant_id = ${tenantId}
+    order by cc.updated_at desc
+    limit 200
+  `;
+  return { ok: true as const, log: rows as unknown as CampaignCallLogRow[] };
+}
+
+export const getCampaignCallLogFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string; campaignId: string }) => data)
+  .handler(async ({ data }) => getCampaignCallLog(data));
 
 /** Kicks off (or resumes) an AI-agent campaign's dial chain. */
+export async function startCampaignDialing(data: { token: string; campaignId: string; origin: string }) {
+  const tenantId = await requireTenant(data.token);
+
+  const [campaign] = await sql`
+    select mode, ai_prompt, compliance_ack, list_id
+    from campaigns where id = ${data.campaignId} and tenant_id = ${tenantId} limit 1
+  `;
+  if (!campaign) throw new Error("Campaign not found.");
+  if (campaign.mode !== "ai_agent") throw new Error("This campaign isn't set up for AI dialing.");
+  if (!campaign.compliance_ack) {
+    throw new Error("Confirm the consent/disclosure checkbox before starting this campaign.");
+  }
+  if (!campaign.ai_prompt?.trim()) throw new Error("Write a prompt before starting this campaign.");
+  if (!campaign.list_id) throw new Error("Choose a contact list before starting this campaign.");
+  if (!env.signalwireProjectId || !env.signalwireApiToken || !env.signalwireSpaceName) {
+    throw new Error("AI calling isn't set up yet — SignalWire REST credentials are missing.");
+  }
+
+  // Idempotent — seeding a campaign that's already partway through just
+  // adds any contacts appended to the list since; it never resets progress.
+  await sql`
+    insert into campaign_calls (tenant_id, campaign_id, contact_id)
+    select ${tenantId}, ${data.campaignId}, c.id
+    from contacts c
+    where c.tenant_id = ${tenantId} and c.list_id = ${campaign.list_id} and c.do_not_call = false
+    on conflict (campaign_id, contact_id) do nothing
+  `;
+
+  await sql`update campaigns set status = 'Active', updated_at = now() where id = ${data.campaignId}`;
+  await dialNextPendingContact(data.campaignId, data.origin);
+  return { ok: true as const };
+}
+
 export const startCampaignDialingFn = createServerFn({ method: "POST" })
   .validator((data: { token: string; campaignId: string; origin: string }) => data)
-  .handler(async ({ data }) => {
-    const tenantId = await requireTenant(data.token);
-
-    const [campaign] = await sql`
-      select mode, ai_prompt, compliance_ack, list_id
-      from campaigns where id = ${data.campaignId} and tenant_id = ${tenantId} limit 1
-    `;
-    if (!campaign) throw new Error("Campaign not found.");
-    if (campaign.mode !== "ai_agent") throw new Error("This campaign isn't set up for AI dialing.");
-    if (!campaign.compliance_ack) {
-      throw new Error("Confirm the consent/disclosure checkbox before starting this campaign.");
-    }
-    if (!campaign.ai_prompt?.trim()) throw new Error("Write a prompt before starting this campaign.");
-    if (!campaign.list_id) throw new Error("Choose a contact list before starting this campaign.");
-    if (!env.signalwireProjectId || !env.signalwireApiToken || !env.signalwireSpaceName) {
-      throw new Error("AI calling isn't set up yet — SignalWire REST credentials are missing.");
-    }
-
-    // Idempotent — seeding a campaign that's already partway through just
-    // adds any contacts appended to the list since; it never resets progress.
-    await sql`
-      insert into campaign_calls (tenant_id, campaign_id, contact_id)
-      select ${tenantId}, ${data.campaignId}, c.id
-      from contacts c
-      where c.tenant_id = ${tenantId} and c.list_id = ${campaign.list_id} and c.do_not_call = false
-      on conflict (campaign_id, contact_id) do nothing
-    `;
-
-    await sql`update campaigns set status = 'Active', updated_at = now() where id = ${data.campaignId}`;
-    await dialNextPendingContact(data.campaignId, data.origin);
-    return { ok: true as const };
-  });
+  .handler(async ({ data }) => startCampaignDialing(data));
 
 /** Pausing just stops the chain from advancing — dialNextPendingContact checks campaigns.status before every claim. */
+export async function pauseCampaignDialing(data: { token: string; campaignId: string }) {
+  const tenantId = await requireTenant(data.token);
+  await sql`
+    update campaigns set status = 'Paused', updated_at = now()
+    where id = ${data.campaignId} and tenant_id = ${tenantId}
+  `;
+  return { ok: true as const };
+}
+
 export const pauseCampaignDialingFn = createServerFn({ method: "POST" })
   .validator((data: { token: string; campaignId: string }) => data)
-  .handler(async ({ data }) => {
-    const tenantId = await requireTenant(data.token);
-    await sql`
-      update campaigns set status = 'Paused', updated_at = now()
-      where id = ${data.campaignId} and tenant_id = ${tenantId}
-    `;
-    return { ok: true as const };
-  });
+  .handler(async ({ data }) => pauseCampaignDialing(data));

@@ -160,37 +160,35 @@ export function resolveByoSipInput(data: ByoSipInputShape): ResolvedByoSip {
 
 // ---------- read ----------
 
+export async function getSipConnection(data: { token: string }) {
+  const tenantId = await requireTenant(data.token);
+  const rows = await sql`
+    select id, mode, label, status, sip_host, sip_port, sip_username, sip_realm,
+           sip_wss_url, sip_transport, sip_password_enc, telnyx_connection_id,
+           last_registered_at, last_error, created_at
+    from sip_connections where tenant_id = ${tenantId} limit 1
+  `;
+  const row = rows[0] as unknown as SipRow | undefined;
+  return { ok: true as const, connection: row ? toView(row) : null };
+}
+
 export const getSipConnectionFn = createServerFn({ method: "POST" })
   .validator((data: { token: string }) => data)
-  .handler(async ({ data }) => {
-    const tenantId = await requireTenant(data.token);
-    const rows = await sql`
-      select id, mode, label, status, sip_host, sip_port, sip_username, sip_realm,
-             sip_wss_url, sip_transport, sip_password_enc, telnyx_connection_id,
-             last_registered_at, last_error, created_at
-      from sip_connections where tenant_id = ${tenantId} limit 1
-    `;
-    const row = rows[0] as unknown as SipRow | undefined;
-    return { ok: true as const, connection: row ? toView(row) : null };
-  });
+  .handler(async ({ data }) => getSipConnection(data));
 
 // ---------- bring your own ----------
 
-export const saveByoSipFn = createServerFn({ method: "POST" })
-  .validator(
-    (data: {
-      token: string;
-      label: string;
-      sipHost: string;
-      sipWssUrl: string;
-      sipUsername: string;
-      sipPassword?: string;
-      sipRealm?: string;
-      sipPort?: number;
-      sipTransport?: string;
-    }) => data,
-  )
-  .handler(async ({ data }) => {
+export async function saveByoSip(data: {
+  token: string;
+  label: string;
+  sipHost: string;
+  sipWssUrl: string;
+  sipUsername: string;
+  sipPassword?: string;
+  sipRealm?: string;
+  sipPort?: number;
+  sipTransport?: string;
+}) {
     const tenantId = await requireTenant(data.token);
 
     const { label, effectiveHost, username, wssUrl, transport, realm, port } =
@@ -237,15 +235,33 @@ export const saveByoSipFn = createServerFn({ method: "POST" })
       from sip_connections where tenant_id = ${tenantId} limit 1
     `;
     return { ok: true as const, connection: toView(rows[0] as unknown as SipRow) };
-  });
+}
+
+export const saveByoSipFn = createServerFn({ method: "POST" })
+  .validator(
+    (data: {
+      token: string;
+      label: string;
+      sipHost: string;
+      sipWssUrl: string;
+      sipUsername: string;
+      sipPassword?: string;
+      sipRealm?: string;
+      sipPort?: number;
+      sipTransport?: string;
+    }) => data,
+  )
+  .handler(async ({ data }) => saveByoSip(data));
+
+export async function deleteSipConnection(data: { token: string }) {
+  const tenantId = await requireTenant(data.token);
+  await sql`delete from sip_connections where tenant_id = ${tenantId}`;
+  return { ok: true as const };
+}
 
 export const deleteSipConnectionFn = createServerFn({ method: "POST" })
   .validator((data: { token: string }) => data)
-  .handler(async ({ data }) => {
-    const tenantId = await requireTenant(data.token);
-    await sql`delete from sip_connections where tenant_id = ${tenantId}`;
-    return { ok: true as const };
-  });
+  .handler(async ({ data }) => deleteSipConnection(data));
 
 // ---------- wallet (managed mode) ----------
 

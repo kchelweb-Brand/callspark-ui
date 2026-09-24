@@ -9,9 +9,11 @@ import {
   type CampaignRecord,
 } from "@/backend/campaigns.server";
 import {
+  getCampaignCallLogFn,
   pauseCampaignDialingFn,
   reconcileCampaignFn,
   startCampaignDialingFn,
+  type CampaignCallLogRow,
 } from "@/backend/campaign-dialer";
 import {
   createAgentFn,
@@ -95,6 +97,13 @@ export function pauseCampaignDialing(campaignId: string) {
 
 export function reconcileCampaign(campaignId: string, origin: string) {
   return reconcileCampaignFn({ data: { token: requireToken(), campaignId, origin } });
+}
+
+export type { CampaignCallLogRow };
+
+export async function getCampaignCallLog(campaignId: string) {
+  const result = await getCampaignCallLogFn({ data: { token: requireToken(), campaignId } });
+  return result.log;
 }
 
 // ---------- agents ----------

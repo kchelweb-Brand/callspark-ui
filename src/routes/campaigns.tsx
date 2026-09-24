@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import {
   Copy,
+  List,
   Loader2,
   MoreHorizontal,
   Pause,
@@ -27,6 +28,13 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Table,
   TableBody,
   TableCell,
@@ -38,10 +46,13 @@ import { CreateCampaignDialog } from "@/components/dash/CreateCampaignDialog";
 import {
   deleteCampaign,
   duplicateCampaign,
+  getCampaignCallLog,
   listCampaigns,
   pauseCampaignDialing,
+  reconcileCampaign,
   startCampaignDialing,
   updateCampaign,
+  type CampaignCallLogRow,
   type CampaignRecord,
 } from "@/lib/workspace-api";
 import {
@@ -111,6 +122,9 @@ function CampaignsPage() {
   const [status, setStatus] = useState<string | null>(null);
   const [owner, setOwner] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Campaign | null>(null);
+  const [logTarget, setLogTarget] = useState<Campaign | null>(null);
+  const [logRows, setLogRows] = useState<CampaignCallLogRow[]>([]);
+  const [logLoading, setLogLoading] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -162,6 +176,48 @@ function CampaignsPage() {
       toast.error(err instanceof Error ? err.message : "Could not pause that campaign.");
     }
   }
+
+  const refreshLog = useCallback(async (c: Campaign) => {
+    try {
+      setLogRows(await getCampaignCallLog(c.id));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not load the call log.");
+    }
+  }, []);
+
+  async function openCallLog(c: Campaign) {
+    setLogTarget(c);
+    setLogLoading(true);
+    await refreshLog(c);
+    setLogLoading(false);
+  }
+
+  // While the log is open on a live campaign, poll for progress — reconcile
+  // first so a stalled row (accepted but never got its status callback)
+  // gets nudged forward before the refreshed log is read. Fetches directly
+  // rather than through `load()`, which would flip the whole table into its
+  // loading state on every tick.
+  useEffect(() => {
+    if (!logTarget || logTarget.status !== "Active") return;
+    const interval = setInterval(async () => {
+      try {
+        await reconcileCampaign(logTarget.id, window.location.origin);
+      } catch {
+        // Best-effort — the log still refreshes even if reconcile fails.
+      }
+      await refreshLog(logTarget);
+      try {
+        const result = await listCampaigns();
+        const mapped = result.campaigns.map(toRow);
+        setRows(mapped);
+        const updated = mapped.find((r) => r.id === logTarget.id);
+        if (updated) setLogTarget(updated);
+      } catch {
+        // Best-effort — the log itself already refreshed above.
+      }
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [logTarget, refreshLog]);
 
   async function handleDuplicate(c: Campaign) {
     try {
@@ -346,6 +402,11 @@ function CampaignsPage() {
                             <Play className="size-3.5" /> Resume
                           </DropdownMenuItem>
                         ) : null}
+                        {c.mode === "ai_agent" && c.queueTotal > 0 && (
+                          <DropdownMenuItem onClick={() => void openCallLog(c)}>
+                            <List className="size-3.5" /> View call log
+                          </DropdownMenuItem>
+                        )}
                         <DropdownMenuItem onClick={() => void handleDuplicate(c)}>
                           <Copy className="size-3.5" /> Duplicate
                         </DropdownMenuItem>
@@ -383,6 +444,62 @@ function CampaignsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={!!logTarget} onOpenChange={(open) => !open && setLogTarget(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{logTarget?.name} — call log</DialogTitle>
+            <DialogDescription>
+              {logTarget?.status === "Active"
+                ? "Updates automatically while this campaign is dialing."
+                : "Every contact this campaign has attempted."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[60vh] overflow-y-auto">
+            {logLoading ? (
+              <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
+                <Loader2 className="size-4 animate-spin" /> Loading…
+              </div>
+            ) : logRows.length === 0 ? (
+              <p className="py-10 text-center text-sm text-muted-foreground">Nothing dialed yet.</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Contact</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Outcome</TableHead>
+                    <TableHead className="text-right">Duration</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {logRows.map((row) => (
+                    <TableRow key={row.id}>
+                      <TableCell>
+                        <p className="font-medium">{row.contact_name || "—"}</p>
+                        <p className="font-mono text-xs text-muted-foreground">{row.phone}</p>
+                      </TableCell>
+                      <TableCell>
+                        <StatusPill
+                          status={
+                            row.status === "completed"
+                              ? "Successfully dialed"
+                              : row.status.charAt(0).toUpperCase() + row.status.slice(1)
+                          }
+                        />
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{row.outcome ?? "—"}</TableCell>
+                      <TableCell className="text-right font-mono text-sm">
+                        {row.duration_seconds ? `${row.duration_seconds}s` : "—"}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </Shell>
   );
 }

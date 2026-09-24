@@ -1,11 +1,16 @@
 :root {
   color-scheme: dark;
-  --bg: #090e12;
-  --panel: #10171d;
-  --border: #1f2a33;
-  --text: #e8edf1;
-  --muted: #8ea0ac;
-  --accent: #2fae66;
+  /* Same brand tokens as the website's dark theme (src/styles.css) — the
+     logo's three colors (green/blue/yellow) plus white and near-black,
+     not just a single accent green. */
+  --bg: oklch(0.11 0.01 250);
+  --panel: oklch(0.16 0.012 250);
+  --border: oklch(0.25 0.018 250);
+  --text: #ffffff;
+  --muted: oklch(0.71 0.018 245);
+  --accent: oklch(0.70 0.16 152); /* brand green */
+  --brand-blue: oklch(0.66 0.16 250);
+  --brand-yellow: oklch(0.86 0.15 92);
   --danger: #d94b4b;
   font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
 }
@@ -47,6 +52,9 @@ body {
 }
 
 .brand-small {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-size: 15px;
   font-weight: 600;
   padding: 0 8px 14px;
@@ -101,9 +109,12 @@ body {
 .hidden { display: none !important; }
 
 .brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
   font-size: 20px;
   font-weight: 600;
-  text-align: center;
   margin-bottom: 12px;
 }
 
@@ -121,16 +132,17 @@ label {
   color: var(--muted);
 }
 
-input {
+input, select, textarea {
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 10px 12px;
   color: var(--text);
   font-size: 15px;
+  font-family: inherit;
 }
 
-input:focus { outline: 2px solid var(--accent); }
+input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); }
 
 button {
   border: none;
@@ -171,7 +183,7 @@ button.link {
   border: 1px solid var(--border);
 }
 .status-ok { color: var(--accent); border-color: var(--accent); }
-.status-pending { color: #d9a13b; }
+.status-pending { color: var(--brand-yellow); }
 .status-error { color: var(--danger); border-color: var(--danger); }
 
 .dial-panel {
@@ -321,3 +333,125 @@ button.link {
   font-size: 12px;
   padding: 8px 0;
 }
+
+/* ---------- duplicated native pages (SIP config, Contacts, Campaigns, IVR, Settings) ---------- */
+
+.page-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0 0 16px;
+}
+
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.page-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.hint-inline {
+  color: var(--muted);
+  font-weight: 400;
+  font-size: 11px;
+}
+
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.checkbox-row label { color: var(--muted); }
+
+.file-btn {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.status-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.data-table th {
+  text-align: left;
+  color: var(--muted);
+  font-weight: 500;
+  font-size: 11px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+}
+.data-table td {
+  padding: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.data-table input, .data-table select {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 12px;
+  width: 100%;
+}
+.row-actions { display: flex; gap: 6px; justify-content: flex-end; }
+.row-actions button { padding: 6px 10px; font-size: 12px; background: var(--panel); border: 1px solid var(--border); color: var(--text); }
+.mono { font-family: monospace; }
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+.modal {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 22px;
+  width: 460px;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+.modal h2 { margin: 0 0 16px; font-size: 16px; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 10px; }
+.modal-actions button:last-child { background: var(--accent); color: #06120a; }
+
+.toggle-row { display: flex; gap: 8px; }
+.toggle-btn {
+  flex: 1;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  padding: 8px;
+}
+.toggle-btn.active { background: var(--accent); color: #06120a; border-color: var(--accent); }
