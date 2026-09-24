@@ -34,6 +34,23 @@ desktop/release2/
 desktop/build/icon.ico
 desktop/build/icon.icns
 desktop/build/icon.png
+desktop/*.log
+
+# The native calling engine (baresip.exe + its DLLs) — a compiled binary
+# produced by the native-dialer/ build workspace. Too large and
+# platform-specific to track; copy it into desktop/resources/baresip before
+# running `npm run dist:win`.
+desktop/resources/
+
+# native-dialer/ is the local build workspace (vendored C source trees for
+# baresip/re/rem, generated machine-specific config, build artifacts) used to
+# produce that binary — not part of the shipped product, never tracked.
+/native-dialer/
+
+# The free simple desktop app (desktop-basic/) — same build-output story as
+# desktop/ above.
+desktop-basic/release/
+desktop-basic/*.log
 
 # Editor directories and files
 .vscode/*

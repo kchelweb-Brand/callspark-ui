@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline';" />
+  <title>Kchel Dialer</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <section id="screen-login" class="screen">
+    <div class="brand">Kchel Dialer</div>
+
+    <form id="form-request-code" class="stack">
+      <label>Workspace
+        <input id="input-slug" type="text" placeholder="akinbinu" autocomplete="off" required />
+      </label>
+      <label>Email
+        <input id="input-email" type="email" placeholder="you@company.com" autocomplete="email" required />
+      </label>
+      <button type="submit">Send code</button>
+      <p class="hint" id="login-hint"></p>
+    </form>
+
+    <form id="form-verify-code" class="stack hidden">
+      <p class="hint">Enter the code sent to your email.</p>
+      <input id="input-code" type="text" inputmode="numeric" placeholder="000000" autocomplete="one-time-code" required />
+      <button type="submit">Sign in</button>
+      <p class="hint" id="verify-hint"></p>
+    </form>
+  </section>
+
+  <section id="screen-app" class="screen app-shell hidden">
+    <nav class="sidebar">
+      <div class="brand-small">Kchel Dialer</div>
+      <button class="nav-item active" data-view="dialer">Dialer</button>
+      <button class="nav-item" data-view="phone-system">Phone System</button>
+      <button class="nav-item" data-view="contacts">Contacts</button>
+      <button class="nav-item" data-view="campaigns">Campaigns</button>
+      <div class="sidebar-footer">
+        <span id="reg-status" class="status status-pending">Connecting…</span>
+        <button id="btn-logout" class="link">Sign out</button>
+      </div>
+    </nav>
+
+    <main class="main-area">
+      <section id="view-dialer" class="view">
+        <div id="call-panel" class="call-panel hidden">
+          <div class="call-number" id="call-number">—</div>
+          <div class="call-state" id="call-state">Calling…</div>
+          <div class="call-timer" id="call-timer"></div>
+          <div class="call-actions">
+            <button id="btn-accept" class="call-btn accept hidden">Accept</button>
+            <button id="btn-hangup" class="call-btn hangup">Hang up</button>
+          </div>
+          <div class="dtmf-row hidden" id="dtmf-row">
+            <button data-digit="1">1</button><button data-digit="2">2</button><button data-digit="3">3</button>
+            <button data-digit="4">4</button><button data-digit="5">5</button><button data-digit="6">6</button>
+            <button data-digit="7">7</button><button data-digit="8">8</button><button data-digit="9">9</button>
+            <button data-digit="*">*</button><button data-digit="0">0</button><button data-digit="#">#</button>
+          </div>
+        </div>
+
+        <div id="dial-panel" class="dial-panel">
+          <input id="input-number" type="tel" placeholder="Enter a number" autocomplete="off" />
+          <button id="btn-dial" class="call-btn dial">Call</button>
+        </div>
+
+        <p class="hint" id="dialer-hint"></p>
+      </section>
+
+      <section id="view-phone-system" class="view hidden webview-view"></section>
+      <section id="view-contacts" class="view hidden webview-view"></section>
+      <section id="view-campaigns" class="view hidden webview-view"></section>
+    </main>
+  </section>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

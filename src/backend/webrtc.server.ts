@@ -3,6 +3,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { sql } from "./db";
 import { verifyToken } from "./tokens";
 import { decryptSecret } from "./crypto";
+import { getTurnIceServers } from "./cloudflare-turn";
 
 /**
  * Hands an agent's browser the credentials it needs to register with the
@@ -73,6 +74,11 @@ export const getAgentSipConfigFn = createServerFn({ method: "POST" })
       throw new Error("Stored credentials could not be read. Please re-enter your SIP password.");
     }
 
+    // Minted fresh per connect — short-lived, so nothing is stored. Null
+    // (not configured, or Cloudflare's endpoint failed) just means the
+    // softphone falls back to STUN-only, same as before this existed.
+    const iceServers = await getTurnIceServers();
+
     return {
       ok: true as const,
       config: {
@@ -83,14 +89,13 @@ export const getAgentSipConfigFn = createServerFn({ method: "POST" })
         username: row.sip_username,
         password,
         realm: row.sip_realm,
+        iceServers,
       },
     };
   });
 
 /** Records the outcome of a registration attempt so the Connection tab can show real status. */
-export const reportRegistrationFn = createServerFn({ method: "POST" })
-  .validator((data: { token: string; success: boolean; error?: string }) => data)
-  .handler(async ({ data }) => {
+export async function reportRegistration(data: { token: string; success: boolean; error?: string }) {
     const payload = await verifyToken(data.token);
     if (!payload || !payload.tenantId) throw new Error("Not signed in.");
 
@@ -109,4 +114,8 @@ export const reportRegistrationFn = createServerFn({ method: "POST" })
       `;
     }
     return { ok: true as const };
-  });
+}
+
+export const reportRegistrationFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string; success: boolean; error?: string }) => data)
+  .handler(async ({ data }) => reportRegistration(data));

@@ -441,6 +441,19 @@ async function main() {
   `;
   await sql`create index if not exists idx_campaign_calls_campaign_status on campaign_calls (campaign_id, status)`;
 
+  // Desktop Dialer is a paid add-on ($500 one-time), not part of any plan —
+  // gated per tenant, flipped on by a super admin once payment is confirmed
+  // (same manual-approval pattern as tenant activation, since there's no
+  // payment processor wired up).
+  await sql`alter table tenants add column if not exists dialer_addon_enabled boolean not null default false`;
+  await sql`alter table tenants add column if not exists dialer_addon_requested_at timestamptz`;
+  await sql`update tenants set dialer_addon_enabled = true where workspace_slug = 'akinbinu'`;
+
+  // Managed SIP Trunk — same paid-add-on pattern, $200 one-time (bundled free
+  // on Managed Enterprise, same as the Dialer add-on above).
+  await sql`alter table tenants add column if not exists sip_addon_enabled boolean not null default false`;
+  await sql`alter table tenants add column if not exists sip_addon_requested_at timestamptz`;
+
   console.log("Schema is up to date.");
 }
 

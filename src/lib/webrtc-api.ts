@@ -1,6 +1,12 @@
 import { getAgentSipConfigFn, reportRegistrationFn } from "@/backend/webrtc.server";
 import { getSessionToken } from "./auth-api";
 
+export interface IceServer {
+  urls: string | string[];
+  username?: string;
+  credential?: string;
+}
+
 export interface AgentSipConfig {
   label: string;
   wssUrl: string;
@@ -8,6 +14,8 @@ export interface AgentSipConfig {
   username: string;
   password: string;
   realm: string | null;
+  /** Null when Cloudflare TURN isn't configured — the softphone falls back to STUN-only. */
+  iceServers: IceServer[] | null;
 }
 
 function requireToken(): string {

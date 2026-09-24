@@ -6,6 +6,7 @@ import { getMediaBucket, setCloudflareEnv } from "./backend/cf-env";
 import { handleTelnyxVoiceWebhook } from "./backend/inbound";
 import { handleSignalWireVoiceWebhook } from "./backend/inbound-signalwire";
 import { CAMPAIGN_AI_WEBHOOK_PATH, handleCampaignAiWebhook } from "./backend/campaign-dialer";
+import { NATIVE_API_PREFIX, handleNativeApi } from "./backend/native-api";
 
 /**
  * Serves greeting audio straight from R2.
@@ -156,6 +157,13 @@ export default {
           return new Response("Method not allowed", { status: 405 });
         }
         return await handleCampaignAiWebhook(request);
+      }
+
+      // The native desktop dialer (Electron + baresip) talks to these fixed
+      // plain-JSON routes instead of TanStack Start's internal server-function
+      // RPC, which only a browser client can speak.
+      if (url.pathname.startsWith(NATIVE_API_PREFIX)) {
+        return await handleNativeApi(request, url.pathname);
       }
 
       const handler = await getServerEntry();

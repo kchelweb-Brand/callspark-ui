@@ -145,14 +145,20 @@ export class Softphone {
         authorizationUsername: config.username,
         authorizationPassword: config.password,
         displayName: config.username,
-        // Without a STUN server the peer connection only gathers host
-        // candidates — private LAN addresses the carrier's media server
-        // can't send RTP to. Early media (183) still arrives since that's
-        // pure signaling, but real audio never establishes, so the carrier
-        // tears the call down as unreachable once its grace period elapses.
+        // STUN alone isn't enough — it only reveals a candidate's public
+        // address, and a meaningful share of real networks (symmetric NAT,
+        // restrictive firewalls) can't complete a direct media path even
+        // with that. Without a relay fallback, signaling completes fine
+        // (183 arrives) but no RTP ever flows, and the carrier tears the
+        // call down as a media timeout once its grace period elapses.
+        // SignalWire doesn't run its own TURN service, so one has to be
+        // supplied here — config.iceServers are short-lived Cloudflare
+        // Realtime TURN credentials minted per connection (see
+        // src/backend/cloudflare-turn.ts). Falls back to STUN-only if
+        // that's not configured, same as before it existed.
         sessionDescriptionHandlerFactoryOptions: {
           peerConnectionConfiguration: {
-            iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+            iceServers: [{ urls: "stun:stun.l.google.com:19302" }, ...(config.iceServers ?? [])],
           },
         },
       },

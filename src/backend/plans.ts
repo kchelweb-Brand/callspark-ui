@@ -109,7 +109,8 @@ export const PLANS: Record<PlanId, Plan> = {
     // curve continues, and the cost per agent falls as the team grows.
     pricePerAgentMonthly: 0,
     priceFlatMonthly: 2500,
-    blurb: "Unlimited everything, we run the carrier, and a named account manager.",
+    blurb:
+      "Unlimited everything, we run the carrier, the Desktop Dialer included free, and full support & maintenance.",
     managedSip: true,
     limits: {
       agents: null,

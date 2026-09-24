@@ -5,6 +5,13 @@ import {
   listPlansFn,
   setTenantPlanFn,
 } from "@/backend/billing.server";
+import {
+  getAddonStatusFn,
+  requestDialerAddonFn,
+  requestSipAddonFn,
+  setDialerAddonFn,
+  setSipAddonFn,
+} from "@/backend/addons.server";
 import { getSessionToken } from "./auth-api";
 
 function requireToken(): string {
@@ -58,4 +65,26 @@ export function activateTenant(tenantId: string, plan: string, notify = true) {
       origin: typeof window === "undefined" ? "" : window.location.origin,
     },
   });
+}
+
+// ---------- Paid add-ons: Desktop Dialer ($500) and Managed SIP ($200) ----------
+
+export function getAddonStatus() {
+  return getAddonStatusFn({ data: { token: requireToken() } });
+}
+
+export function requestDialerAddon() {
+  return requestDialerAddonFn({ data: { token: requireToken() } });
+}
+
+export function requestSipAddon() {
+  return requestSipAddonFn({ data: { token: requireToken() } });
+}
+
+export function setDialerAddon(tenantId: string, enabled: boolean) {
+  return setDialerAddonFn({ data: { token: requireToken(), tenantId, enabled } });
+}
+
+export function setSipAddon(tenantId: string, enabled: boolean) {
+  return setSipAddonFn({ data: { token: requireToken(), tenantId, enabled } });
 }

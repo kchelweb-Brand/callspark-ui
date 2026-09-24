@@ -34,7 +34,15 @@ interface Invoice {
 }
 const invoices: Invoice[] = [];
 import { getTenantSettings, saveTenantSettings } from "@/lib/workspace-api";
-import { USAGE_LABELS, formatUsage, getPlanUsage, listPlans } from "@/lib/billing-api";
+import {
+  USAGE_LABELS,
+  formatUsage,
+  getAddonStatus,
+  getPlanUsage,
+  listPlans,
+  requestDialerAddon,
+  requestSipAddon,
+} from "@/lib/billing-api";
 import { downloadTextFile } from "@/lib/download";
 import { cn } from "@/lib/utils";
 
@@ -77,6 +85,10 @@ function BillingPage() {
   const [trunkPacks, setTrunkPacks] = useState<{ item: string; date: string; status: string }[]>([]);
   const [loaded, setLoaded] = useState(false);
 
+  const [addons, setAddons] = useState<Awaited<ReturnType<typeof getAddonStatus>> | null>(null);
+  const [requestingDialer, setRequestingDialer] = useState(false);
+  const [requestingSip, setRequestingSip] = useState(false);
+
   useEffect(() => {
     void getPlanUsage()
       .then(setPlanUsage)
@@ -89,7 +101,36 @@ function BillingPage() {
         setCheckout(r.checkout);
       })
       .catch(() => {});
+    void getAddonStatus()
+      .then(setAddons)
+      .catch(() => {});
   }, []);
+
+  async function handleRequestDialerAddon() {
+    setRequestingDialer(true);
+    try {
+      await requestDialerAddon();
+      setAddons(await getAddonStatus());
+      toast.success("Request sent — we'll email you once it's approved.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not send the request.");
+    } finally {
+      setRequestingDialer(false);
+    }
+  }
+
+  async function handleRequestSipAddon() {
+    setRequestingSip(true);
+    try {
+      await requestSipAddon();
+      setAddons(await getAddonStatus());
+      toast.success("Request sent — we'll email you once it's approved.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not send the request.");
+    } finally {
+      setRequestingSip(false);
+    }
+  }
 
   // Restore billing email / trunk orders.
   useEffect(() => {
@@ -264,6 +305,97 @@ function BillingPage() {
           </Button>
         </Panel>
       </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <Panel
+          title="Desktop Dialer"
+          description="A native calling app for Windows — real SIP/RTP, no browser required"
+          bodyClassName="p-5"
+        >
+          {addons?.dialer.enabled ? (
+            <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/40 p-4">
+              <Download className="size-5 text-primary" />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold">You have the Desktop Dialer</p>
+                <p className="text-xs text-muted-foreground">
+                  {addons.dialer.includedInPlan ? "Included in Managed Enterprise" : "Windows 10/11"}
+                </p>
+              </div>
+              <Button asChild>
+                <a href="/dl/downloads/Kchel-Dialer-Setup-2.1.0.exe">Download</a>
+              </Button>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-3 rounded-lg border border-dashed border-border bg-muted/40 p-4">
+                <ShieldCheck className="size-5 text-muted-foreground" />
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold">$500 one-time add-on</p>
+                  <p className="text-xs text-muted-foreground">
+                    {addons?.dialer.requestedAt
+                      ? "Requested — activates within 24 hours of payment."
+                      : "Not part of any plan. Request it below, then arrange payment with us directly."}
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                disabled={requestingDialer || Boolean(addons?.dialer.requestedAt)}
+                onClick={handleRequestDialerAddon}
+              >
+                {addons?.dialer.requestedAt ? "Request sent" : "Request the Desktop Dialer"}
+              </Button>
+            </div>
+          )}
+        </Panel>
+
+        <Panel
+          title="Managed SIP Trunk"
+          description="We provision and run your SIP trunk instead of you bringing your own"
+          bodyClassName="p-5"
+        >
+          {addons?.sip.enabled ? (
+            <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/40 p-4">
+              <ShieldCheck className="size-5 text-primary" />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold">Managed SIP is active</p>
+                <p className="text-xs text-muted-foreground">
+                  {addons.sip.includedInPlan ? "Included in Managed Enterprise" : "Set up under Phone System → Connection"}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-3 rounded-lg border border-dashed border-border bg-muted/40 p-4">
+                <ShieldCheck className="size-5 text-muted-foreground" />
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold">$200 one-time add-on</p>
+                  <p className="text-xs text-muted-foreground">
+                    {addons?.sip.requestedAt
+                      ? "Requested — activates within 24 hours of payment."
+                      : "Skip bringing your own carrier — we set it up for you."}
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                disabled={requestingSip || Boolean(addons?.sip.requestedAt)}
+                onClick={handleRequestSipAddon}
+              >
+                {addons?.sip.requestedAt ? "Request sent" : "Request Managed SIP"}
+              </Button>
+            </div>
+          )}
+        </Panel>
+      </div>
+
+      <p className="text-xs text-muted-foreground">
+        Add-ons aren't billed automatically yet — request one above, then email us at{" "}
+        <a className="underline" href="mailto:kyleaustin209@gmail.com">
+          kyleaustin209@gmail.com
+        </a>{" "}
+        to arrange payment. Both activate within 24 hours of payment.
+      </p>
 
       <Panel title="Invoice history" bodyClassName="p-0">
         <div className="overflow-x-auto">

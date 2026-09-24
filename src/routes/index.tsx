@@ -349,13 +349,14 @@ function HomePage() {
               Kchel Dialer, off to the side of your browser
             </h2>
             <p className="mt-4 text-lg text-muted-foreground">
-              A real Windows app — its own icon, its own window, its own taskbar entry. Closing
-              it keeps you reachable in the tray instead of hanging up on a caller.
+              A real Windows app with a native SIP/RTP calling engine — its own window, its own
+              taskbar entry, no browser in the way. Closing it keeps you reachable in the tray
+              instead of hanging up on a caller.
             </p>
             <ul className="mt-6 flex flex-col gap-2.5 text-sm">
               <li className="flex items-start gap-2.5">
                 <Check className="mt-0.5 size-4 shrink-0 text-primary" />
-                <span>Everything the web app does, in its own window — nothing left out</span>
+                <span>Native calling engine — no WebRTC, no browser limitations</span>
               </li>
               <li className="flex items-start gap-2.5">
                 <Check className="mt-0.5 size-4 shrink-0 text-primary" />
@@ -368,12 +369,12 @@ function HomePage() {
             </ul>
             <div className="mt-8 flex flex-wrap items-center gap-4">
               <Button size="lg" asChild className="h-12 px-7 text-base">
-                <a href="/dl/downloads/Kchel-Dialer-Setup-1.0.0.exe">
-                  <Download className="size-4" /> Download for Windows
-                </a>
+                <Link to="/signup">
+                  <Download className="size-4" /> Add it to your workspace — $500
+                </Link>
               </Button>
               <span className="text-xs text-muted-foreground">
-                Windows 10/11 · macOS and Linux coming soon
+                One-time add-on · request it from Billing once signed in · Windows 10/11
               </span>
             </div>
           </div>

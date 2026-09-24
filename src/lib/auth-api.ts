@@ -159,6 +159,8 @@ export interface AdminTenant {
   /** Plan id from src/backend/plans.ts — drives the admin activate action. */
   plan: string;
   trial_ends_at: string | null;
+  dialer_addon_enabled: boolean;
+  sip_addon_enabled: boolean;
 }
 
 export async function listTenants(status?: string) {

@@ -32,17 +32,13 @@ export interface CallRecord {
  * connects still leaves a trace (that's exactly the data a dialer needs —
  * unanswered and failed attempts matter as much as connected ones).
  */
-export const startCallFn = createServerFn({ method: "POST" })
-  .validator(
-    (data: {
-      token: string;
-      direction: "outbound" | "inbound";
-      toNumber?: string;
-      fromNumber?: string;
-      contactId?: string;
-    }) => data,
-  )
-  .handler(async ({ data }) => {
+export async function startCall(data: {
+  token: string;
+  direction: "outbound" | "inbound";
+  toNumber?: string;
+  fromNumber?: string;
+  contactId?: string;
+}) {
     const payload = await requireSession(data.token);
 
     // Enforced here, where a person deliberately starts a call. Inbound calls
@@ -69,31 +65,46 @@ export const startCallFn = createServerFn({ method: "POST" })
       returning id
     `;
     return { ok: true as const, callId: (rows[0] as { id: string }).id };
-  });
+}
+
+export const startCallFn = createServerFn({ method: "POST" })
+  .validator(
+    (data: {
+      token: string;
+      direction: "outbound" | "inbound";
+      toNumber?: string;
+      fromNumber?: string;
+      contactId?: string;
+    }) => data,
+  )
+  .handler(async ({ data }) => startCall(data));
 
 /** Marks the moment the far end picked up — this is what separates a connect from a dial. */
-export const answerCallFn = createServerFn({ method: "POST" })
-  .validator((data: { token: string; callId: string }) => data)
-  .handler(async ({ data }) => {
+export async function answerCall(data: { token: string; callId: string }) {
     const payload = await requireSession(data.token);
     await sql`
       update calls set status = 'active', answered_at = now()
       where id = ${data.callId} and tenant_id = ${payload.tenantId}
     `;
     return { ok: true as const };
-  });
+}
+
+export const answerCallFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string; callId: string }) => data)
+  .handler(async ({ data }) => answerCall(data));
 
 /**
  * Closes the record. Duration is measured from answer (not dial), so it
  * reflects actual talk time — which is what carriers bill and what connect
  * rate should be computed from.
  */
-export const endCallFn = createServerFn({ method: "POST" })
-  .validator(
-    (data: { token: string; callId: string; status?: string; outcome?: string; error?: string }) =>
-      data,
-  )
-  .handler(async ({ data }) => {
+export async function endCall(data: {
+  token: string;
+  callId: string;
+  status?: string;
+  outcome?: string;
+  error?: string;
+}) {
     const payload = await requireSession(data.token);
 
     const rows = await sql`
@@ -120,7 +131,14 @@ export const endCallFn = createServerFn({ method: "POST" })
       where id = ${data.callId} and tenant_id = ${payload.tenantId}
     `;
     return { ok: true as const };
-  });
+}
+
+export const endCallFn = createServerFn({ method: "POST" })
+  .validator(
+    (data: { token: string; callId: string; status?: string; outcome?: string; error?: string }) =>
+      data,
+  )
+  .handler(async ({ data }) => endCall(data));
 
 export const listCallsFn = createServerFn({ method: "POST" })
   .validator(

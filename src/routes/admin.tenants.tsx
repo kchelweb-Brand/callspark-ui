@@ -15,6 +15,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { listTenants, setTenantStatus, type AdminTenant } from "@/lib/auth-api";
+import { setDialerAddon, setSipAddon } from "@/lib/billing-api";
 import { ActivateTenantDialog } from "@/components/dash/ActivateTenantDialog";
 
 export const Route = createFileRoute("/admin/tenants")({
@@ -108,6 +109,40 @@ function AdminTenantsPage() {
     }
   }
 
+  async function toggleDialerAddon(tenant: AdminTenant) {
+    setUpdatingId(tenant.id);
+    try {
+      const enabled = !tenant.dialer_addon_enabled;
+      await setDialerAddon(tenant.id, enabled);
+      toast.success(
+        enabled ? `Desktop Dialer enabled for ${tenant.name}` : `Desktop Dialer disabled for ${tenant.name}`,
+        { description: enabled ? "The owner has been emailed that it's ready." : undefined }
+      );
+      await load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not update the Desktop Dialer add-on.");
+    } finally {
+      setUpdatingId(null);
+    }
+  }
+
+  async function toggleSipAddon(tenant: AdminTenant) {
+    setUpdatingId(tenant.id);
+    try {
+      const enabled = !tenant.sip_addon_enabled;
+      await setSipAddon(tenant.id, enabled);
+      toast.success(
+        enabled ? `Managed SIP enabled for ${tenant.name}` : `Managed SIP disabled for ${tenant.name}`,
+        { description: enabled ? "The owner has been emailed that it's ready." : undefined }
+      );
+      await load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not update the Managed SIP add-on.");
+    } finally {
+      setUpdatingId(null);
+    }
+  }
+
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return tenants;
@@ -190,6 +225,8 @@ function AdminTenantsPage() {
                   <TableHead>Owner</TableHead>
                   <TableHead>Plan</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Dialer</TableHead>
+                  <TableHead>SIP</TableHead>
                   <TableHead className="text-right">Users</TableHead>
                   <TableHead>Joined</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -219,6 +256,28 @@ function AdminTenantsPage() {
                       </TableCell>
                       <TableCell>
                         <StatusPill status={t.status} />
+                      </TableCell>
+                      <TableCell>
+                        <ActionButton
+                          size="sm"
+                          variant={t.dialer_addon_enabled ? "default" : "outline"}
+                          disabled={busy}
+                          onClick={() => void toggleDialerAddon(t)}
+                        >
+                          {busy ? <Loader2 className="size-3.5 animate-spin" /> : null}
+                          {t.dialer_addon_enabled ? "Enabled" : "Enable"}
+                        </ActionButton>
+                      </TableCell>
+                      <TableCell>
+                        <ActionButton
+                          size="sm"
+                          variant={t.sip_addon_enabled ? "default" : "outline"}
+                          disabled={busy}
+                          onClick={() => void toggleSipAddon(t)}
+                        >
+                          {busy ? <Loader2 className="size-3.5 animate-spin" /> : null}
+                          {t.sip_addon_enabled ? "Enabled" : "Enable"}
+                        </ActionButton>
                       </TableCell>
                       <TableCell className="text-right font-mono text-sm">
                         {t.user_count}

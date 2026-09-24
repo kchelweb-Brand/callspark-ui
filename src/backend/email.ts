@@ -300,3 +300,57 @@ export async function sendAccountActivatedEmail(
 
   await send(to, `Your Kchel Dialer account is active — ${data.planName}`, html, "activation");
 }
+
+// ---------- Paid add-ons (Desktop Dialer, Managed SIP — no processor wired up,
+// so approval is manual: tenant requests, pays the founder directly, a super
+// admin flips it on from the admin console once payment is confirmed) ----------
+
+/** Tells the platform owner a tenant wants to buy a paid add-on. */
+export async function sendAddonRequestEmail(
+  to: string[],
+  data: { addonName: string; price: string; workspaceName: string; workspaceSlug: string; requestedBy: string },
+) {
+  const rows = [
+    detailRow("Workspace", `${data.workspaceName} (${data.workspaceSlug})`),
+    detailRow("Requested by", data.requestedBy),
+    detailRow("Price", data.price),
+  ].join("");
+
+  const html = shell(
+    `${data.addonName} requested`,
+    `
+      <p style="font-size:14px;line-height:1.6;color:#334155">
+        A tenant wants to buy the ${escapeHtml(data.addonName)} add-on. Once payment comes in,
+        enable it for them from the admin console's Tenants page.
+      </p>
+      <table style="width:100%;border-collapse:collapse;margin:16px 0">${rows}</table>
+    `,
+  );
+
+  await send(to, `${data.addonName} requested — ${data.workspaceName}`, html, "addon-requested");
+}
+
+/** Tells the tenant their add-on is live, once payment is confirmed and enabled. */
+export async function sendAddonActivatedEmail(
+  to: string,
+  data: { addonName: string; signInUrl: string; note?: string },
+) {
+  const html = shell(
+    `Your ${data.addonName} is ready`,
+    `
+      <p style="font-size:14px;line-height:1.6;color:#334155">
+        Payment confirmed — the ${escapeHtml(data.addonName)} add-on is now enabled on your workspace.
+      </p>
+      <p style="margin:24px 0">
+        <a href="${escapeHtml(data.signInUrl)}"
+           style="display:inline-block;background:#0f766e;color:#fff;text-decoration:none;
+                  padding:11px 20px;border-radius:8px;font-size:14px;font-weight:600">
+          Sign in
+        </a>
+      </p>
+      ${data.note ? `<p style="font-size:13px;line-height:1.6;color:#64748b">${escapeHtml(data.note)}</p>` : ""}
+    `,
+  );
+
+  await send(to, `Your ${data.addonName} add-on is ready`, html, "addon-activated");
+}

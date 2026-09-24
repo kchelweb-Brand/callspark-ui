@@ -1,82 +1,281 @@
-// Kchel Dialer desktop shell.
+// Kchel Dialer desktop app — the REAL native version.
 //
-// This is a real standalone application — its own process, its own window,
-// its own icon in the dock/taskbar — not the website opened in a browser tab.
-// It loads the live product at kchel-dialer.kchelweb.workers.dev, so every
-// feature the web app has works here immediately with zero duplication.
+// Earlier versions of this file just loaded the website in a BrowserWindow,
+// which meant calling still went through the browser's WebRTC/DTLS-SRTP
+// softphone. That path reliably failed against the real carrier
+// (SignalWire) with MEDIA_TIMEOUT, even with TURN configured correctly. A
+// native SIP client using plain RTP — no browser, no DTLS-SRTP requirement —
+// was proven to work with the exact same credentials and destination.
 //
-// What this does NOT change: calling still goes through the same sip.js /
-// WebRTC softphone the browser uses, which still needs a carrier that speaks
-// SIP over WebSocket (SignalWire today). A desktop *shell* around Chromium
-// doesn't escape that — Electron's renderer is Chromium, same sandbox, same
-// WSS requirement. Only a genuinely native calling engine (a bundled SIP/RTP
-// stack instead of WebRTC) would open up carriers that only offer plain
-// TLS/UDP SIP. That's real, separate work this file doesn't attempt.
+// This app bundles that native engine (baresip, compiled for Windows) and
+// drives it as a subprocess over its local JSON control socket. The window
+// you see is a small custom UI (desktop/src/renderer/), not the website.
 "use strict";
 
-const { app, BrowserWindow, Menu, shell, session, Tray, nativeImage } = require("electron");
+const { app, BrowserWindow, Menu, shell, Tray, nativeImage, ipcMain, safeStorage } = require("electron");
 const path = require("node:path");
+const fs = require("node:fs");
+const { BaresipController } = require("./baresip-controller");
 
-const PRODUCT_URL = "https://kchel-dialer.kchelweb.workers.dev/?client=desktop";
+const API_BASE = process.env.KCHEL_API_BASE || "https://kchel-dialer.kchelweb.workers.dev";
 const ICON_PATH = path.join(__dirname, "..", "build", "icon.png");
-
-/** Only these hosts are ever allowed to open inside the app window. */
-const ALLOWED_HOSTS = new Set(["kchel-dialer.kchelweb.workers.dev"]);
+const SESSION_PATH = path.join(app.getPath("userData"), "session.bin");
 
 let mainWindow = null;
 let tray = null;
 let isQuitting = false;
+let baresip = null;
 
-function isAllowed(url) {
-  try {
-    return ALLOWED_HOSTS.has(new URL(url).hostname);
-  } catch {
-    return false;
+// -------------------------------------------------------------------------
+// Session persistence — deliberately no idle/inactivity timeout here. The
+// web app signs people out after 10 minutes idle (src/components/auth/AuthGuard.tsx);
+// this desktop app is meant to sit registered and ready to receive/place
+// calls all day, so it only ever signs out when the token itself expires
+// (24h, server-enforced) or the person explicitly logs out.
+// -------------------------------------------------------------------------
+
+function saveSession(session) {
+  const json = JSON.stringify(session);
+  if (safeStorage.isEncryptionAvailable()) {
+    fs.writeFileSync(SESSION_PATH, safeStorage.encryptString(json));
+  } else {
+    fs.writeFileSync(SESSION_PATH, json, "utf8");
   }
 }
 
+function loadSession() {
+  if (!fs.existsSync(SESSION_PATH)) return null;
+  try {
+    const raw = fs.readFileSync(SESSION_PATH);
+    const json = safeStorage.isEncryptionAvailable() ? safeStorage.decryptString(raw) : raw.toString("utf8");
+    return JSON.parse(json);
+  } catch {
+    return null;
+  }
+}
+
+function clearSession() {
+  if (fs.existsSync(SESSION_PATH)) fs.unlinkSync(SESSION_PATH);
+}
+
+// -------------------------------------------------------------------------
+// Backend — plain REST calls to src/backend/native-api.ts. Every call this
+// app places is recorded through the SAME calls table the web app uses, so
+// it shows up in Call History/Recordings no matter which client made it.
+// -------------------------------------------------------------------------
+
+async function apiPost(route, body) {
+  const res = await fetch(`${API_BASE}/api/native/${route}`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({ ok: false, error: "Bad response from server." }));
+  if (!res.ok || !data.ok) {
+    throw new Error(data.error || "Something went wrong.");
+  }
+  return data;
+}
+
+// -------------------------------------------------------------------------
+// baresip lifecycle
+// -------------------------------------------------------------------------
+
+function baresipExeDir() {
+  // In dev this is desktop/resources/baresip; packaged, electron-builder's
+  // extraResources puts it next to the app under process.resourcesPath.
+  return app.isPackaged
+    ? path.join(process.resourcesPath, "baresip")
+    : path.join(__dirname, "..", "resources", "baresip");
+}
+
+function ensureBaresip() {
+  if (baresip) return baresip;
+  baresip = new BaresipController({
+    exeDir: baresipExeDir(),
+    configDir: path.join(app.getPath("userData"), "baresip-config"),
+  });
+  baresip.on("event", (msg) => {
+    mainWindow?.webContents.send("call:event", msg);
+  });
+  baresip.on("disconnected", () => {
+    mainWindow?.webContents.send("engine:disconnected");
+  });
+  return baresip;
+}
+
+function sipAccountLine(config) {
+  const transport = config.transport === "wss" ? "udp" : config.transport;
+  return `<sip:${config.username}@${config.host};transport=${transport}>;auth_user=${config.username};auth_pass=${config.password};regint=120;answermode=manual`;
+}
+
+// -------------------------------------------------------------------------
+// IPC — the renderer never talks to the network or to baresip directly.
+// -------------------------------------------------------------------------
+
+ipcMain.handle("auth:get-session", () => loadSession());
+ipcMain.handle("app:get-api-base", () => API_BASE);
+
+ipcMain.handle("auth:request-code", async (_e, { email, workspaceSlug }) => {
+  return apiPost("login/request-code", { email, workspaceSlug });
+});
+
+ipcMain.handle("auth:verify-code", async (_e, { email, code }) => {
+  const result = await apiPost("login/verify-code", { email, code });
+  saveSession({ token: result.token, user: result.user });
+  const sip = await connectSip(result.token);
+  return { ...result, sip };
+});
+
+ipcMain.handle("auth:resume", async () => {
+  const session = loadSession();
+  if (!session) return null;
+  const sip = await connectSip(session.token);
+  return { ...session, sip };
+});
+
+ipcMain.handle("auth:logout", async () => {
+  try {
+    await ensureBaresip().sendCommand("uadelall");
+  } catch {
+    // Engine may already be gone — logging out should never get stuck on it.
+  }
+  clearSession();
+  return { ok: true };
+});
+
+async function connectSip(token) {
+  const { config } = await apiPost("sip-config", { token });
+  const engine = ensureBaresip();
+  await engine.start();
+  await engine.sendCommand("uadelall");
+
+  // uanew's own response only confirms the UA object was created — the real
+  // network REGISTER happens afterward, asynchronously. Waiting for the
+  // actual REGISTER_OK/REGISTER_FAIL event is what catches a silently
+  // dropped response (e.g. a firewall blocking the carrier's reply), which
+  // uanew's immediate "ok" would otherwise mask.
+  const eventWait = engine.waitForEvent(["REGISTER_OK", "REGISTER_FAIL"], 10000);
+  const created = await engine.sendCommand("uanew", sipAccountLine(config));
+
+  let success = false;
+  let errorDetail;
+  if (!created?.ok) {
+    errorDetail = created?.data || "Could not create the SIP account.";
+  } else {
+    try {
+      const regEvent = await eventWait;
+      success = regEvent.type === "REGISTER_OK";
+      errorDetail = success ? undefined : regEvent.param || "Registration was rejected by the carrier.";
+    } catch (err) {
+      errorDetail = err.message;
+    }
+  }
+
+  try {
+    await apiPost("registration", { token, success, error: errorDetail });
+  } catch {
+    // Reporting registration status is best-effort — never block on it.
+  }
+  return { success, label: config.label, error: errorDetail };
+}
+
+ipcMain.handle("call:dial", async (_e, { number }) => {
+  const session = loadSession();
+  if (!session) throw new Error("Not signed in.");
+
+  const started = await apiPost("calls/start", { token: session.token, direction: "outbound", toNumber: number });
+  const engine = ensureBaresip();
+  const resp = await engine.sendCommand("dial", number.replace(/[^\d+]/g, ""));
+  if (!resp?.ok) {
+    try {
+      await apiPost("calls/end", { token: session.token, callId: started.callId, status: "failed", error: resp?.data });
+    } catch {
+      // The dial itself already failed — a bookkeeping miss here is secondary.
+    }
+    throw new Error(resp?.data || "The calling engine could not place this call.");
+  }
+  return { callId: started.callId, engineCallId: extractCallId(resp) };
+});
+
+ipcMain.handle("call:accept", async () => {
+  const resp = await ensureBaresip().sendCommand("accept");
+  if (!resp?.ok) throw new Error(resp?.data || "Could not accept the call.");
+  return resp;
+});
+
+ipcMain.handle("call:hangup", async (_e, { callId } = {}) => {
+  const engine = ensureBaresip();
+  const resp = await engine.sendCommand("hangup");
+
+  const session = loadSession();
+  if (session && callId) {
+    try {
+      await apiPost("calls/end", { token: session.token, callId });
+    } catch {
+      // The call already ended on the wire either way.
+    }
+  }
+  return resp;
+});
+
+ipcMain.handle("call:answered", async (_e, { callId }) => {
+  const session = loadSession();
+  if (!session || !callId) return;
+  try {
+    await apiPost("calls/answer", { token: session.token, callId });
+  } catch {
+    // Best-effort — the call itself is unaffected.
+  }
+});
+
+ipcMain.handle("call:dtmf", async (_e, { digits }) => {
+  return ensureBaresip().sendCommand("sndcode", digits);
+});
+
+ipcMain.handle("call:reginfo", async () => {
+  return ensureBaresip().sendCommand("reginfo");
+});
+
+function extractCallId(resp) {
+  const match = /call id:\s*(\S+)/.exec(resp?.data ?? "");
+  return match ? match[1] : null;
+}
+
+// -------------------------------------------------------------------------
+// Window / tray
+// -------------------------------------------------------------------------
+
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 1360,
-    height: 860,
-    minWidth: 960,
-    minHeight: 640,
+    width: 1280,
+    height: 820,
+    minWidth: 900,
+    minHeight: 600,
     title: "Kchel Dialer",
     icon: ICON_PATH,
-    backgroundColor: "#090e12", // matches the brand tile — no white flash on launch
+    backgroundColor: "#090e12",
     autoHideMenuBar: true,
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      webviewTag: true,
+      preload: path.join(__dirname, "preload.js"),
     },
   });
 
-  mainWindow.loadURL(PRODUCT_URL);
+  mainWindow.loadFile(path.join(__dirname, "renderer", "index.html"));
 
-  // Closing the window keeps the app (and any active call) running in the
-  // tray rather than hanging up on the caller. Quit from the tray or the app
-  // menu ends it for real.
   mainWindow.on("close", (event) => {
     if (isQuitting) return;
     event.preventDefault();
     mainWindow.hide();
   });
 
-  // Links to anything outside the product open in the user's real browser
-  // instead of becoming a second app window.
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (!isAllowed(url)) {
-      shell.openExternal(url);
-      return { action: "deny" };
-    }
-    return { action: "allow" };
-  });
-  mainWindow.webContents.on("will-navigate", (event, url) => {
-    if (!isAllowed(url)) {
-      event.preventDefault();
-      shell.openExternal(url);
-    }
+    shell.openExternal(url);
+    return { action: "deny" };
   });
 }
 
@@ -98,6 +297,7 @@ function createTray() {
         label: "Quit",
         click: () => {
           isQuitting = true;
+          baresip?.stop();
           app.quit();
         },
       },
@@ -109,18 +309,7 @@ function createTray() {
   });
 }
 
-// The softphone needs the mic. Electron blocks getUserMedia by default unless
-// the app explicitly grants it — a real browser tab prompts the person
-// instead, so this is the one permission behaviour a desktop shell has to
-// take over.
-function allowMicrophone() {
-  session.defaultSession.setPermissionRequestHandler((_wc, permission, callback) => {
-    callback(permission === "media");
-  });
-}
-
 app.whenReady().then(() => {
-  allowMicrophone();
   createWindow();
   createTray();
 
@@ -132,14 +321,11 @@ app.whenReady().then(() => {
 
 app.on("before-quit", () => {
   isQuitting = true;
+  baresip?.stop();
 });
 
-// Standard desktop convention on Windows/Linux; macOS apps stay running via
-// the dock even with no window open, which the tray already covers here.
 app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") {
-    // Actual close (from the tray Quit item) already set isQuitting and
-    // called app.quit(), which gets here after windows are gone. A plain
-    // window close never reaches this handler because it's intercepted above.
-  }
+  // Closing the window keeps the app in the tray (see the "close" handler
+  // above) so an active call — or just being registered and reachable —
+  // survives it. This only fires on the real quit path.
 });

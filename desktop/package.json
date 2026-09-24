@@ -1,7 +1,7 @@
 {
   "name": "kchel-dialer-desktop",
-  "version": "1.0.0",
-  "description": "Kchel Dialer as a standalone desktop app — its own window, icon and process, not a browser tab.",
+  "version": "2.1.0",
+  "description": "Kchel Dialer as a standalone desktop app with a real native SIP/RTP calling engine (baresip) — no browser, no WebRTC.",
   "private": true,
   "main": "src/main.js",
   "author": "Kchel Business Hub",
@@ -28,6 +28,13 @@
     "files": [
       "src/**/*",
       "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "resources/baresip",
+        "to": "baresip",
+        "filter": ["**/*"]
+      }
     ],
     "win": {
       "target": [
