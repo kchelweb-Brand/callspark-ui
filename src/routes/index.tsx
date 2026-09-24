@@ -389,6 +389,21 @@ function HomePage() {
             </p>
           </div>
         </div>
+
+        <div className="mx-auto mt-10 flex max-w-6xl flex-wrap items-center justify-between gap-4 rounded-xl border border-dashed border-border px-6 py-5">
+          <div>
+            <p className="text-sm font-semibold">Just want a taskbar shortcut? That's free.</p>
+            <p className="text-sm text-muted-foreground">
+              Kchel Desktop is the plain website in its own window — same features, no native
+              calling engine, no charge.
+            </p>
+          </div>
+          <Button variant="outline" asChild>
+            <a href="/dl/downloads/Kchel-Desktop-Setup-1.0.0.exe">
+              <Download className="size-4" /> Download Kchel Desktop — free
+            </a>
+          </Button>
+        </div>
       </section>
 
       {/* ---------- closing CTA ---------- */}
