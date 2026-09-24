@@ -1,18 +1,32 @@
 :root {
   color-scheme: dark;
-  /* Same brand tokens as the website's dark theme (src/styles.css) — the
-     logo's three colors (green/blue/yellow) plus white and near-black,
-     not just a single accent green. */
-  --bg: oklch(0.11 0.01 250);
-  --panel: oklch(0.16 0.012 250);
-  --border: oklch(0.25 0.018 250);
-  --text: #ffffff;
-  --muted: oklch(0.71 0.018 245);
-  --accent: oklch(0.70 0.16 152); /* brand green */
-  --brand-blue: oklch(0.66 0.16 250);
-  --brand-yellow: oklch(0.86 0.15 92);
-  --danger: #d94b4b;
-  font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+  /* Dark navy + bold type + pill buttons, matching the layout language of
+     kchel's own portfolio site — but the actual color accents are the
+     Kchel Dialer brand's own three logo colors (green/blue/yellow) plus
+     white, not the portfolio's blue. No personal photo, purely functional. */
+  --bg: #0a0e1a;
+  --panel: #121a34;
+  --panel-alt: #0d1326;
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.14);
+  --text: #fbfbfa;
+  --muted: #8d97b3;
+
+  --brand-green: #2fae66;
+  --brand-blue: #6f97ff;
+  --brand-yellow: #ffd166;
+
+  /* Semantic roles, each mapped to one of the three brand colors so all
+     three stay genuinely visible throughout the app, not just the logo. */
+  --accent: var(--brand-blue); /* primary buttons, links, active nav */
+  --accent-strong: #3f6bf0;
+  --accent-tint: rgba(63, 107, 240, 0.14);
+  --success: var(--brand-green); /* call button, "Registered" status */
+  --warning: var(--brand-yellow); /* pending status */
+  --warning-tint: rgba(255, 209, 102, 0.14);
+  --danger: #ef5757;
+  --danger-tint: rgba(239, 87, 87, 0.14);
+  font-family: -apple-system, "Segoe UI", Inter, Roboto, sans-serif;
 }
 
 * { box-sizing: border-box; }
@@ -24,6 +38,19 @@ body {
   height: 100vh;
   display: flex;
   align-items: stretch;
+}
+
+h1, h2, .page-title, .brand, .brand-small, .call-number {
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
 
 .screen {
@@ -41,14 +68,14 @@ body {
 }
 
 .sidebar {
-  width: 200px;
+  width: 208px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  background: var(--panel);
+  background: var(--panel-alt);
   border-right: 1px solid var(--border);
   padding: 20px 14px;
-  gap: 6px;
+  gap: 4px;
 }
 
 .brand-small {
@@ -56,21 +83,24 @@ body {
   align-items: center;
   gap: 8px;
   font-size: 15px;
-  font-weight: 600;
-  padding: 0 8px 14px;
+  padding: 0 8px 16px;
 }
 
 .nav-item {
   background: none;
   color: var(--muted);
   text-align: left;
-  font-weight: 500;
-  padding: 9px 10px;
-  border-radius: 6px;
+  font-weight: 600;
+  font-size: 14px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border-left: 2px solid transparent;
 }
+.nav-item:hover { color: var(--text); }
 .nav-item.active {
-  background: rgba(47, 174, 102, 0.15);
+  background: var(--accent-tint);
   color: var(--text);
+  border-left: 2px solid var(--accent);
 }
 
 .sidebar-footer {
@@ -94,16 +124,7 @@ body {
   flex-direction: column;
   padding: 28px 24px;
   gap: 16px;
-}
-
-.view.webview-view {
-  padding: 0;
-}
-
-.view.webview-view webview {
-  width: 100%;
-  height: 100%;
-  border: none;
+  overflow-y: auto;
 }
 
 .hidden { display: none !important; }
@@ -113,8 +134,7 @@ body {
   align-items: center;
   justify-content: center;
   gap: 10px;
-  font-size: 20px;
-  font-weight: 600;
+  font-size: 22px;
   margin-bottom: 12px;
 }
 
@@ -130,38 +150,46 @@ label {
   gap: 6px;
   font-size: 13px;
   color: var(--muted);
+  font-weight: 500;
 }
 
 input, select, textarea {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 10px;
   padding: 10px 12px;
   color: var(--text);
   font-size: 15px;
   font-family: inherit;
 }
 
-input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); }
+input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 
+/* Primary action — the site's own "Contact me" treatment: a solid white
+   pill with dark text, not a colored button. */
 button {
   border: none;
-  border-radius: 8px;
-  padding: 11px 14px;
-  font-size: 15px;
-  font-weight: 600;
+  border-radius: 999px;
+  padding: 11px 18px;
+  font-size: 14px;
+  font-weight: 700;
   cursor: pointer;
-  background: var(--accent);
-  color: white;
+  background: var(--text);
+  color: var(--panel-alt);
+  transition: transform 0.1s ease, opacity 0.15s ease;
 }
+button:hover { opacity: 0.9; }
+button:active { transform: scale(0.98); }
 
 button.link {
   background: none;
   color: var(--muted);
-  font-weight: 400;
+  font-weight: 500;
   font-size: 13px;
   padding: 4px;
+  border-radius: 6px;
 }
+button.link:hover { color: var(--text); opacity: 1; }
 
 .hint {
   font-size: 13px;
@@ -176,15 +204,16 @@ button.link {
 }
 
 .status {
-  font-size: 12px;
-  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 5px 12px;
   border-radius: 999px;
   background: var(--panel);
   border: 1px solid var(--border);
 }
-.status-ok { color: var(--accent); border-color: var(--accent); }
-.status-pending { color: var(--brand-yellow); }
-.status-error { color: var(--danger); border-color: var(--danger); }
+.status-ok { color: var(--success); border-color: var(--success); background: rgba(86, 225, 127, 0.1); }
+.status-pending { color: var(--warning); border-color: var(--warning); background: var(--warning-tint); }
+.status-error { color: var(--danger); border-color: var(--danger); background: var(--danger-tint); }
 
 .dial-panel {
   display: flex;
@@ -192,15 +221,6 @@ button.link {
   gap: 12px;
   margin-top: auto;
 }
-
-.call-btn {
-  padding: 14px;
-  border-radius: 999px;
-  font-size: 16px;
-}
-.call-btn.dial { background: var(--accent); }
-.call-btn.hangup { background: var(--danger); }
-.call-btn.accept { background: var(--accent); }
 
 .call-panel {
   flex: 1;
@@ -212,7 +232,7 @@ button.link {
   text-align: center;
 }
 
-.call-number { font-size: 22px; font-weight: 600; }
+.call-number { font-size: 24px; }
 .call-state { color: var(--muted); font-size: 14px; }
 .call-timer { color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; }
 
@@ -221,6 +241,14 @@ button.link {
   gap: 16px;
   margin-top: 16px;
 }
+
+.call-btn {
+  padding: 14px 20px;
+  border-radius: 999px;
+  font-size: 15px;
+}
+.call-btn.hangup { background: var(--danger); color: white; }
+.call-btn.accept { background: var(--success); color: #06120a; }
 
 .dtmf-row {
   display: grid;
@@ -234,6 +262,7 @@ button.link {
   border: 1px solid var(--border);
   color: var(--text);
   padding: 12px;
+  border-radius: 12px;
 }
 
 .dial-panel {
@@ -244,19 +273,23 @@ button.link {
 
 .number-display {
   background: var(--panel);
-  border-radius: 14px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
   padding: 18px 16px;
   margin-bottom: 16px;
 }
 .number-display-label {
   color: var(--muted);
   font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   margin: 0 0 4px;
 }
 .number-display-value {
   color: var(--text);
   font-size: 24px;
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: 0.5px;
   margin: 0;
   min-height: 30px;
@@ -276,9 +309,9 @@ button.link {
   border: 1px solid var(--border);
   color: var(--text);
   font-size: 18px;
-  font-weight: 500;
+  font-weight: 600;
 }
-.keypad button:hover { background: var(--border); }
+.keypad button:hover { background: var(--border-strong); opacity: 1; }
 
 .dial-actions {
   display: flex;
@@ -287,8 +320,8 @@ button.link {
   margin-bottom: 22px;
 }
 .round-btn {
-  width: 52px;
-  height: 52px;
+  width: 54px;
+  height: 54px;
   border-radius: 50%;
   border: none;
   font-size: 20px;
@@ -296,8 +329,8 @@ button.link {
   align-items: center;
   justify-content: center;
 }
-.round-btn.call { background: var(--accent); color: #06120a; }
-.round-btn.erase { background: rgba(217, 75, 75, 0.18); color: var(--danger); }
+.round-btn.call { background: var(--success); color: #06120a; }
+.round-btn.erase { background: var(--danger-tint); color: var(--danger); }
 
 .recents {
   border-top: 1px solid var(--border);
@@ -306,6 +339,9 @@ button.link {
 .recents-label {
   color: var(--muted);
   font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   margin: 0 0 8px;
 }
 .recent-row {
@@ -320,6 +356,7 @@ button.link {
   color: var(--text);
   font-size: 13px;
   margin: 0;
+  font-weight: 500;
 }
 .recent-row-meta {
   color: var(--muted);
@@ -337,8 +374,7 @@ button.link {
 /* ---------- duplicated native pages (SIP config, Contacts, Campaigns, IVR, Settings) ---------- */
 
 .page-title {
-  font-size: 18px;
-  font-weight: 600;
+  font-size: 20px;
   margin: 0 0 16px;
 }
 
@@ -359,8 +395,8 @@ button.link {
 .panel {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 16px;
+  border-radius: 14px;
+  padding: 18px;
   margin-bottom: 16px;
 }
 
@@ -368,6 +404,7 @@ button.link {
   color: var(--muted);
   font-weight: 400;
   font-size: 11px;
+  text-transform: none;
 }
 
 .checkbox-row {
@@ -379,11 +416,13 @@ button.link {
 .checkbox-row label { color: var(--muted); }
 
 .file-btn {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 8px 14px;
+  background: var(--text);
+  color: var(--panel-alt);
+  border: none;
+  border-radius: 999px;
+  padding: 9px 16px;
   font-size: 13px;
+  font-weight: 700;
   cursor: pointer;
 }
 
@@ -402,13 +441,15 @@ button.link {
 .data-table th {
   text-align: left;
   color: var(--muted);
-  font-weight: 500;
+  font-weight: 600;
   font-size: 11px;
-  padding: 6px 8px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 8px;
   border-bottom: 1px solid var(--border);
 }
 .data-table td {
-  padding: 8px;
+  padding: 10px 8px;
   border-bottom: 1px solid var(--border);
 }
 .data-table input, .data-table select {
@@ -421,13 +462,20 @@ button.link {
   width: 100%;
 }
 .row-actions { display: flex; gap: 6px; justify-content: flex-end; }
-.row-actions button { padding: 6px 10px; font-size: 12px; background: var(--panel); border: 1px solid var(--border); color: var(--text); }
+.row-actions button {
+  padding: 6px 12px;
+  font-size: 12px;
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  color: var(--text);
+}
+.row-actions button:hover { background: var(--border); opacity: 1; }
 .mono { font-family: monospace; }
 
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(5, 7, 14, 0.65);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -436,22 +484,34 @@ button.link {
 .modal {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 22px;
+  border-radius: 16px;
+  padding: 24px;
   width: 460px;
   max-height: 85vh;
   overflow-y: auto;
 }
-.modal h2 { margin: 0 0 16px; font-size: 16px; }
+.modal h2 { margin: 0 0 16px; font-size: 17px; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 10px; }
-.modal-actions button:last-child { background: var(--accent); color: #06120a; }
+.modal-actions button:first-child {
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  color: var(--text);
+}
 
-.toggle-row { display: flex; gap: 8px; }
+.toggle-row {
+  display: flex;
+  gap: 6px;
+  background: var(--panel-alt);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px;
+}
 .toggle-btn {
   flex: 1;
-  background: var(--bg);
-  border: 1px solid var(--border);
+  background: transparent;
+  border: none;
   color: var(--muted);
   padding: 8px;
+  border-radius: 999px;
 }
-.toggle-btn.active { background: var(--accent); color: #06120a; border-color: var(--accent); }
+.toggle-btn.active { background: var(--accent); color: #06102a; }
