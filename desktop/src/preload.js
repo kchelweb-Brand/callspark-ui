@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld("kchel", {
   resumeSession: () => ipcRenderer.invoke("auth:resume"),
   logout: () => ipcRenderer.invoke("auth:logout"),
 
+  recentCalls: () => ipcRenderer.invoke("calls:recent"),
   dial: (number) => ipcRenderer.invoke("call:dial", { number }),
   accept: () => ipcRenderer.invoke("call:accept"),
   hangup: (callId) => ipcRenderer.invoke("call:hangup", { callId }),

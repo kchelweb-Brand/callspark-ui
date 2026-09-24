@@ -198,6 +198,13 @@ ipcMain.handle("call:dial", async (_e, { number }) => {
   return { callId: started.callId, engineCallId: extractCallId(resp) };
 });
 
+ipcMain.handle("calls:recent", async () => {
+  const session = loadSession();
+  if (!session) return [];
+  const result = await apiPost("calls/recent", { token: session.token });
+  return result.calls;
+});
+
 ipcMain.handle("call:accept", async () => {
   const resp = await ensureBaresip().sendCommand("accept");
   if (!resp?.ok) throw new Error(resp?.data || "Could not accept the call.");

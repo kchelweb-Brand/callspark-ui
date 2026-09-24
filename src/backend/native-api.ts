@@ -166,6 +166,24 @@ export async function handleNativeApi(request: Request, pathname: string): Promi
         return jsonOk(result);
       }
 
+      case "calls/recent": {
+        const body = await readJson<{ token: string }>(request);
+        const payload = await verifyToken(body.token);
+        if (!payload || !payload.tenantId) throw new Error("Not signed in.");
+
+        const rows = await sql`
+          select c.id, c.direction, c.from_number, c.to_number,
+                 coalesce(ct.company, ct.person) as contact_name,
+                 c.status, c.outcome, c.started_at, c.duration_seconds
+          from calls c
+          left join contacts ct on ct.id = c.contact_id
+          where c.tenant_id = ${payload.tenantId}
+          order by c.started_at desc
+          limit 5
+        `;
+        return jsonOk({ calls: rows });
+      }
+
       case "registration": {
         const body = await readJson<{ token: string; success: boolean; error?: string }>(request);
         const result = await reportRegistration(body);

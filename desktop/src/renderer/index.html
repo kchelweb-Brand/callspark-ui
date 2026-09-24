@@ -37,6 +37,7 @@
       <button class="nav-item" data-view="phone-system">Phone System</button>
       <button class="nav-item" data-view="contacts">Contacts</button>
       <button class="nav-item" data-view="campaigns">Campaigns</button>
+      <button class="nav-item" data-view="settings">Settings</button>
       <div class="sidebar-footer">
         <span id="reg-status" class="status status-pending">Connecting…</span>
         <button id="btn-logout" class="link">Sign out</button>
@@ -62,16 +63,36 @@
         </div>
 
         <div id="dial-panel" class="dial-panel">
-          <input id="input-number" type="tel" placeholder="Enter a number" autocomplete="off" />
-          <button id="btn-dial" class="call-btn dial">Call</button>
-        </div>
+          <div class="number-display">
+            <p class="number-display-label">Enter a number</p>
+            <p class="number-display-value" id="number-display">—</p>
+          </div>
 
-        <p class="hint" id="dialer-hint"></p>
+          <div class="keypad" id="keypad">
+            <button data-digit="1">1</button><button data-digit="2">2</button><button data-digit="3">3</button>
+            <button data-digit="4">4</button><button data-digit="5">5</button><button data-digit="6">6</button>
+            <button data-digit="7">7</button><button data-digit="8">8</button><button data-digit="9">9</button>
+            <button data-digit="*">*</button><button data-digit="0">0</button><button data-digit="#">#</button>
+          </div>
+
+          <div class="dial-actions">
+            <button id="btn-dial" class="round-btn call" aria-label="Call">&#9742;</button>
+            <button id="btn-backspace" class="round-btn erase" aria-label="Backspace">&larr;</button>
+          </div>
+
+          <p class="hint" id="dialer-hint"></p>
+
+          <div class="recents">
+            <p class="recents-label">Recent</p>
+            <div id="recents-list"></div>
+          </div>
+        </div>
       </section>
 
       <section id="view-phone-system" class="view hidden webview-view"></section>
       <section id="view-contacts" class="view hidden webview-view"></section>
       <section id="view-campaigns" class="view hidden webview-view"></section>
+      <section id="view-settings" class="view hidden webview-view"></section>
     </main>
   </section>
 

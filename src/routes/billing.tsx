@@ -322,7 +322,7 @@ function BillingPage() {
                 </p>
               </div>
               <Button asChild>
-                <a href="/dl/downloads/Kchel-Dialer-Setup-2.1.0.exe">Download</a>
+                <a href="/dl/downloads/Kchel-Dialer-Setup-2.2.0.exe">Download</a>
               </Button>
             </div>
           ) : (

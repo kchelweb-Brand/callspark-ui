@@ -223,3 +223,101 @@ button.link {
   color: var(--text);
   padding: 12px;
 }
+
+.dial-panel {
+  max-width: 340px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.number-display {
+  background: var(--panel);
+  border-radius: 14px;
+  padding: 18px 16px;
+  margin-bottom: 16px;
+}
+.number-display-label {
+  color: var(--muted);
+  font-size: 11px;
+  margin: 0 0 4px;
+}
+.number-display-value {
+  color: var(--text);
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  margin: 0;
+  min-height: 30px;
+  word-break: break-all;
+}
+
+.keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.keypad button {
+  height: 52px;
+  border-radius: 12px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 18px;
+  font-weight: 500;
+}
+.keypad button:hover { background: var(--border); }
+
+.dial-actions {
+  display: flex;
+  justify-content: center;
+  gap: 22px;
+  margin-bottom: 22px;
+}
+.round-btn {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: none;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.round-btn.call { background: var(--accent); color: #06120a; }
+.round-btn.erase { background: rgba(217, 75, 75, 0.18); color: var(--danger); }
+
+.recents {
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+.recents-label {
+  color: var(--muted);
+  font-size: 11px;
+  margin: 0 0 8px;
+}
+.recent-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 9px 0;
+  border-top: 1px solid var(--border);
+}
+.recent-row:first-child { border-top: none; }
+.recent-row-name {
+  color: var(--text);
+  font-size: 13px;
+  margin: 0;
+}
+.recent-row-meta {
+  color: var(--muted);
+  font-size: 11px;
+  margin: 0;
+}
+.recent-row-icon.out { color: var(--accent); }
+.recent-row-icon.in { color: var(--danger); }
+.recents-empty {
+  color: var(--muted);
+  font-size: 12px;
+  padding: 8px 0;
+}

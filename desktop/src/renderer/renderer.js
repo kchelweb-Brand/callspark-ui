@@ -20,9 +20,12 @@ const els = {
   btnHangup: document.getElementById("btn-hangup"),
   dtmfRow: document.getElementById("dtmf-row"),
   dialPanel: document.getElementById("dial-panel"),
-  inputNumber: document.getElementById("input-number"),
+  numberDisplay: document.getElementById("number-display"),
+  keypad: document.getElementById("keypad"),
   btnDial: document.getElementById("btn-dial"),
+  btnBackspace: document.getElementById("btn-backspace"),
   dialerHint: document.getElementById("dialer-hint"),
+  recentsList: document.getElementById("recents-list"),
 };
 
 let pendingEmail = "";
@@ -30,11 +33,13 @@ let pendingSlug = "";
 let activeCall = null; // { callId, engineCallId, direction, answeredAt }
 let timerInterval = null;
 let sipRegistered = false;
+let dialedNumber = "";
 
 const EMBEDDED_ROUTES = {
   "phone-system": "/phone-system",
   contacts: "/contacts",
   campaigns: "/campaigns",
+  settings: "/settings",
 };
 const embeddedWebviews = {}; // view name -> <webview> element, created lazily
 
@@ -107,6 +112,8 @@ async function boot() {
     return;
   }
   show("app");
+  renderNumberDisplay();
+  void loadRecentCalls();
   try {
     const result = await window.kchel.resumeSession();
     applySipStatus(result?.sip);
@@ -150,6 +157,8 @@ els.formVerifyCode.addEventListener("submit", async (e) => {
   try {
     const result = await window.kchel.verifyCode(pendingEmail, els.inputCode.value.trim());
     show("app");
+    renderNumberDisplay();
+    void loadRecentCalls();
     applySipStatus(result?.sip);
   } catch (err) {
     els.verifyHint.textContent = err.message;
@@ -164,8 +173,24 @@ els.btnLogout.addEventListener("click", async () => {
   els.inputCode.value = "";
 });
 
+function renderNumberDisplay() {
+  els.numberDisplay.textContent = dialedNumber || "—";
+}
+
+els.keypad.addEventListener("click", (e) => {
+  const digit = e.target.dataset.digit;
+  if (!digit) return;
+  dialedNumber += digit;
+  renderNumberDisplay();
+});
+
+els.btnBackspace.addEventListener("click", () => {
+  dialedNumber = dialedNumber.slice(0, -1);
+  renderNumberDisplay();
+});
+
 els.btnDial.addEventListener("click", async () => {
-  const number = els.inputNumber.value.trim();
+  const number = dialedNumber.trim();
   if (!number) return;
   if (!sipRegistered) {
     els.dialerHint.textContent = "Not registered yet — can't place a call.";
@@ -222,7 +247,55 @@ function exitCall() {
   timerInterval = null;
   els.callPanel.classList.add("hidden");
   els.dialPanel.classList.remove("hidden");
-  els.inputNumber.value = "";
+  dialedNumber = "";
+  renderNumberDisplay();
+  void loadRecentCalls();
+}
+
+function formatRecentMeta(call) {
+  if (call.status === "no_answer") return "No answer";
+  if (call.status === "failed") return "Failed";
+  if (call.direction === "inbound" && !call.duration_seconds) return "Missed";
+  const mins = Math.floor((call.duration_seconds || 0) / 60);
+  const secs = (call.duration_seconds || 0) % 60;
+  const label = call.direction === "outbound" ? "Outgoing" : "Incoming";
+  return `${label} · ${mins}m ${secs}s`;
+}
+
+async function loadRecentCalls() {
+  let calls = [];
+  try {
+    calls = await window.kchel.recentCalls();
+  } catch {
+    // Best-effort — an empty list just shows nothing.
+  }
+
+  if (calls.length === 0) {
+    els.recentsList.innerHTML = '<p class="recents-empty">No calls yet</p>';
+    return;
+  }
+
+  els.recentsList.innerHTML = calls
+    .map((call) => {
+      const name = call.contact_name || call.to_number || call.from_number || "Unknown";
+      const isOutbound = call.direction === "outbound";
+      return `
+        <div class="recent-row">
+          <div>
+            <p class="recent-row-name">${escapeHtml(name)}</p>
+            <p class="recent-row-meta">${escapeHtml(formatRecentMeta(call))}</p>
+          </div>
+          <span class="recent-row-icon ${isOutbound ? "out" : "in"}">${isOutbound ? "↗" : "↙"}</span>
+        </div>
+      `;
+    })
+    .join("");
+}
+
+function escapeHtml(text) {
+  const div = document.createElement("div");
+  div.textContent = text;
+  return div.innerHTML;
 }
 
 function startTimer() {
