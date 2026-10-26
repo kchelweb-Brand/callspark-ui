@@ -23,9 +23,7 @@ export interface AgentRecord {
   csat: number;
 }
 
-export const listAgentsFn = createServerFn({ method: "POST" })
-  .validator((data: { token: string }) => data)
-  .handler(async ({ data }) => {
+export async function listAgents(data: { token: string }) {
     const tenantId = await requireTenant(data.token);
     const rows = await sql`
       select id, name, email, extension, role, status,
@@ -33,14 +31,13 @@ export const listAgentsFn = createServerFn({ method: "POST" })
       from agents where tenant_id = ${tenantId} order by created_at
     `;
     return { ok: true as const, agents: rows as unknown as AgentRecord[] };
-  });
+  }
 
-export const createAgentFn = createServerFn({ method: "POST" })
-  .validator(
-    (data: { token: string; name: string; email: string; extension?: string; role?: string }) =>
-      data,
-  )
-  .handler(async ({ data }) => {
+export const listAgentsFn = createServerFn({ method: "POST" })
+  .validator((data: Parameters<typeof listAgents>[0]) => data)
+  .handler(async ({ data }) => listAgents(data));
+
+export async function createAgent(data: { token: string; name: string; email: string; extension?: string; role?: string }) {
     const tenantId = await requireTenant(data.token);
     const name = data.name.trim();
     const email = data.email.trim().toLowerCase();
@@ -70,11 +67,13 @@ export const createAgentFn = createServerFn({ method: "POST" })
       throw new Error(`Extension ${extension} is already in use.`);
     }
     return { ok: true as const, agent: inserted[0] as unknown as AgentRecord };
-  });
+  }
 
-export const updateAgentFn = createServerFn({ method: "POST" })
-  .validator((data: { token: string; id: string; status?: string; role?: string }) => data)
-  .handler(async ({ data }) => {
+export const createAgentFn = createServerFn({ method: "POST" })
+  .validator((data: Parameters<typeof createAgent>[0]) => data)
+  .handler(async ({ data }) => createAgent(data));
+
+export async function updateAgent(data: { token: string; id: string; status?: string; role?: string }) {
     const tenantId = await requireTenant(data.token);
     const rows = await sql`
       update agents set
@@ -86,12 +85,18 @@ export const updateAgentFn = createServerFn({ method: "POST" })
     `;
     if (rows.length === 0) throw new Error("Agent not found.");
     return { ok: true as const, agent: rows[0] as unknown as AgentRecord };
-  });
+  }
 
-export const deleteAgentFn = createServerFn({ method: "POST" })
-  .validator((data: { token: string; id: string }) => data)
-  .handler(async ({ data }) => {
+export const updateAgentFn = createServerFn({ method: "POST" })
+  .validator((data: Parameters<typeof updateAgent>[0]) => data)
+  .handler(async ({ data }) => updateAgent(data));
+
+export async function deleteAgent(data: { token: string; id: string }) {
     const tenantId = await requireTenant(data.token);
     await sql`delete from agents where id = ${data.id} and tenant_id = ${tenantId}`;
     return { ok: true as const };
-  });
+  }
+
+export const deleteAgentFn = createServerFn({ method: "POST" })
+  .validator((data: Parameters<typeof deleteAgent>[0]) => data)
+  .handler(async ({ data }) => deleteAgent(data));

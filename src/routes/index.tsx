@@ -26,13 +26,13 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "A cloud dialer with IVR menus, call routing, business hours, voicemail and analytics. Bring your own SIP trunk or let us supply one. Free 14-day trial.",
+          "A cloud dialer with IVR menus, call routing, business hours, voicemail and analytics. Bring your own SIP trunk or let us supply one. Free 7-day trial.",
       },
       { property: "og:title", content: "Kchel Dialer — Cloud dialer and phone system" },
       {
         property: "og:description",
         content:
-          "IVR, call routing, a browser softphone and real analytics. Start free for 14 days.",
+          "IVR, call routing, a browser softphone and real analytics. Start free for 7 days.",
       },
     ],
   }),
@@ -125,7 +125,7 @@ function HomePage() {
           <div>
             <span className="ks-rise inline-flex items-center gap-2 rounded-full border border-brand-yellow/40 bg-brand-yellow/15 px-3 py-1 text-xs font-semibold text-brand-yellow">
               <span className="size-1.5 rounded-full bg-brand-yellow" />
-              Free for 14 days — no card required
+              Free for 7 days — no card required
             </span>
 
             <h1 className="ks-rise ks-rise-2 mt-6 text-4xl font-extrabold leading-[1.06] tracking-tight text-white sm:text-6xl">
@@ -223,9 +223,9 @@ function HomePage() {
         <div className="relative mx-auto max-w-6xl px-6 pb-16">
           <dl className="ks-stats ks-rise ks-rise-4 grid grid-cols-2 gap-x-8 gap-y-6 p-6 sm:grid-cols-4 sm:px-8">
             {[
-              ["14 days", "free trial"],
+              ["7 days", "free trial"],
               ["Your carrier", "or ours"],
-              ["Unlimited", "IVR menus"],
+              ["Up to 10", "IVR menus"],
               ["No contract", "cancel anytime"],
             ].map(([big, small]) => (
               <div key={small}>

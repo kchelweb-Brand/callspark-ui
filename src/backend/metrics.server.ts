@@ -18,9 +18,7 @@ const RANGE_DAYS: Record<string, number> = { "7d": 7, "30d": 30, "90d": 90 };
 
 // ---------- tenant overview ----------
 
-export const getOverviewFn = createServerFn({ method: "POST" })
-  .validator((data: { token: string }) => data)
-  .handler(async ({ data }) => {
+export async function getOverview(data: { token: string }) {
     const tenantId = await requireTenant(data.token);
 
     const statRows = await sql`
@@ -93,13 +91,15 @@ export const getOverviewFn = createServerFn({ method: "POST" })
         contact_name: string | null;
       }[],
     };
-  });
+  }
+
+export const getOverviewFn = createServerFn({ method: "POST" })
+  .validator((data: Parameters<typeof getOverview>[0]) => data)
+  .handler(async ({ data }) => getOverview(data));
 
 // ---------- analytics ----------
 
-export const getAnalyticsFn = createServerFn({ method: "POST" })
-  .validator((data: { token: string; range?: string }) => data)
-  .handler(async ({ data }) => {
+export async function getAnalytics(data: { token: string; range?: string }) {
     const tenantId = await requireTenant(data.token);
     const days = RANGE_DAYS[data.range ?? "7d"] ?? 7;
 
@@ -175,13 +175,15 @@ export const getAnalyticsFn = createServerFn({ method: "POST" })
         connectRate: a.calls === 0 ? 0 : (a.connected / a.calls) * 100,
       })),
     };
-  });
+  }
+
+export const getAnalyticsFn = createServerFn({ method: "POST" })
+  .validator((data: Parameters<typeof getAnalytics>[0]) => data)
+  .handler(async ({ data }) => getAnalytics(data));
 
 // ---------- live floor ----------
 
-export const getLiveFloorFn = createServerFn({ method: "POST" })
-  .validator((data: { token: string }) => data)
-  .handler(async ({ data }) => {
+export async function getLiveFloor(data: { token: string }) {
     const tenantId = await requireTenant(data.token);
 
     // Each agent plus whatever call they are currently on, if any.
@@ -235,13 +237,15 @@ export const getLiveFloorFn = createServerFn({ method: "POST" })
       }[],
       avgTalkSeconds: num((talk[0] as { avg: number }).avg),
     };
-  });
+  }
+
+export const getLiveFloorFn = createServerFn({ method: "POST" })
+  .validator((data: Parameters<typeof getLiveFloor>[0]) => data)
+  .handler(async ({ data }) => getLiveFloor(data));
 
 // ---------- recordings ----------
 
-export const listRecordingsFn = createServerFn({ method: "POST" })
-  .validator((data: { token: string; search?: string }) => data)
-  .handler(async ({ data }) => {
+export async function listRecordings(data: { token: string; search?: string }) {
     const tenantId = await requireTenant(data.token);
 
     const params: unknown[] = [tenantId];
@@ -288,4 +292,8 @@ export const listRecordingsFn = createServerFn({ method: "POST" })
       }[],
       completedCalls: num((completed[0] as { n: number }).n),
     };
-  });
+  }
+
+export const listRecordingsFn = createServerFn({ method: "POST" })
+  .validator((data: Parameters<typeof listRecordings>[0]) => data)
+  .handler(async ({ data }) => listRecordings(data));

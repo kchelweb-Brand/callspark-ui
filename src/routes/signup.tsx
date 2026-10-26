@@ -351,7 +351,7 @@ function SignupPage() {
             <p className="mt-2 text-sm text-muted-foreground">
               Your workspace{" "}
               <span className="font-mono font-medium text-foreground">{slug}.kchel.app</span> is
-              ready right now — no approval to wait on. Your 14-day trial started the moment you
+              ready right now — no approval to wait on. Your 7-day trial started the moment you
               verified, so it's worth signing in and getting your first call routed today.
             </p>
             <Button className="mt-7 w-full" onClick={() => navigate({ to: "/login" })}>

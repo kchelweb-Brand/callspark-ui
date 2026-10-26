@@ -19,9 +19,7 @@ async function requireSuperAdmin(token: string) {
 }
 
 /** The catalog, flattened for rendering. Safe for anyone to read — it's pricing. */
-export const listPlansFn = createServerFn({ method: "POST" })
-  .validator((_data: Record<string, never>) => _data)
-  .handler(async () => ({
+export async function listPlans(_data: Record<string, never>) { return ({
     ok: true as const,
     plans: Object.values(PLANS).map((p) => ({
       id: p.id,
@@ -36,12 +34,14 @@ export const listPlansFn = createServerFn({ method: "POST" })
     // Seat tiers a customer can actually pay for. Managed has none — it's
     // quoted, not self-serve, until the carrier side is approved.
     checkout: CHECKOUT_OPTIONS,
-  }));
+  }); }
+
+export const listPlansFn = createServerFn({ method: "POST" })
+  .validator((data: Parameters<typeof listPlans>[0]) => data)
+  .handler(async ({ data }) => listPlans(data));
 
 /** Current plan plus real usage, for the Billing page. */
-export const getPlanUsageFn = createServerFn({ method: "POST" })
-  .validator((data: { token: string }) => data)
-  .handler(async ({ data }) => {
+export async function getPlanUsage(data: { token: string }) {
     const tenantId = await requireTenant(data.token);
     const { plan, usage } = await getUsageSummary(tenantId);
 
@@ -60,7 +60,11 @@ export const getPlanUsageFn = createServerFn({ method: "POST" })
       daysRemaining: plan.daysRemaining,
       usage,
     };
-  });
+  }
+
+export const getPlanUsageFn = createServerFn({ method: "POST" })
+  .validator((data: Parameters<typeof getPlanUsage>[0]) => data)
+  .handler(async ({ data }) => getPlanUsage(data));
 
 /**
  * Moves a tenant onto a plan.
@@ -80,7 +84,7 @@ export const setTenantPlanFn = createServerFn({ method: "POST" })
     // Only a trial carries an end date; moving to a paid plan clears it so a
     // stale timestamp can't expire a paying customer.
     if (plan.id === "trial") {
-      const days = data.trialDays ?? plan.trialDays ?? 14;
+      const days = data.trialDays ?? plan.trialDays ?? 7;
       await sql`
         update tenants
         set plan = ${plan.id}, trial_ends_at = now() + (${days} || ' days')::interval
@@ -120,7 +124,7 @@ export const activateTenantFn = createServerFn({ method: "POST" })
 
     // Paid plans clear the trial clock. Activating onto a trial still needs an
     // end date — leaving it null would read as a trial that never expires.
-    const trialDays = plan.id === "trial" ? (plan.trialDays ?? 14) : null;
+    const trialDays = plan.id === "trial" ? (plan.trialDays ?? 7) : null;
     const updated = trialDays
       ? await sql`
           update tenants

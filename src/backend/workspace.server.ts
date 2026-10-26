@@ -90,9 +90,7 @@ export interface MyTicketRecord {
 }
 
 /** A tenant only ever sees tickets belonging to their own workspace. */
-export const listMyTicketsFn = createServerFn({ method: "POST" })
-  .validator((data: { token: string }) => data)
-  .handler(async ({ data }) => {
+export async function listMyTickets(data: { token: string }) {
     const tenantId = await requireTenant(data.token);
     const rows = await sql`
       select id, ticket_ref, subject, body, priority, status, created_at, updated_at
@@ -100,11 +98,13 @@ export const listMyTicketsFn = createServerFn({ method: "POST" })
       order by updated_at desc
     `;
     return { ok: true as const, tickets: rows as unknown as MyTicketRecord[] };
-  });
+  }
 
-export const createMyTicketFn = createServerFn({ method: "POST" })
-  .validator((data: { token: string; subject: string; body?: string; priority?: string }) => data)
-  .handler(async ({ data }) => {
+export const listMyTicketsFn = createServerFn({ method: "POST" })
+  .validator((data: Parameters<typeof listMyTickets>[0]) => data)
+  .handler(async ({ data }) => listMyTickets(data));
+
+export async function createMyTicket(data: { token: string; subject: string; body?: string; priority?: string }) {
     const payload = await verifyToken(data.token);
     if (!payload || !payload.tenantId) throw new Error("Not signed in.");
 
@@ -147,7 +147,11 @@ export const createMyTicketFn = createServerFn({ method: "POST" })
     );
 
     return { ok: true as const, ticket };
-  });
+  }
+
+export const createMyTicketFn = createServerFn({ method: "POST" })
+  .validator((data: Parameters<typeof createMyTicket>[0]) => data)
+  .handler(async ({ data }) => createMyTicket(data));
 
 // ---------- SMS campaigns & drafts ----------
 
@@ -169,9 +173,7 @@ export interface SmsDraftRecord {
   created_at: string;
 }
 
-export const listSmsFn = createServerFn({ method: "POST" })
-  .validator((data: { token: string }) => data)
-  .handler(async ({ data }) => {
+export async function listSms(data: { token: string }) {
     const tenantId = await requireTenant(data.token);
     const campaigns = await sql`
       select id, name, status, list_name, body, sent, delivered, replies
@@ -186,14 +188,13 @@ export const listSmsFn = createServerFn({ method: "POST" })
       campaigns: campaigns as unknown as SmsCampaignRecord[],
       drafts: drafts as unknown as SmsDraftRecord[],
     };
-  });
+  }
 
-export const createSmsCampaignFn = createServerFn({ method: "POST" })
-  .validator(
-    (data: { token: string; name: string; listName?: string; body?: string; status?: string }) =>
-      data,
-  )
-  .handler(async ({ data }) => {
+export const listSmsFn = createServerFn({ method: "POST" })
+  .validator((data: Parameters<typeof listSms>[0]) => data)
+  .handler(async ({ data }) => listSms(data));
+
+export async function createSmsCampaign(data: { token: string; name: string; listName?: string; body?: string; status?: string }) {
     const tenantId = await requireTenant(data.token);
     const name = data.name.trim() || "Untitled SMS campaign";
     await requireCanCreate(tenantId, "smsCampaigns");
@@ -204,22 +205,26 @@ export const createSmsCampaignFn = createServerFn({ method: "POST" })
       returning id, name, status, list_name, body, sent, delivered, replies
     `;
     return { ok: true as const, campaign: rows[0] as unknown as SmsCampaignRecord };
-  });
+  }
 
-export const updateSmsCampaignFn = createServerFn({ method: "POST" })
-  .validator((data: { token: string; id: string; status: string }) => data)
-  .handler(async ({ data }) => {
+export const createSmsCampaignFn = createServerFn({ method: "POST" })
+  .validator((data: Parameters<typeof createSmsCampaign>[0]) => data)
+  .handler(async ({ data }) => createSmsCampaign(data));
+
+export async function updateSmsCampaign(data: { token: string; id: string; status: string }) {
     const tenantId = await requireTenant(data.token);
     await sql`
       update sms_campaigns set status = ${data.status}
       where id = ${data.id} and tenant_id = ${tenantId}
     `;
     return { ok: true as const };
-  });
+  }
 
-export const saveSmsDraftFn = createServerFn({ method: "POST" })
-  .validator((data: { token: string; listName?: string; body: string }) => data)
-  .handler(async ({ data }) => {
+export const updateSmsCampaignFn = createServerFn({ method: "POST" })
+  .validator((data: Parameters<typeof updateSmsCampaign>[0]) => data)
+  .handler(async ({ data }) => updateSmsCampaign(data));
+
+export async function saveSmsDraft(data: { token: string; listName?: string; body: string }) {
     const tenantId = await requireTenant(data.token);
     if (!data.body.trim()) throw new Error("Nothing to save yet.");
 
@@ -229,12 +234,18 @@ export const saveSmsDraftFn = createServerFn({ method: "POST" })
       returning id, list_name, body, created_at
     `;
     return { ok: true as const, draft: rows[0] as unknown as SmsDraftRecord };
-  });
+  }
 
-export const deleteSmsDraftFn = createServerFn({ method: "POST" })
-  .validator((data: { token: string; id: string }) => data)
-  .handler(async ({ data }) => {
+export const saveSmsDraftFn = createServerFn({ method: "POST" })
+  .validator((data: Parameters<typeof saveSmsDraft>[0]) => data)
+  .handler(async ({ data }) => saveSmsDraft(data));
+
+export async function deleteSmsDraft(data: { token: string; id: string }) {
     const tenantId = await requireTenant(data.token);
     await sql`delete from sms_drafts where id = ${data.id} and tenant_id = ${tenantId}`;
     return { ok: true as const };
-  });
+  }
+
+export const deleteSmsDraftFn = createServerFn({ method: "POST" })
+  .validator((data: Parameters<typeof deleteSmsDraft>[0]) => data)
+  .handler(async ({ data }) => deleteSmsDraft(data));

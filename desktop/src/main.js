@@ -135,6 +135,7 @@ ipcMain.handle("auth:resume", async () => {
 });
 
 ipcMain.handle("auth:logout", async () => {
+  adminToken = null;
   try {
     await ensureBaresip().sendCommand("uadelall");
   } catch {
@@ -213,7 +214,20 @@ ipcMain.handle("calls:recent", async () => {
 ipcMain.handle("api:call", async (_e, { route, body }) => {
   const session = loadSession();
   if (!session) throw new Error("Not signed in.");
-  return apiPost(route, { ...body, token: session.token });
+  // admin/* calls use the unlocked super-admin token when there is one; it is
+  // held in memory only, so it never outlives the app.
+  const token = route.startsWith("admin/") && adminToken ? adminToken : session.token;
+  return apiPost(route, { ...body, token });
+});
+
+let adminToken = null;
+
+ipcMain.handle("admin:request-code", async (_e, { email }) => apiPost("admin/request-code", { email }));
+
+ipcMain.handle("admin:verify-code", async (_e, { email, code }) => {
+  const result = await apiPost("admin/verify-code", { email, code });
+  adminToken = result.token;
+  return { ok: true };
 });
 
 ipcMain.handle("call:accept", async () => {

@@ -44,9 +44,7 @@ export async function isDialerAddonEnabled(tenantId: string): Promise<boolean> {
   return Boolean(row?.dialer_addon_enabled) || row?.plan === "managed";
 }
 
-export const getAddonStatusFn = createServerFn({ method: "POST" })
-  .validator((data: { token: string }) => data)
-  .handler(async ({ data }) => {
+export async function getAddonStatus(data: { token: string }) {
     const payload = await requireSession(data.token);
     const rows = await sql`
       select dialer_addon_enabled, dialer_addon_requested_at, sip_addon_enabled, sip_addon_requested_at, plan
@@ -67,7 +65,11 @@ export const getAddonStatusFn = createServerFn({ method: "POST" })
         includedInPlan: onManagedPlan,
       },
     };
-  });
+  }
+
+export const getAddonStatusFn = createServerFn({ method: "POST" })
+  .validator((data: Parameters<typeof getAddonStatus>[0]) => data)
+  .handler(async ({ data }) => getAddonStatus(data));
 
 async function requestAddon(tenantId: string, requestedByEmail: string, addonName: string, price: string, column: "dialer_addon_requested_at" | "sip_addon_requested_at") {
   if (column === "dialer_addon_requested_at") {
@@ -92,21 +94,25 @@ async function requestAddon(tenantId: string, requestedByEmail: string, addonNam
   );
 }
 
-export const requestDialerAddonFn = createServerFn({ method: "POST" })
-  .validator((data: { token: string }) => data)
-  .handler(async ({ data }) => {
+export async function requestDialerAddon(data: { token: string }) {
     const payload = await requireSession(data.token);
     await requestAddon(payload.tenantId!, payload.email, "Desktop Dialer", "$500 one-time", "dialer_addon_requested_at");
     return { ok: true as const };
-  });
+  }
 
-export const requestSipAddonFn = createServerFn({ method: "POST" })
-  .validator((data: { token: string }) => data)
-  .handler(async ({ data }) => {
+export const requestDialerAddonFn = createServerFn({ method: "POST" })
+  .validator((data: Parameters<typeof requestDialerAddon>[0]) => data)
+  .handler(async ({ data }) => requestDialerAddon(data));
+
+export async function requestSipAddon(data: { token: string }) {
     const payload = await requireSession(data.token);
     await requestAddon(payload.tenantId!, payload.email, "Managed SIP Trunk", "$200 one-time", "sip_addon_requested_at");
     return { ok: true as const };
-  });
+  }
+
+export const requestSipAddonFn = createServerFn({ method: "POST" })
+  .validator((data: Parameters<typeof requestSipAddon>[0]) => data)
+  .handler(async ({ data }) => requestSipAddon(data));
 
 async function notifyAddonActivated(tenantId: string, addonName: string, note: string) {
   const rows = await sql`
@@ -120,25 +126,29 @@ async function notifyAddonActivated(tenantId: string, addonName: string, note: s
 }
 
 /** Admin-only: turns the Desktop Dialer add-on on/off for a specific tenant. */
-export const setDialerAddonFn = createServerFn({ method: "POST" })
-  .validator((data: { token: string; tenantId: string; enabled: boolean }) => data)
-  .handler(async ({ data }) => {
+export async function setDialerAddon(data: { token: string; tenantId: string; enabled: boolean }) {
     await requireSuperAdmin(data.token);
     await sql`update tenants set dialer_addon_enabled = ${data.enabled} where id = ${data.tenantId}`;
     if (data.enabled) {
       await notifyAddonActivated(data.tenantId, "Desktop Dialer", "Go to Billing → Desktop Dialer once signed in to get the installer.");
     }
     return { ok: true as const };
-  });
+  }
+
+export const setDialerAddonFn = createServerFn({ method: "POST" })
+  .validator((data: Parameters<typeof setDialerAddon>[0]) => data)
+  .handler(async ({ data }) => setDialerAddon(data));
 
 /** Admin-only: turns the Managed SIP add-on on/off for a specific tenant. */
-export const setSipAddonFn = createServerFn({ method: "POST" })
-  .validator((data: { token: string; tenantId: string; enabled: boolean }) => data)
-  .handler(async ({ data }) => {
+export async function setSipAddon(data: { token: string; tenantId: string; enabled: boolean }) {
     await requireSuperAdmin(data.token);
     await sql`update tenants set sip_addon_enabled = ${data.enabled} where id = ${data.tenantId}`;
     if (data.enabled) {
       await notifyAddonActivated(data.tenantId, "Managed SIP Trunk", "We'll set up your managed SIP trunk under Phone System → Connection within 24 hours.");
     }
     return { ok: true as const };
-  });
+  }
+
+export const setSipAddonFn = createServerFn({ method: "POST" })
+  .validator((data: Parameters<typeof setSipAddon>[0]) => data)
+  .handler(async ({ data }) => setSipAddon(data));

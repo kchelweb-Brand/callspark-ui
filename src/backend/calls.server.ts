@@ -140,18 +140,14 @@ export const endCallFn = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => endCall(data));
 
-export const listCallsFn = createServerFn({ method: "POST" })
-  .validator(
-    (data: {
+export async function listCalls(data: {
       token: string;
       search?: string;
       outcome?: string;
       agent?: string;
       page?: number;
       pageSize?: number;
-    }) => data,
-  )
-  .handler(async ({ data }) => {
+    }) {
     const payload = await requireSession(data.token);
     const page = Math.max(1, data.page || 1);
     const pageSize = Math.min(200, Math.max(1, data.pageSize || 50));
@@ -213,4 +209,8 @@ export const listCallsFn = createServerFn({ method: "POST" })
       outcomes: (outcomes as { outcome: string }[]).map((o) => o.outcome),
       agents: (agents as { agent_email: string }[]).map((a) => a.agent_email),
     };
-  });
+  }
+
+export const listCallsFn = createServerFn({ method: "POST" })
+  .validator((data: Parameters<typeof listCalls>[0]) => data)
+  .handler(async ({ data }) => listCalls(data));

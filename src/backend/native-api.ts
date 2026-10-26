@@ -33,7 +33,32 @@ import {
 } from "./campaign-dialer";
 import { getPhoneSystem, savePhoneSystem, savePhoneNumbers } from "./phone-system.server";
 import { getSipConnection, saveByoSip, deleteSipConnection } from "./sip.server";
-import { getTenantSettings, saveTenantSettings } from "./workspace.server";
+import {
+  getTenantSettings,
+  saveTenantSettings,
+  listMyTickets,
+  createMyTicket,
+  listSms,
+  createSmsCampaign,
+  updateSmsCampaign,
+  saveSmsDraft,
+  deleteSmsDraft,
+} from "./workspace.server";
+import { getOverview, getAnalytics, getLiveFloor, listRecordings } from "./metrics.server";
+import { listAgents, createAgent, updateAgent, deleteAgent } from "./agents.server";
+import { listCalls } from "./calls.server";
+import { listPlans, getPlanUsage } from "./billing.server";
+import { getAddonStatus, requestDialerAddon, requestSipAddon, setDialerAddon, setSipAddon } from "./addons.server";
+import {
+  getPlatformOverview,
+  getPlatformRevenue,
+  getPlatformHealth,
+  listTickets,
+  createTicket,
+  updateTicket,
+  deleteTicket,
+} from "./admin.server";
+import { listTenants, setTenantStatus } from "./auth.server";
 
 export const NATIVE_API_PREFIX = "/api/native/";
 
@@ -257,6 +282,105 @@ export async function handleNativeApi(request: Request, pathname: string): Promi
         return jsonOk(await saveByoSip(await readJson(request)));
       case "sip/delete":
         return jsonOk(await deleteSipConnection(await readJson(request)));
+
+      // ---------- who am I (drives which screens the app shows) ----------
+      case "me": {
+        const body = await readJson<{ token: string }>(request);
+        const payload = await verifyToken(body.token);
+        if (!payload || !payload.tenantId) throw new Error("Not signed in.");
+        const admins = await sql`
+          select 1 from users where email = ${payload.email} and is_super_admin = true limit 1
+        `;
+        return jsonOk({
+          email: payload.email,
+          role: payload.role,
+          workspaceSlug: payload.workspaceSlug,
+          isSuperAdmin: Boolean(payload.isSuperAdmin),
+          canAdmin: Boolean(payload.isSuperAdmin) || admins.length > 0,
+        });
+      }
+
+      // ---------- dashboard pages ----------
+      case "overview":
+        return jsonOk(await getOverview(await readJson(request)));
+      case "analytics":
+        return jsonOk(await getAnalytics(await readJson(request)));
+      case "live-floor":
+        return jsonOk(await getLiveFloor(await readJson(request)));
+      case "recordings/list":
+        return jsonOk(await listRecordings(await readJson(request)));
+      case "calls/list":
+        return jsonOk(await listCalls(await readJson(request)));
+
+      case "agents/list":
+        return jsonOk(await listAgents(await readJson(request)));
+      case "agents/create":
+        return jsonOk(await createAgent(await readJson(request)));
+      case "agents/update":
+        return jsonOk(await updateAgent(await readJson(request)));
+      case "agents/delete":
+        return jsonOk(await deleteAgent(await readJson(request)));
+
+      case "sms/list":
+        return jsonOk(await listSms(await readJson(request)));
+      case "sms/create-campaign":
+        return jsonOk(await createSmsCampaign(await readJson(request)));
+      case "sms/update-campaign":
+        return jsonOk(await updateSmsCampaign(await readJson(request)));
+      case "sms/save-draft":
+        return jsonOk(await saveSmsDraft(await readJson(request)));
+      case "sms/delete-draft":
+        return jsonOk(await deleteSmsDraft(await readJson(request)));
+
+      case "support/list":
+        return jsonOk(await listMyTickets(await readJson(request)));
+      case "support/create":
+        return jsonOk(await createMyTicket(await readJson(request)));
+
+      case "billing/plans":
+        return jsonOk(await listPlans({}));
+      case "billing/usage":
+        return jsonOk(await getPlanUsage(await readJson(request)));
+      case "billing/addons":
+        return jsonOk(await getAddonStatus(await readJson(request)));
+      case "billing/request-dialer":
+        return jsonOk(await requestDialerAddon(await readJson(request)));
+      case "billing/request-sip":
+        return jsonOk(await requestSipAddon(await readJson(request)));
+
+      // ---------- super admin ----------
+      // A founder's tenant login isn't always flagged super-admin, so the app
+      // can also unlock with a separate admin_login code (token kept in memory).
+      case "admin/request-code": {
+        const body = await readJson<{ email: string }>(request);
+        return jsonOk(await requestLoginCode({ email: body.email, purpose: "admin_login" }));
+      }
+      case "admin/verify-code": {
+        const body = await readJson<{ email: string; code: string }>(request);
+        return jsonOk(await verifyLoginCode({ email: body.email, code: body.code, purpose: "admin_login" }));
+      }
+      case "admin/overview":
+        return jsonOk(await getPlatformOverview(await readJson(request)));
+      case "admin/revenue":
+        return jsonOk(await getPlatformRevenue(await readJson(request)));
+      case "admin/health":
+        return jsonOk(await getPlatformHealth(await readJson(request)));
+      case "admin/tenants":
+        return jsonOk(await listTenants(await readJson(request)));
+      case "admin/tenant-status":
+        return jsonOk(await setTenantStatus(await readJson(request)));
+      case "admin/set-dialer":
+        return jsonOk(await setDialerAddon(await readJson(request)));
+      case "admin/set-sip":
+        return jsonOk(await setSipAddon(await readJson(request)));
+      case "admin/tickets":
+        return jsonOk(await listTickets(await readJson(request)));
+      case "admin/ticket-create":
+        return jsonOk(await createTicket(await readJson(request)));
+      case "admin/ticket-update":
+        return jsonOk(await updateTicket(await readJson(request)));
+      case "admin/ticket-delete":
+        return jsonOk(await deleteTicket(await readJson(request)));
 
       // ---------- settings ----------
       case "settings/get":

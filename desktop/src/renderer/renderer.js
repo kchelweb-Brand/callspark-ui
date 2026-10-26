@@ -47,10 +47,22 @@ const PAGE_INIT = {
   extensions: () => window.KchelExtensions?.init(),
   voicemail: () => window.KchelVoicemail?.init(),
   settings: () => window.KchelSettings?.init(),
+  overview: () => window.KchelOverview?.init(),
+  live: () => window.KchelLive?.init(),
+  history: () => window.KchelHistory?.init(),
+  recordings: () => window.KchelRecordings?.init(),
+  analytics: () => window.KchelAnalytics?.init(),
+  agents: () => window.KchelAgents?.init(),
+  sms: () => window.KchelSms?.init(),
+  numbers: () => window.KchelNumbers?.init(),
+  billing: () => window.KchelBilling?.init(),
+  support: () => window.KchelSupport?.init(),
+  admin: () => window.KchelAdmin?.init(),
 };
 const pageLoaded = {};
 
 function show(screen) {
+  if (screen === "app") void revealAdminNav();
   document.getElementById("screen-splash").classList.add("hidden");
   els.screenLogin.classList.toggle("hidden", screen !== "login");
   els.screenApp.classList.toggle("hidden", screen !== "app");
@@ -60,6 +72,7 @@ function showView(name) {
   document.querySelectorAll(".view").forEach((el) => el.classList.add("hidden"));
   document.querySelectorAll(".nav-item").forEach((el) => el.classList.toggle("active", el.dataset.view === name));
   document.getElementById(`view-${name}`).classList.remove("hidden");
+  document.getElementById("screen-app").classList.remove("nav-open");
 
   if (PAGE_INIT[name] && !pageLoaded[name]) {
     pageLoaded[name] = true;
@@ -70,6 +83,22 @@ function showView(name) {
 document.querySelectorAll(".nav-item").forEach((btn) => {
   btn.addEventListener("click", () => showView(btn.dataset.view));
 });
+
+document.getElementById("btn-menu").addEventListener("click", () => {
+  document.getElementById("screen-app").classList.toggle("nav-open");
+});
+document.getElementById("nav-scrim").addEventListener("click", () => {
+  document.getElementById("screen-app").classList.remove("nav-open");
+});
+
+async function revealAdminNav() {
+  try {
+    const me = await window.kchel.api("me", {});
+    document.getElementById("admin-nav").classList.toggle("hidden", !me.canAdmin);
+  } catch {
+    document.getElementById("admin-nav").classList.add("hidden");
+  }
+}
 
 function setRegStatus(text, kind) {
   els.regStatus.textContent = text;

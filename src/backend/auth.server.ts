@@ -325,9 +325,9 @@ export const verifySignupFn = createServerFn({ method: "POST" })
     // Live immediately, no approval queue — the trial clock starts at this
     // exact insert, not whenever a human next looks at it. Same interval
     // setTenantPlanFn uses when the admin console puts a tenant back on
-    // trial, so there's one place that decides what "14 days" means.
+    // trial, so there's one place that decides what "7 days" means.
     const tenantName = signup.company_name?.trim() || signup.full_name;
-    const trialDays = PLANS.trial.trialDays ?? 14;
+    const trialDays = PLANS.trial.trialDays ?? 7;
     const tenants = await sql`
       insert into tenants (name, workspace_slug, status, trial_ends_at)
       values (
@@ -407,9 +407,7 @@ function toAdminTenant(row: TenantRow & { user_count: number | string; owner_ema
   };
 }
 
-export const listTenantsFn = createServerFn({ method: "POST" })
-  .validator((data: { token: string; status?: string }) => data)
-  .handler(async ({ data }) => {
+export async function listTenants(data: { token: string; status?: string }) {
     await requireSuperAdmin(data.token);
 
     const rows = data.status
@@ -433,11 +431,13 @@ export const listTenantsFn = createServerFn({ method: "POST" })
       ok: true as const,
       tenants: (rows as unknown as Array<TenantRow & { user_count: number; owner_email: string | null }>).map(toAdminTenant),
     };
-  });
+  }
 
-export const setTenantStatusFn = createServerFn({ method: "POST" })
-  .validator((data: { token: string; id: string; status: "active" | "suspended" | "pending" }) => data)
-  .handler(async ({ data }) => {
+export const listTenantsFn = createServerFn({ method: "POST" })
+  .validator((data: Parameters<typeof listTenants>[0]) => data)
+  .handler(async ({ data }) => listTenants(data));
+
+export async function setTenantStatus(data: { token: string; id: string; status: "active" | "suspended" | "pending" }) {
     await requireSuperAdmin(data.token);
 
     const updated = await sql`
@@ -456,4 +456,8 @@ export const setTenantStatusFn = createServerFn({ method: "POST" })
       ok: true as const,
       tenant: toAdminTenant(rows[0] as unknown as TenantRow & { user_count: number; owner_email: string | null }),
     };
-  });
+  }
+
+export const setTenantStatusFn = createServerFn({ method: "POST" })
+  .validator((data: Parameters<typeof setTenantStatus>[0]) => data)
+  .handler(async ({ data }) => setTenantStatus(data));

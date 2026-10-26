@@ -53,8 +53,8 @@ export const PLANS: Record<PlanId, Plan> = {
     id: "trial",
     name: "Trial",
     pricePerAgentMonthly: 0,
-    blurb: "Bring your own SIP and prove it works, free for 14 days.",
-    trialDays: 14,
+    blurb: "Bring your own SIP and prove it works, free for 7 days.",
+    trialDays: 7,
     managedSip: false,
     limits: {
       agents: 1,
@@ -74,11 +74,11 @@ export const PLANS: Record<PlanId, Plan> = {
     blurb: "The full dialer on your own carrier.",
     managedSip: false,
     limits: {
-      agents: 5,
-      contacts: 10_000,
+      agents: 3,
+      contacts: 1_000,
       campaigns: 10,
-      ivrMenus: 5,
-      phoneNumbers: 3,
+      ivrMenus: 3,
+      phoneNumbers: 2,
       calls: null,
       smsCampaigns: 0,
       recordingRetentionDays: 30,
@@ -91,11 +91,11 @@ export const PLANS: Record<PlanId, Plan> = {
     blurb: "More seats, more numbers and deeper analytics for a working floor.",
     managedSip: false,
     limits: {
-      agents: 25,
-      contacts: 100_000,
+      agents: 5,
+      contacts: 5_000,
       campaigns: null,
-      ivrMenus: 25,
-      phoneNumbers: 15,
+      ivrMenus: 5,
+      phoneNumbers: 5,
       calls: null,
       smsCampaigns: null,
       recordingRetentionDays: 90,
@@ -104,20 +104,20 @@ export const PLANS: Record<PlanId, Plan> = {
   managed: {
     id: "managed",
     name: "Managed Enterprise",
-    // Flat, because every limit on this tier is unlimited. Professional caps
-    // at 25 agents, which is $1,475/mo at $59 a seat — so this is where the
-    // curve continues, and the cost per agent falls as the team grows.
+    // Flat fee for the whole team: 10 agents is $250/seat here versus $59 on
+    // Professional, because this tier also includes the carrier, the Desktop
+    // Dialer and full support.
     pricePerAgentMonthly: 0,
     priceFlatMonthly: 2500,
     blurb:
-      "Unlimited everything, we run the carrier, the Desktop Dialer included free, and full support & maintenance.",
+      "Up to 10 agents and 10,000 contacts, we run the carrier, the Desktop Dialer included free, and full support & maintenance.",
     managedSip: true,
     limits: {
-      agents: null,
-      contacts: null,
+      agents: 10,
+      contacts: 10_000,
       campaigns: null,
-      ivrMenus: null,
-      phoneNumbers: null,
+      ivrMenus: 10,
+      phoneNumbers: 10,
       calls: null,
       smsCampaigns: null,
       recordingRetentionDays: 365,
@@ -259,12 +259,10 @@ export const CHECKOUT_OPTIONS: CheckoutOption[] = [
   // Starter — monthly
   { planId: "starter", seats: 1, interval: "monthly", amountUsd: 29, url: "https://flutterwave.com/pay/pgesxwxsjiqc" },
   { planId: "starter", seats: 3, interval: "monthly", amountUsd: 87, url: "https://flutterwave.com/pay/fqmecqqv6ij8" },
-  { planId: "starter", seats: 5, interval: "monthly", amountUsd: 145, url: "https://flutterwave.com/pay/tpcvtlwwuund" },
   // Professional — monthly
   { planId: "professional", seats: 1, interval: "monthly", amountUsd: 59, url: "https://flutterwave.com/pay/fa7ud7yi3t6y" },
   { planId: "professional", seats: 3, interval: "monthly", amountUsd: 177, url: "https://flutterwave.com/pay/f2yqb3yrt2wi" },
   { planId: "professional", seats: 5, interval: "monthly", amountUsd: 295, url: "https://flutterwave.com/pay/303kjupgfy6d" },
-  { planId: "professional", seats: 10, interval: "monthly", amountUsd: 590, url: "https://flutterwave.com/pay/okdaspf3w9fq" },
   // Annual — two months free
   { planId: "starter", seats: 1, interval: "annual", amountUsd: 290, url: "https://flutterwave.com/pay/rgjlitvdbkij" },
   { planId: "professional", seats: 1, interval: "annual", amountUsd: 590, url: "https://flutterwave.com/pay/jroblvkfoagm" },

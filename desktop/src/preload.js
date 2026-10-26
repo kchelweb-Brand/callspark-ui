@@ -11,6 +11,8 @@ contextBridge.exposeInMainWorld("kchel", {
   logout: () => ipcRenderer.invoke("auth:logout"),
 
   recentCalls: () => ipcRenderer.invoke("calls:recent"),
+  adminRequestCode: (email) => ipcRenderer.invoke("admin:request-code", { email }),
+  adminVerifyCode: (email, code) => ipcRenderer.invoke("admin:verify-code", { email, code }),
   api: (route, body) => ipcRenderer.invoke("api:call", { route, body }),
   dial: (number) => ipcRenderer.invoke("call:dial", { number }),
   accept: () => ipcRenderer.invoke("call:accept"),

@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src https:;" />
   <title>Kchel Dialer</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
@@ -100,6 +101,8 @@
   </section>
 
   <section id="screen-app" class="screen app-shell hidden">
+    <div class="mobile-bar"><button id="btn-menu" aria-label="Menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button><strong>Kchel Dialer</strong></div>
+    <div id="nav-scrim" class="nav-scrim"></div>
     <nav class="sidebar">
       <div class="brand-small">
         <svg viewBox="0 0 64 64" width="24" height="24" fill="none" aria-hidden="true">
@@ -110,6 +113,24 @@
         Kchel Dialer
       </div>
       <div class="brand-stripe"></div>
+
+      <p class="nav-group">Workspace</p>
+      <button class="nav-item" data-view="overview">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
+        <span>Overview</span>
+      </button>
+      <button class="nav-item" data-view="live">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12h4l3-8 4 16 3-8h6"/></svg>
+        <span>Live calls</span>
+      </button>
+      <button class="nav-item" data-view="agents">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/></svg>
+        <span>Agents</span>
+      </button>
+      <button class="nav-item" data-view="analytics">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg>
+        <span>Analytics</span>
+      </button>
 
       <p class="nav-group">Calling</p>
       <button class="nav-item active" data-view="dialer">
@@ -124,8 +145,20 @@
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg>
         <span>Campaigns</span>
       </button>
+      <button class="nav-item" data-view="sms">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <span>SMS</span>
+      </button>
+      <button class="nav-item" data-view="history">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+        <span>Call history</span>
+      </button>
+      <button class="nav-item" data-view="recordings">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.5" fill="currentColor"/></svg>
+        <span>Recordings</span>
+      </button>
 
-      <p class="nav-group">Inbound calls</p>
+      <p class="nav-group">Phone system</p>
       <button class="nav-item" data-view="ivr">
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="6" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="12" r="2"/><path d="M6 8v8M8 6h4a4 4 0 0 1 4 4M8 18h4a4 4 0 0 0 4-4"/></svg>
         <span>IVR menus</span>
@@ -138,16 +171,36 @@
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="12" r="4"/><circle cx="18" cy="12" r="4"/><path d="M6 16h12"/></svg>
         <span>Voicemail</span>
       </button>
+      <button class="nav-item" data-view="numbers">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9h14M5 15h14M10 3 8 21M16 3l-2 18"/></svg>
+        <span>Phone numbers</span>
+      </button>
 
-      <p class="nav-group">Setup</p>
-      <button class="nav-item" data-view="sip-config">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="3" width="20" height="8" rx="2"/><rect x="2" y="13" width="20" height="8" rx="2"/><path d="M6 7h.01M6 17h.01"/></svg>
-        <span>SIP Configuration</span>
+      <p class="nav-group">Account</p>
+      <button class="nav-item" data-view="billing">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
+        <span>Billing</span>
+      </button>
+      <button class="nav-item" data-view="support">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2-3 4M12 17h.01"/></svg>
+        <span>Support</span>
       </button>
       <button class="nav-item" data-view="settings">
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
         <span>Settings</span>
       </button>
+      <button class="nav-item" data-view="sip-config">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="3" width="20" height="8" rx="2"/><rect x="2" y="13" width="20" height="8" rx="2"/><path d="M6 7h.01M6 17h.01"/></svg>
+        <span>SIP Configuration</span>
+      </button>
+
+      <div id="admin-nav" class="hidden">
+      <p class="nav-group">Platform</p>
+      <button class="nav-item" data-view="admin">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 4 5v6c0 5 3.4 9.3 8 11 4.6-1.7 8-6 8-11V5z"/><path d="m9 12 2 2 4-4"/></svg>
+        <span>Super admin</span>
+      </button>
+      </div>
 
       <div class="sidebar-footer">
         <span id="reg-status" class="status status-pending">Connecting…</span>
@@ -156,6 +209,17 @@
     </nav>
 
     <main class="main-area">
+      <section id="view-overview" class="view hidden"></section>
+      <section id="view-live" class="view hidden"></section>
+      <section id="view-history" class="view hidden"></section>
+      <section id="view-recordings" class="view hidden"></section>
+      <section id="view-analytics" class="view hidden"></section>
+      <section id="view-agents" class="view hidden"></section>
+      <section id="view-sms" class="view hidden"></section>
+      <section id="view-numbers" class="view hidden"></section>
+      <section id="view-billing" class="view hidden"></section>
+      <section id="view-support" class="view hidden"></section>
+      <section id="view-admin" class="view hidden"></section>
       <section id="view-dialer" class="view">
         <div class="page-header">
           <div>
@@ -374,5 +438,8 @@
   <script src="extensions.js"></script>
   <script src="voicemail.js"></script>
   <script src="settings.js"></script>
+  <script src="insights.js"></script>
+  <script src="workspace-pages.js"></script>
+  <script src="admin.js"></script>
 </body>
 </html>

@@ -51,5 +51,89 @@
     });
   }
 
-  window.KchelUi = { toast, confirm: confirmDialog };
+  function dur(sec) {
+    const n = Math.max(0, Math.round(Number(sec) || 0));
+    const h = Math.floor(n / 3600);
+    const m = Math.floor((n % 3600) / 60);
+    const r = n % 60;
+    if (h) return h + "h " + m + "m";
+    return m + ":" + String(r).padStart(2, "0");
+  }
+
+  function when(iso) {
+    if (!iso) return "—";
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "—";
+    return d.toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  }
+
+  function header(title, sub, actionsHtml) {
+    return `<div class="page-header"><div><h1 class="page-title">${escapeHtml(title)}</h1><p class="page-sub">${escapeHtml(sub)}</p></div>${actionsHtml ? `<div class="page-actions">${actionsHtml}</div>` : ""}</div>`;
+  }
+
+  function stat(label, value, sub) {
+    return `<div class="stat"><p class="stat-label">${escapeHtml(label)}</p><p class="stat-value">${escapeHtml(String(value))}</p>${sub ? `<p class="stat-sub">${escapeHtml(sub)}</p>` : ""}</div>`;
+  }
+
+  function bars(items, labelKey, valueKey) {
+    const max = Math.max(1, ...items.map((i) => Number(i[valueKey]) || 0));
+    return `<div class="bars">${items
+      .map((i) => {
+        const v = Number(i[valueKey]) || 0;
+        return `<div class="bar" title="${escapeHtml(String(i[labelKey]))}: ${v}"><i style="height:${Math.max(3, (v / max) * 100)}%"></i><span>${escapeHtml(String(i[labelKey]))}</span></div>`;
+      })
+      .join("")}</div>`;
+  }
+
+  function table(headers, rows, empty) {
+    if (!rows.length) return `<p class="hint" style="padding:18px">${escapeHtml(empty || "Nothing here yet.")}</p>`;
+    return `<table class="data-table"><thead><tr>${headers.map((h) => `<th>${escapeHtml(h)}</th>`).join("")}</tr></thead><tbody>${rows
+      .map((r) => `<tr>${r.map((c) => `<td>${c}</td>`).join("")}</tr>`)
+      .join("")}</tbody></table>`;
+  }
+
+  /** Opens a modal with a form. fields: [{id,label,type,value,options,placeholder,required}]. */
+  function formModal({ title, fields, submitLabel, onSubmit }) {
+    const root = document.getElementById("modal-root");
+    root.innerHTML = `<div class="modal-backdrop"><div class="modal"><h2>${escapeHtml(title)}</h2><form class="stack">
+      ${fields
+        .map((f) => {
+          const id = "mf-" + f.id;
+          const input =
+            f.type === "select"
+              ? `<select id="${id}">${f.options.map((o) => `<option value="${escapeHtml(o.value ?? o)}" ${(o.value ?? o) === f.value ? "selected" : ""}>${escapeHtml(o.label ?? o)}</option>`).join("")}</select>`
+              : f.type === "textarea"
+                ? `<textarea id="${id}" rows="4" placeholder="${escapeHtml(f.placeholder || "")}">${escapeHtml(f.value || "")}</textarea>`
+                : `<input id="${id}" type="${f.type || "text"}" value="${escapeHtml(f.value || "")}" placeholder="${escapeHtml(f.placeholder || "")}" ${f.required ? "required" : ""} />`;
+          return `<label>${escapeHtml(f.label)}${input}</label>`;
+        })
+        .join("")}
+      <p class="hint" data-error></p>
+      <div class="modal-actions"><button type="button" data-cancel>Cancel</button><button type="submit">${escapeHtml(submitLabel || "Save")}</button></div>
+    </form></div></div>`;
+    const close = () => {
+      document.removeEventListener("keydown", onKey);
+      root.innerHTML = "";
+    };
+    const onKey = (e) => {
+      if (e.key === "Escape") close();
+    };
+    document.addEventListener("keydown", onKey);
+    root.querySelector("[data-cancel]").addEventListener("click", close);
+    root.querySelector("form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const values = {};
+      fields.forEach((f) => (values[f.id] = document.getElementById("mf-" + f.id).value.trim()));
+      try {
+        await onSubmit(values);
+        close();
+      } catch (err) {
+        root.querySelector("[data-error]").textContent = err.message;
+      }
+    });
+    const first = root.querySelector("input,select,textarea");
+    if (first) first.focus();
+  }
+
+  window.KchelUi = { toast, confirm: confirmDialog, esc: escapeHtml, dur, when, header, stat, bars, table, formModal };
 })();

@@ -28,9 +28,7 @@ function num(value: unknown): number {
 
 // ---------- platform overview ----------
 
-export const getPlatformOverviewFn = createServerFn({ method: "POST" })
-  .validator((data: { token: string }) => data)
-  .handler(async ({ data }) => {
+export async function getPlatformOverview(data: { token: string }) {
     await requireSuperAdmin(data.token);
 
     // `customer` excludes internal sandboxes so they can't inflate any metric.
@@ -137,13 +135,15 @@ export const getPlatformOverviewFn = createServerFn({ method: "POST" })
         talk_seconds: number;
       }[],
     };
-  });
+  }
+
+export const getPlatformOverviewFn = createServerFn({ method: "POST" })
+  .validator((data: Parameters<typeof getPlatformOverview>[0]) => data)
+  .handler(async ({ data }) => getPlatformOverview(data));
 
 // ---------- revenue ----------
 
-export const getPlatformRevenueFn = createServerFn({ method: "POST" })
-  .validator((data: { token: string }) => data)
-  .handler(async ({ data }) => {
+export async function getPlatformRevenue(data: { token: string }) {
     await requireSuperAdmin(data.token);
 
     const byTenant = await sql`
@@ -192,13 +192,15 @@ export const getPlatformRevenueFn = createServerFn({ method: "POST" })
       topupCents: num((topups[0] as { cents: number }).cents),
       walletCents: rows.reduce((s, r) => s + r.wallet_cents, 0),
     };
-  });
+  }
+
+export const getPlatformRevenueFn = createServerFn({ method: "POST" })
+  .validator((data: Parameters<typeof getPlatformRevenue>[0]) => data)
+  .handler(async ({ data }) => getPlatformRevenue(data));
 
 // ---------- system health ----------
 
-export const getPlatformHealthFn = createServerFn({ method: "POST" })
-  .validator((data: { token: string }) => data)
-  .handler(async ({ data }) => {
+export async function getPlatformHealth(data: { token: string }) {
     await requireSuperAdmin(data.token);
 
     const statsRows = await sql`
@@ -253,7 +255,11 @@ export const getPlatformHealthFn = createServerFn({ method: "POST" })
         workspace_slug: string;
       }[],
     };
-  });
+  }
+
+export const getPlatformHealthFn = createServerFn({ method: "POST" })
+  .validator((data: Parameters<typeof getPlatformHealth>[0]) => data)
+  .handler(async ({ data }) => getPlatformHealth(data));
 
 // ---------- support ----------
 
@@ -271,9 +277,7 @@ export interface TicketRecord {
   updated_at: string;
 }
 
-export const listTicketsFn = createServerFn({ method: "POST" })
-  .validator((data: { token: string }) => data)
-  .handler(async ({ data }) => {
+export async function listTickets(data: { token: string }) {
     await requireSuperAdmin(data.token);
     const rows = await sql`
       select tk.id, tk.ticket_ref, tk.tenant_id, t.name as tenant_name, tk.subject, tk.body,
@@ -289,14 +293,13 @@ export const listTicketsFn = createServerFn({ method: "POST" })
       tickets: rows as unknown as TicketRecord[],
       tenants: tenants as unknown as { id: string; name: string }[],
     };
-  });
+  }
 
-export const createTicketFn = createServerFn({ method: "POST" })
-  .validator(
-    (data: { token: string; tenantId?: string; subject: string; body?: string; priority?: string }) =>
-      data,
-  )
-  .handler(async ({ data }) => {
+export const listTicketsFn = createServerFn({ method: "POST" })
+  .validator((data: Parameters<typeof listTickets>[0]) => data)
+  .handler(async ({ data }) => listTickets(data));
+
+export async function createTicket(data: { token: string; tenantId?: string; subject: string; body?: string; priority?: string }) {
     const payload = await requireSuperAdmin(data.token);
     const subject = data.subject.trim();
     if (!subject) throw new Error("Give the ticket a subject.");
@@ -315,11 +318,13 @@ export const createTicketFn = createServerFn({ method: "POST" })
       where tk.id = ${(rows[0] as { id: string }).id}
     `;
     return { ok: true as const, ticket: created[0] as unknown as TicketRecord };
-  });
+  }
 
-export const updateTicketFn = createServerFn({ method: "POST" })
-  .validator((data: { token: string; id: string; status?: string; priority?: string }) => data)
-  .handler(async ({ data }) => {
+export const createTicketFn = createServerFn({ method: "POST" })
+  .validator((data: Parameters<typeof createTicket>[0]) => data)
+  .handler(async ({ data }) => createTicket(data));
+
+export async function updateTicket(data: { token: string; id: string; status?: string; priority?: string }) {
     await requireSuperAdmin(data.token);
 
     // Capture the prior status so we only email on an actual change — not on
@@ -352,12 +357,18 @@ export const updateTicketFn = createServerFn({ method: "POST" })
     }
 
     return { ok: true as const, notified: statusChanged };
-  });
+  }
 
-export const deleteTicketFn = createServerFn({ method: "POST" })
-  .validator((data: { token: string; id: string }) => data)
-  .handler(async ({ data }) => {
+export const updateTicketFn = createServerFn({ method: "POST" })
+  .validator((data: Parameters<typeof updateTicket>[0]) => data)
+  .handler(async ({ data }) => updateTicket(data));
+
+export async function deleteTicket(data: { token: string; id: string }) {
     await requireSuperAdmin(data.token);
     await sql`delete from support_tickets where id = ${data.id}`;
     return { ok: true as const };
-  });
+  }
+
+export const deleteTicketFn = createServerFn({ method: "POST" })
+  .validator((data: Parameters<typeof deleteTicket>[0]) => data)
+  .handler(async ({ data }) => deleteTicket(data));
