@@ -10,6 +10,7 @@ const els = {
   inputCode: document.getElementById("input-code"),
   loginHint: document.getElementById("login-hint"),
   verifyHint: document.getElementById("verify-hint"),
+  loginSteps: document.getElementById("login-steps"),
   regStatus: document.getElementById("reg-status"),
   btnLogout: document.getElementById("btn-logout"),
   callPanel: document.getElementById("call-panel"),
@@ -50,6 +51,7 @@ const PAGE_INIT = {
 const pageLoaded = {};
 
 function show(screen) {
+  document.getElementById("screen-splash").classList.add("hidden");
   els.screenLogin.classList.toggle("hidden", screen !== "login");
   els.screenApp.classList.toggle("hidden", screen !== "app");
 }
@@ -115,6 +117,9 @@ els.formRequestCode.addEventListener("submit", async (e) => {
     els.loginHint.textContent = "";
     els.formRequestCode.classList.add("hidden");
     els.formVerifyCode.classList.remove("hidden");
+    document.getElementById("verify-email").textContent = pendingEmail;
+    els.loginSteps.dataset.step = "2";
+    els.inputCode.focus();
   } catch (err) {
     els.loginHint.textContent = err.message;
   }
@@ -138,9 +143,18 @@ els.btnLogout.addEventListener("click", async () => {
   await window.kchel.logout();
   show("login");
   els.formRequestCode.classList.remove("hidden");
+  resetLoginForm();
+});
+
+function resetLoginForm() {
+  els.formRequestCode.classList.remove("hidden");
   els.formVerifyCode.classList.add("hidden");
   els.inputCode.value = "";
-});
+  els.verifyHint.textContent = "";
+  els.loginSteps.dataset.step = "1";
+}
+
+document.getElementById("btn-login-back").addEventListener("click", resetLoginForm);
 
 function renderNumberDisplay() {
   els.numberDisplay.textContent = dialedNumber || "—";
