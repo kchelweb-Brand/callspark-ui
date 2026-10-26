@@ -54,9 +54,16 @@
       btn.addEventListener("click", () => openEditor(extensions.find((e) => e.id === btn.dataset.id)));
     });
     els.table.querySelectorAll('[data-action="delete"]').forEach((btn) => {
-      btn.addEventListener("click", () => {
+      btn.addEventListener("click", async () => {
         const ext = extensions.find((e) => e.id === btn.dataset.id);
-        if (ext && confirm(`Delete extension ${ext.number}? Any IVR menu pointing at it will need updating.`)) {
+        if (!ext) return;
+        const ok = await window.KchelUi.confirm({
+          title: `Delete extension ${ext.number}?`,
+          message: "Any IVR menu pointing at this extension will need to be updated.",
+          confirmLabel: "Delete",
+          danger: true,
+        });
+        if (ok) {
           extensions = extensions.filter((e) => e.id !== ext.id);
           render();
           void persist();

@@ -82,7 +82,7 @@
       await window.kchel.api("campaigns/start-dialing", { campaignId: id, origin: apiBase });
       await load();
     } catch (err) {
-      alert(err.message);
+      window.KchelUi.toast(err.message, "error");
     }
   }
 
@@ -91,7 +91,7 @@
       await window.kchel.api("campaigns/pause-dialing", { campaignId: id });
       await load();
     } catch (err) {
-      alert(err.message);
+      window.KchelUi.toast(err.message, "error");
     }
   }
 

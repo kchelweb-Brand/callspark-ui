@@ -8,53 +8,86 @@
 </head>
 <body>
 
-  <section id="screen-login" class="screen">
-    <div class="brand">
-      <svg viewBox="0 0 64 64" width="28" height="28" fill="none" aria-hidden="true">
+  <section id="screen-login" class="screen login-screen">
+    <div class="login-card">
+      <svg class="login-logo" viewBox="0 0 64 64" width="52" height="52" fill="none" aria-hidden="true">
         <rect x="10" y="12" width="9" height="40" rx="4.5" fill="var(--brand-green)" />
         <path d="M25 15 L41 32 L25 49" stroke="var(--brand-blue)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" />
         <path d="M43 22 L53 32 L43 42" stroke="var(--brand-yellow)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" />
       </svg>
-      Kchel Dialer
+      <h1 class="login-title">Kchel Dialer</h1>
+      <p class="login-sub">Sign in to your workspace to start calling.</p>
+
+      <form id="form-request-code" class="stack">
+        <label>Workspace
+          <input id="input-slug" type="text" placeholder="akinbinu" autocomplete="off" required />
+        </label>
+        <label>Email
+          <input id="input-email" type="email" placeholder="you@company.com" autocomplete="email" required />
+        </label>
+        <button type="submit">Send sign-in code</button>
+        <p class="hint" id="login-hint"></p>
+      </form>
+
+      <form id="form-verify-code" class="stack hidden">
+        <p class="hint">Enter the 6-digit code sent to your email.</p>
+        <input id="input-code" class="code-input" type="text" inputmode="numeric" placeholder="000000" autocomplete="one-time-code" required />
+        <button type="submit">Sign in</button>
+        <p class="hint" id="verify-hint"></p>
+      </form>
     </div>
-
-    <form id="form-request-code" class="stack">
-      <label>Workspace
-        <input id="input-slug" type="text" placeholder="akinbinu" autocomplete="off" required />
-      </label>
-      <label>Email
-        <input id="input-email" type="email" placeholder="you@company.com" autocomplete="email" required />
-      </label>
-      <button type="submit">Send code</button>
-      <p class="hint" id="login-hint"></p>
-    </form>
-
-    <form id="form-verify-code" class="stack hidden">
-      <p class="hint">Enter the code sent to your email.</p>
-      <input id="input-code" type="text" inputmode="numeric" placeholder="000000" autocomplete="one-time-code" required />
-      <button type="submit">Sign in</button>
-      <p class="hint" id="verify-hint"></p>
-    </form>
   </section>
 
   <section id="screen-app" class="screen app-shell hidden">
     <nav class="sidebar">
       <div class="brand-small">
-        <svg viewBox="0 0 64 64" width="20" height="20" fill="none" aria-hidden="true">
+        <svg viewBox="0 0 64 64" width="24" height="24" fill="none" aria-hidden="true">
           <rect x="10" y="12" width="9" height="40" rx="4.5" fill="var(--brand-green)" />
           <path d="M25 15 L41 32 L25 49" stroke="var(--brand-blue)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" />
           <path d="M43 22 L53 32 L43 42" stroke="var(--brand-yellow)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" />
         </svg>
         Kchel Dialer
       </div>
-      <button class="nav-item active" data-view="dialer">Dialer</button>
-      <button class="nav-item" data-view="sip-config">SIP Configuration</button>
-      <button class="nav-item" data-view="contacts">Contacts</button>
-      <button class="nav-item" data-view="campaigns">Campaigns</button>
-      <button class="nav-item" data-view="ivr">IVR</button>
-      <button class="nav-item" data-view="extensions">Extensions</button>
-      <button class="nav-item" data-view="voicemail">Voicemail</button>
-      <button class="nav-item" data-view="settings">Settings</button>
+      <div class="brand-stripe"></div>
+
+      <p class="nav-group">Calling</p>
+      <button class="nav-item active" data-view="dialer">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"/></svg>
+        <span>Dialer</span>
+      </button>
+      <button class="nav-item" data-view="contacts">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/></svg>
+        <span>Contacts</span>
+      </button>
+      <button class="nav-item" data-view="campaigns">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg>
+        <span>Campaigns</span>
+      </button>
+
+      <p class="nav-group">Inbound calls</p>
+      <button class="nav-item" data-view="ivr">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="6" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="12" r="2"/><path d="M6 8v8M8 6h4a4 4 0 0 1 4 4M8 18h4a4 4 0 0 0 4-4"/></svg>
+        <span>IVR menus</span>
+      </button>
+      <button class="nav-item" data-view="extensions">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h16M4 15h16M10 3 8 21M16 3l-2 18"/></svg>
+        <span>Extensions</span>
+      </button>
+      <button class="nav-item" data-view="voicemail">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="12" r="4"/><circle cx="18" cy="12" r="4"/><path d="M6 16h12"/></svg>
+        <span>Voicemail</span>
+      </button>
+
+      <p class="nav-group">Setup</p>
+      <button class="nav-item" data-view="sip-config">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="3" width="20" height="8" rx="2"/><rect x="2" y="13" width="20" height="8" rx="2"/><path d="M6 7h.01M6 17h.01"/></svg>
+        <span>SIP Configuration</span>
+      </button>
+      <button class="nav-item" data-view="settings">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+        <span>Settings</span>
+      </button>
+
       <div class="sidebar-footer">
         <span id="reg-status" class="status status-pending">Connecting…</span>
         <button id="btn-logout" class="link">Sign out</button>
@@ -63,53 +96,70 @@
 
     <main class="main-area">
       <section id="view-dialer" class="view">
-        <div id="call-panel" class="call-panel hidden">
-          <div class="call-number" id="call-number">—</div>
-          <div class="call-state" id="call-state">Calling…</div>
-          <div class="call-timer" id="call-timer"></div>
-          <div class="call-actions">
-            <button id="btn-accept" class="call-btn accept hidden">Accept</button>
-            <button id="btn-hangup" class="call-btn hangup">Hang up</button>
-          </div>
-          <div class="dtmf-row hidden" id="dtmf-row">
-            <button data-digit="1">1</button><button data-digit="2">2</button><button data-digit="3">3</button>
-            <button data-digit="4">4</button><button data-digit="5">5</button><button data-digit="6">6</button>
-            <button data-digit="7">7</button><button data-digit="8">8</button><button data-digit="9">9</button>
-            <button data-digit="*">*</button><button data-digit="0">0</button><button data-digit="#">#</button>
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Dialer</h1>
+            <p class="page-sub">Place and receive calls over your SIP line.</p>
           </div>
         </div>
 
-        <div id="dial-panel" class="dial-panel">
-          <div class="number-display">
-            <p class="number-display-label">Enter a number</p>
-            <p class="number-display-value" id="number-display">—</p>
+        <div class="dialer-layout">
+          <div class="card dialer-card">
+            <div id="call-panel" class="call-panel hidden">
+              <div class="call-avatar">&#9742;</div>
+              <div class="call-number" id="call-number">—</div>
+              <div class="call-state" id="call-state">Calling…</div>
+              <div class="call-timer" id="call-timer"></div>
+              <div class="call-actions">
+                <button id="btn-accept" class="call-btn accept hidden">Accept</button>
+                <button id="btn-hangup" class="call-btn hangup">Hang up</button>
+              </div>
+              <div class="dtmf-row hidden" id="dtmf-row">
+                <button data-digit="1">1</button><button data-digit="2">2</button><button data-digit="3">3</button>
+                <button data-digit="4">4</button><button data-digit="5">5</button><button data-digit="6">6</button>
+                <button data-digit="7">7</button><button data-digit="8">8</button><button data-digit="9">9</button>
+                <button data-digit="*">*</button><button data-digit="0">0</button><button data-digit="#">#</button>
+              </div>
+            </div>
+
+            <div id="dial-panel" class="dial-panel">
+              <div class="number-display">
+                <p class="number-display-label">Enter a number</p>
+                <p class="number-display-value" id="number-display">—</p>
+              </div>
+
+              <div class="keypad" id="keypad">
+                <button data-digit="1">1</button><button data-digit="2">2</button><button data-digit="3">3</button>
+                <button data-digit="4">4</button><button data-digit="5">5</button><button data-digit="6">6</button>
+                <button data-digit="7">7</button><button data-digit="8">8</button><button data-digit="9">9</button>
+                <button data-digit="*">*</button><button data-digit="0">0</button><button data-digit="#">#</button>
+              </div>
+
+              <div class="dial-actions">
+                <button id="btn-dial" class="round-btn call" aria-label="Call">&#9742;</button>
+                <button id="btn-backspace" class="round-btn erase" aria-label="Backspace">&larr;</button>
+              </div>
+
+              <p class="hint" id="dialer-hint"></p>
+            </div>
           </div>
 
-          <div class="keypad" id="keypad">
-            <button data-digit="1">1</button><button data-digit="2">2</button><button data-digit="3">3</button>
-            <button data-digit="4">4</button><button data-digit="5">5</button><button data-digit="6">6</button>
-            <button data-digit="7">7</button><button data-digit="8">8</button><button data-digit="9">9</button>
-            <button data-digit="*">*</button><button data-digit="0">0</button><button data-digit="#">#</button>
-          </div>
-
-          <div class="dial-actions">
-            <button id="btn-dial" class="round-btn call" aria-label="Call">&#9742;</button>
-            <button id="btn-backspace" class="round-btn erase" aria-label="Backspace">&larr;</button>
-          </div>
-
-          <p class="hint" id="dialer-hint"></p>
-
-          <div class="recents">
-            <p class="recents-label">Recent</p>
+          <div class="card recents-card">
+            <p class="eyebrow">Recent calls</p>
             <div id="recents-list"></div>
           </div>
         </div>
       </section>
 
       <section id="view-sip-config" class="view hidden">
-        <h1 class="page-title">SIP Configuration</h1>
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">SIP Configuration</h1>
+            <p class="page-sub">The SIP line this Dialer registers with to place and receive calls.</p>
+          </div>
+        </div>
         <div class="panel" id="sip-status-panel"></div>
-        <form id="form-sip" class="stack panel">
+        <form id="form-sip" class="form-grid panel">
           <label>Label
             <input id="sip-label" type="text" placeholder="My SIP trunk" />
           </label>
@@ -146,27 +196,36 @@
 
       <section id="view-contacts" class="view hidden">
         <div class="page-header">
-          <h1 class="page-title">Contacts</h1>
+          <div>
+            <h1 class="page-title">Contacts</h1>
+            <p class="page-sub">Your call lists. Import a CSV to load a big list.</p>
+          </div>
           <div class="page-actions">
             <input id="contacts-search" type="text" placeholder="Search contacts…" />
             <label class="file-btn">Import CSV<input id="contacts-csv-input" type="file" accept=".csv" hidden /></label>
           </div>
         </div>
         <p class="hint" id="contacts-hint"></p>
-        <div class="panel" id="contacts-table"></div>
+        <div class="panel table-panel" id="contacts-table"></div>
       </section>
 
       <section id="view-campaigns" class="view hidden">
         <div class="page-header">
-          <h1 class="page-title">Campaigns</h1>
+          <div>
+            <h1 class="page-title">Campaigns</h1>
+            <p class="page-sub">Run manual or AI-agent dialing over a contact list.</p>
+          </div>
           <button id="btn-new-campaign">New campaign</button>
         </div>
-        <div class="panel" id="campaigns-table"></div>
+        <div class="panel table-panel" id="campaigns-table"></div>
       </section>
 
       <section id="view-ivr" class="view hidden">
         <div class="page-header">
-          <h1 class="page-title">IVR menus</h1>
+          <div>
+            <h1 class="page-title">IVR menus</h1>
+            <p class="page-sub">The "press 1 for sales" menu inbound callers hear.</p>
+          </div>
           <button id="btn-new-ivr-menu">New menu</button>
         </div>
         <p class="hint" id="ivr-hint"></p>
@@ -175,15 +234,23 @@
 
       <section id="view-extensions" class="view hidden">
         <div class="page-header">
-          <h1 class="page-title">Extensions</h1>
+          <div>
+            <h1 class="page-title">Extensions</h1>
+            <p class="page-sub">Users, departments and ring groups inbound callers can be routed to.</p>
+          </div>
           <button id="btn-new-extension">Add extension</button>
         </div>
         <p class="hint" id="extensions-hint"></p>
-        <div class="panel" id="extensions-table"></div>
+        <div class="panel table-panel" id="extensions-table"></div>
       </section>
 
       <section id="view-voicemail" class="view hidden">
-        <h1 class="page-title">Voicemail</h1>
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Voicemail</h1>
+            <p class="page-sub">What callers hear when no one picks up, and where messages go.</p>
+          </div>
+        </div>
         <form id="form-voicemail" class="stack panel">
           <label>Greeting <span class="hint-inline">(read aloud to callers who reach voicemail)</span>
             <textarea id="vm-greeting" rows="3" placeholder="You've reached Kchel Business Hub. Please leave a message after the tone."></textarea>
@@ -200,8 +267,13 @@
       </section>
 
       <section id="view-settings" class="view hidden">
-        <h1 class="page-title">Settings</h1>
-        <form id="form-settings" class="stack panel">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Settings</h1>
+            <p class="page-sub">Your workspace details and call preferences.</p>
+          </div>
+        </div>
+        <form id="form-settings" class="form-grid panel">
           <label>Company name
             <input id="settings-company" type="text" />
           </label>
@@ -219,7 +291,9 @@
   </section>
 
   <div id="modal-root"></div>
+  <div id="toast-root" class="toast-root"></div>
 
+  <script src="ui.js"></script>
   <script src="renderer.js"></script>
   <script src="sip-config.js"></script>
   <script src="contacts.js"></script>
