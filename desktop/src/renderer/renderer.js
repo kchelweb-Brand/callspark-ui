@@ -43,6 +43,8 @@ const PAGE_INIT = {
   contacts: () => window.KchelContacts?.init(),
   campaigns: () => window.KchelCampaigns?.init(),
   ivr: () => window.KchelIvr?.init(),
+  extensions: () => window.KchelExtensions?.init(),
+  voicemail: () => window.KchelVoicemail?.init(),
   settings: () => window.KchelSettings?.init(),
 };
 const pageLoaded = {};

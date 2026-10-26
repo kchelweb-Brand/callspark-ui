@@ -52,6 +52,8 @@
       <button class="nav-item" data-view="contacts">Contacts</button>
       <button class="nav-item" data-view="campaigns">Campaigns</button>
       <button class="nav-item" data-view="ivr">IVR</button>
+      <button class="nav-item" data-view="extensions">Extensions</button>
+      <button class="nav-item" data-view="voicemail">Voicemail</button>
       <button class="nav-item" data-view="settings">Settings</button>
       <div class="sidebar-footer">
         <span id="reg-status" class="status status-pending">Connecting…</span>
@@ -171,6 +173,32 @@
         <div id="ivr-menus"></div>
       </section>
 
+      <section id="view-extensions" class="view hidden">
+        <div class="page-header">
+          <h1 class="page-title">Extensions</h1>
+          <button id="btn-new-extension">Add extension</button>
+        </div>
+        <p class="hint" id="extensions-hint"></p>
+        <div class="panel" id="extensions-table"></div>
+      </section>
+
+      <section id="view-voicemail" class="view hidden">
+        <h1 class="page-title">Voicemail</h1>
+        <form id="form-voicemail" class="stack panel">
+          <label>Greeting <span class="hint-inline">(read aloud to callers who reach voicemail)</span>
+            <textarea id="vm-greeting" rows="3" placeholder="You've reached Kchel Business Hub. Please leave a message after the tone."></textarea>
+          </label>
+          <p class="hint hidden" id="vm-greeting-note">A recorded greeting is currently set. Saving here switches to this text greeting.</p>
+          <div class="checkbox-row"><input id="vm-transcription" type="checkbox" /><label for="vm-transcription">Voicemail transcription — add a text transcript to each message</label></div>
+          <div class="checkbox-row"><input id="vm-email-on" type="checkbox" /><label for="vm-email-on">Email new voicemails to an inbox</label></div>
+          <label id="vm-email-row" class="hidden">Notify email
+            <input id="vm-email" type="email" placeholder="you@company.com" />
+          </label>
+          <button type="submit">Save voicemail settings</button>
+          <p class="hint" id="voicemail-hint"></p>
+        </form>
+      </section>
+
       <section id="view-settings" class="view hidden">
         <h1 class="page-title">Settings</h1>
         <form id="form-settings" class="stack panel">
@@ -197,6 +225,8 @@
   <script src="contacts.js"></script>
   <script src="campaigns.js"></script>
   <script src="ivr.js"></script>
+  <script src="extensions.js"></script>
+  <script src="voicemail.js"></script>
   <script src="settings.js"></script>
 </body>
 </html>

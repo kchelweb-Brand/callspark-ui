@@ -127,12 +127,14 @@
   async function save() {
     els.hint.textContent = "Saving…";
     try {
+      // Fresh read so Extensions/Voicemail edits made this session survive.
+      const live = (await window.kchel.api("phone-system/get", {})).config;
       await window.kchel.api("phone-system/save", {
         menus: config.menus,
-        extensions: config.extensions,
-        routing: config.routing,
-        businessHours: config.businessHours,
-        voicemail: config.voicemail,
+        extensions: live.extensions,
+        routing: live.routing,
+        businessHours: live.businessHours,
+        voicemail: live.voicemail,
       });
       els.hint.textContent = "Saved.";
     } catch (err) {
