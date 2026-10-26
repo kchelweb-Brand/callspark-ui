@@ -167,13 +167,19 @@
         <div class="dialer-layout">
           <div class="card dialer-card">
             <div id="call-panel" class="call-panel hidden">
-              <div class="call-avatar">&#9742;</div>
+              <div class="call-avatar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"/></svg></div>
               <div class="call-number" id="call-number">—</div>
               <div class="call-state" id="call-state">Calling…</div>
               <div class="call-timer" id="call-timer"></div>
               <div class="call-actions">
-                <button id="btn-accept" class="call-btn accept hidden">Accept</button>
-                <button id="btn-hangup" class="call-btn hangup">Hang up</button>
+                <button id="btn-accept" class="call-btn accept hidden">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"/></svg>
+                  <span>Accept</span>
+                </button>
+                <button id="btn-hangup" class="call-btn hangup">
+                  <svg viewBox="0 0 24 24" aria-hidden="true" style="transform:rotate(135deg)"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"/></svg>
+                  <span>Hang up</span>
+                </button>
               </div>
               <div class="dtmf-row hidden" id="dtmf-row">
                 <button data-digit="1">1</button><button data-digit="2">2</button><button data-digit="3">3</button>
@@ -197,8 +203,13 @@
               </div>
 
               <div class="dial-actions">
-                <button id="btn-dial" class="round-btn call" aria-label="Call">&#9742;</button>
-                <button id="btn-backspace" class="round-btn erase" aria-label="Backspace">&larr;</button>
+                <button id="btn-dial" class="dial-btn" aria-label="Call">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"/></svg>
+                  <span>Call</span>
+                </button>
+                <button id="btn-backspace" class="erase-btn" aria-label="Backspace">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 5H9l-7 7 7 7h12a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1z"/><path d="m17 9-5 6M12 9l5 6"/></svg>
+                </button>
               </div>
 
               <p class="hint" id="dialer-hint"></p>

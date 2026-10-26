@@ -629,12 +629,13 @@ button.link:hover { background: var(--blue-tint); color: var(--brand-blue); }
   border: 1px solid rgba(0, 118, 211, 0.3);
   margin-bottom: 6px;
 }
+.call-avatar svg { width: 30px; height: 30px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .call-number { font-size: 24px; }
 .call-state { color: var(--muted); font-size: 14px; }
 .call-timer { color: var(--brand-green-dark); font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
 
 .call-actions { display: flex; gap: 16px; margin-top: 16px; }
-.call-btn { padding: 14px 24px; border-radius: 999px; font-size: 15px; }
+.call-btn { display: flex; align-items: center; gap: 9px; padding: 14px 26px; border-radius: 999px; font-size: 15px; }
 .call-btn.hangup { background: var(--danger); color: white; box-shadow: 0 6px 18px rgba(214, 64, 58, 0.3); }
 .call-btn.hangup:hover { background: #bd322d; }
 .call-btn.accept { background: var(--brand-green); color: #fff; }
@@ -701,25 +702,45 @@ button.link:hover { background: var(--blue-tint); color: var(--brand-blue); }
 
 .dial-actions {
   display: flex;
-  justify-content: center;
-  gap: 22px;
+  align-items: stretch;
+  gap: 10px;
   margin-top: 6px;
 }
-.round-btn {
-  width: 58px;
-  height: 58px;
-  border-radius: 50%;
-  border: none;
-  padding: 0;
-  font-size: 22px;
+.dial-btn {
+  flex: 1;
+  height: 56px;
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 10px;
+  padding: 0 24px;
+  border-radius: 999px;
+  font-size: 16px;
+  letter-spacing: 0.02em;
+  background: linear-gradient(135deg, #15bb69, #0a8d6c);
+  box-shadow: 0 14px 28px -10px rgba(16, 161, 87, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  transition: transform 0.12s ease, box-shadow 0.15s ease, filter 0.15s ease;
 }
-.round-btn.call { background: var(--brand-green); color: #fff; box-shadow: 0 8px 22px rgba(16, 161, 87, 0.38); }
-.round-btn.call:hover { background: var(--brand-green-dark); }
-.round-btn.erase { background: var(--danger-tint); color: var(--danger); box-shadow: none; }
-.round-btn.erase:hover { background: rgba(214, 64, 58, 0.17); }
+.dial-btn:hover { background: linear-gradient(135deg, #19c873, #0b9a77); transform: translateY(-1px); box-shadow: 0 18px 32px -10px rgba(16, 161, 87, 0.85), inset 0 1px 0 rgba(255, 255, 255, 0.34); }
+.dial-btn:active { transform: translateY(0) scale(0.985); }
+.dial-btn svg, .call-btn svg { width: 20px; height: 20px; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+.erase-btn {
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: rgba(255, 255, 255, 0.85);
+  box-shadow: none;
+}
+.erase-btn svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.erase-btn:hover { background: rgba(214, 64, 58, 0.26); border-color: rgba(255, 154, 148, 0.5); color: #ffb0ab; }
 
 .recent-row {
   display: flex;
@@ -937,6 +958,142 @@ button.link:hover { background: var(--blue-tint); color: var(--brand-blue); }
 ::-webkit-scrollbar-thumb { background: rgba(11, 17, 23, 0.16); border-radius: 8px; border: 2px solid transparent; background-clip: content-box; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(11, 17, 23, 0.28); background-clip: content-box; border: 2px solid transparent; }
 ::-webkit-scrollbar-track { background: transparent; }
+
+/* ---------- illustrated brand shell ----------
+   Logo colors blended into the surfaces: a deep emerald-to-ocean sidebar, a
+   tinted canvas with signal rings and a keypad dot field, and the dialer card
+   as a small "device". Content panels stay near-white for legibility. */
+
+:root {
+  --ink-1: #052f36;
+  --ink-2: #06283f;
+  --ink-3: #052145;
+  --canvas: #eef5f7;
+}
+
+/* Sidebar */
+.sidebar {
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 240' fill='none'%3E%3Cg stroke='white' stroke-width='1.6'%3E%3Ccircle cx='240' cy='240' r='56' opacity='.2'/%3E%3Ccircle cx='240' cy='240' r='98' opacity='.14'/%3E%3Ccircle cx='240' cy='240' r='140' opacity='.1'/%3E%3Ccircle cx='240' cy='240' r='182' opacity='.06'/%3E%3C/g%3E%3Ccircle cx='171' cy='205' r='4.5' fill='%23f0c630' opacity='.85'/%3E%3C/svg%3E") right bottom / 240px 240px no-repeat,
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 86'%3E%3Cg fill='white' opacity='.15'%3E%3Ccircle cx='8' cy='8' r='3.4'/%3E%3Ccircle cx='30' cy='8' r='3.4'/%3E%3Ccircle cx='52' cy='8' r='3.4'/%3E%3Ccircle cx='8' cy='30' r='3.4'/%3E%3Ccircle cx='30' cy='30' r='3.4'/%3E%3Ccircle cx='52' cy='30' r='3.4'/%3E%3Ccircle cx='8' cy='52' r='3.4'/%3E%3Ccircle cx='30' cy='52' r='3.4'/%3E%3Ccircle cx='52' cy='52' r='3.4'/%3E%3Ccircle cx='8' cy='74' r='3.4'/%3E%3Ccircle cx='52' cy='74' r='3.4'/%3E%3C/g%3E%3Ccircle cx='30' cy='74' r='3.8' fill='%2310a157' opacity='.9'/%3E%3C/svg%3E") right 22px bottom 112px / 46px auto no-repeat,
+    radial-gradient(320px 260px at -10% -6%, rgba(16, 161, 87, 0.42), transparent 70%),
+    radial-gradient(360px 300px at 112% 104%, rgba(0, 118, 211, 0.38), transparent 70%),
+    linear-gradient(176deg, var(--ink-1) 0%, var(--ink-2) 55%, var(--ink-3) 100%);
+  border-right: none;
+  box-shadow: 1px 0 0 rgba(255, 255, 255, 0.04), 12px 0 32px -18px rgba(5, 33, 69, 0.55);
+  position: relative;
+  z-index: 2;
+}
+.sidebar .brand-small { color: #fff; }
+.sidebar .brand-small svg {
+  box-sizing: content-box;
+  background: #fff;
+  border-radius: 10px;
+  padding: 5px;
+  width: 22px;
+  height: 22px;
+  box-shadow: 0 4px 14px -4px rgba(0, 0, 0, 0.45);
+}
+.sidebar .brand-stripe { opacity: 0.95; }
+.sidebar .nav-group { color: rgba(255, 255, 255, 0.42); }
+.sidebar .nav-item { color: rgba(255, 255, 255, 0.74); }
+.sidebar .nav-item:hover { color: #fff; background: rgba(255, 255, 255, 0.08); }
+.sidebar .nav-item.active {
+  color: #fff;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.06));
+  box-shadow: inset 3px 0 0 var(--brand-yellow);
+}
+.sidebar .nav-item.active svg { stroke: var(--brand-yellow); }
+.sidebar .sidebar-footer { border-top-color: rgba(255, 255, 255, 0.13); }
+.sidebar .status { background: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.18); color: rgba(255, 255, 255, 0.75); }
+.sidebar .status-ok { color: #6ff0ae; border-color: rgba(111, 240, 174, 0.4); background: rgba(16, 161, 87, 0.22); }
+.sidebar .status-pending { color: var(--brand-yellow); border-color: rgba(240, 198, 48, 0.5); background: rgba(240, 198, 48, 0.14); }
+.sidebar .status-error { color: #ff9a94; border-color: rgba(255, 154, 148, 0.45); background: rgba(214, 64, 58, 0.2); }
+.sidebar button.link { color: rgba(255, 255, 255, 0.72); }
+.sidebar button.link:hover { color: #fff; background: rgba(255, 255, 255, 0.09); }
+.sidebar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.22); background-clip: content-box; }
+
+/* Canvas */
+.main-area {
+  background:
+    radial-gradient(900px 540px at 108% -12%, rgba(0, 118, 211, 0.17), transparent 62%),
+    radial-gradient(780px 540px at -10% 110%, rgba(16, 161, 87, 0.19), transparent 60%),
+    radial-gradient(460px 320px at 94% 102%, rgba(240, 198, 48, 0.18), transparent 70%),
+    var(--canvas);
+  overflow: hidden;
+}
+.main-area::before,
+.main-area::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  z-index: 0;
+}
+.main-area::before {
+  top: 0;
+  right: 0;
+  width: 560px;
+  height: 560px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 560 560' fill='none'%3E%3Cg stroke='%230076d3' stroke-width='1.4'%3E%3Ccircle cx='560' cy='0' r='90' opacity='.26'/%3E%3Ccircle cx='560' cy='0' r='160' opacity='.19'/%3E%3Ccircle cx='560' cy='0' r='230' opacity='.14'/%3E%3Ccircle cx='560' cy='0' r='300' opacity='.1'/%3E%3Ccircle cx='560' cy='0' r='370' opacity='.07'/%3E%3Ccircle cx='560' cy='0' r='440' opacity='.05'/%3E%3C/g%3E%3Ccircle cx='452' cy='122' r='5' fill='%2310a157' opacity='.7'/%3E%3Ccircle cx='350' cy='214' r='4' fill='%23f0c630' opacity='.8'/%3E%3C/svg%3E") no-repeat;
+}
+.main-area::after {
+  right: 0;
+  bottom: 0;
+  width: 70%;
+  height: 62%;
+  background-image: radial-gradient(circle, rgba(0, 118, 211, 0.2) 1.5px, transparent 1.9px);
+  background-size: 26px 26px;
+  -webkit-mask-image: radial-gradient(closest-side at 100% 100%, #000, transparent);
+  mask-image: radial-gradient(closest-side at 100% 100%, #000, transparent);
+}
+.view { z-index: 1; }
+
+.card, .panel {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(11, 17, 23, 0.08);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 1px 2px rgba(5, 33, 69, 0.05), 0 14px 30px -20px rgba(5, 33, 69, 0.25);
+}
+.page-title { color: #06283f; }
+
+/* Dialer card as a device */
+.dialer-card {
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200' fill='none'%3E%3Cg stroke='white' stroke-width='1.4'%3E%3Ccircle cx='200' cy='0' r='50' opacity='.22'/%3E%3Ccircle cx='200' cy='0' r='90' opacity='.15'/%3E%3Ccircle cx='200' cy='0' r='130' opacity='.1'/%3E%3Ccircle cx='200' cy='0' r='170' opacity='.06'/%3E%3C/g%3E%3Ccircle cx='140' cy='38' r='4' fill='%23f0c630'/%3E%3C/svg%3E") right top / 200px 200px no-repeat,
+    radial-gradient(280px 220px at -8% 104%, rgba(16, 161, 87, 0.5), transparent 70%),
+    radial-gradient(260px 200px at 108% 100%, rgba(0, 118, 211, 0.4), transparent 70%),
+    linear-gradient(165deg, #063a3c 0%, #06304a 58%, #052a56 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 28px 50px -26px rgba(5, 33, 69, 0.75), 0 2px 6px rgba(5, 33, 69, 0.3);
+  backdrop-filter: none;
+}
+.dialer-card .number-display { background: rgba(255, 255, 255, 0.07); border-color: rgba(255, 255, 255, 0.15); }
+.dialer-card .number-display-label { color: rgba(255, 255, 255, 0.55); }
+.dialer-card .number-display-value { color: #fff; }
+.dialer-card .keypad button,
+.dialer-card .dtmf-row button {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.13);
+  color: #fff;
+}
+.dialer-card .keypad button:hover,
+.dialer-card .dtmf-row button:hover { background: rgba(16, 161, 87, 0.38); border-color: rgba(111, 240, 174, 0.55); }
+.dialer-card .keypad button:active { background: rgba(16, 161, 87, 0.6); }
+.dialer-card .hint { color: rgba(255, 255, 255, 0.7); }
+.dialer-card .call-avatar { background: rgba(255, 255, 255, 0.1); color: #7cc4ff; border-color: rgba(124, 196, 255, 0.4); }
+.dialer-card .call-number { color: #fff; }
+.dialer-card .call-state { color: rgba(255, 255, 255, 0.68); }
+.dialer-card .call-timer { color: #6ff0ae; }
+
+/* Login: let the form pane carry a whisper of the brand too */
+.login-pane {
+  background:
+    radial-gradient(520px 380px at 100% 0%, rgba(0, 118, 211, 0.11), transparent 65%),
+    radial-gradient(520px 380px at 0% 100%, rgba(16, 161, 87, 0.12), transparent 65%),
+    radial-gradient(300px 220px at 100% 100%, rgba(240, 198, 48, 0.13), transparent 70%),
+    #f6fafb;
+}
+
 
 @media (max-width: 1000px) {
   .dialer-layout { grid-template-columns: 1fr; }
