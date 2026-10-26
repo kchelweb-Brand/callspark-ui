@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { requestLoginCode, verifyLoginCode, saveSession } from "@/lib/auth-api";
 import { LogoMark } from "@/components/brand/Logo";
+import { AuthArt } from "@/components/auth/AuthArt";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
@@ -75,28 +76,15 @@ function LoginPage() {
 
   return (
     <div className="grid min-h-screen w-full lg:grid-cols-2">
-      <div className="hidden flex-col justify-between bg-sidebar p-12 lg:flex">
-        <div className="flex items-center gap-3">
-          <LogoMark className="size-10" />
-          <span className="text-lg font-bold tracking-tight text-sidebar-accent-foreground">
-            Kchel Dialer
-          </span>
-        </div>
-        <div className="max-w-md">
-          <h2 className="text-3xl font-bold leading-tight text-sidebar-accent-foreground">
-            Your whole call floor, one workspace.
-          </h2>
-          <p className="mt-3 text-sm text-sidebar-foreground/70">
-            Power dialing, live call monitoring, recordings, analytics and US SMS — built for
-            outbound teams.
-          </p>
-        </div>
-        <p className="text-xs text-sidebar-foreground/55">
-          Sign in with a one-time code sent to your email — no password needed.
-        </p>
-      </div>
+      <AuthArt
+        headline="Your whole call floor,"
+        accent="one workspace."
+        body="Power dialing, live call monitoring, recordings, analytics and US SMS — built for outbound teams."
+        points={["Crystal-clear calling over your own SIP line", "AI-agent campaigns with full call logs", "IVR menus, extensions and voicemail"]}
+        footnote="Sign in with a one-time code sent to your email — no password needed."
+      />
 
-      <div className="flex items-center justify-center px-5 py-12">
+      <div className="ks-mesh flex items-center justify-center px-5 py-12">
         {step === "email" ? (
           <form className="w-full max-w-sm" onSubmit={handleSendCode}>
             <div className="mb-8 flex items-center gap-3 lg:hidden">

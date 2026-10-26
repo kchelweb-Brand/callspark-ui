@@ -13,6 +13,7 @@ import {
   type AccountType,
 } from "@/lib/auth-api";
 import { LogoMark } from "@/components/brand/Logo";
+import { AuthArt } from "@/components/auth/AuthArt";
 
 export const Route = createFileRoute("/signup")({
   head: () => ({
@@ -131,28 +132,15 @@ function SignupPage() {
 
   return (
     <div className="grid min-h-screen w-full lg:grid-cols-2">
-      <div className="hidden flex-col justify-between bg-sidebar p-12 lg:flex">
-        <div className="flex items-center gap-3">
-          <LogoMark className="size-10" />
-          <span className="text-lg font-bold tracking-tight text-sidebar-accent-foreground">
-            Kchel Dialer
-          </span>
-        </div>
-        <div className="max-w-md">
-          <h2 className="text-3xl font-bold leading-tight text-sidebar-accent-foreground">
-            Start dialing in minutes.
-          </h2>
-          <p className="mt-3 text-sm text-sidebar-foreground/70">
-            Outbound campaigns, inbound routing, recordings and US SMS — for solo operators and
-            full call floors alike.
-          </p>
-        </div>
-        <p className="text-xs text-sidebar-foreground/55">
-          No password to remember — we sign you in with a one-time code.
-        </p>
-      </div>
+      <AuthArt
+        headline="Start dialing"
+        accent="in minutes."
+        body="Outbound campaigns, inbound routing, recordings and US SMS — for solo operators and full call floors alike."
+        points={["Set up your workspace in about a minute", "Bring your own SIP line, or let us manage it", "No password to remember"]}
+        footnote="No password to remember — we sign you in with a one-time code."
+      />
 
-      <div className="flex items-center justify-center px-5 py-12">
+      <div className="ks-mesh flex items-center justify-center px-5 py-12">
         {step === "details" && (
           <form className="w-full max-w-sm" onSubmit={handleSubmitDetails}>
             <div className="mb-8 flex items-center gap-3 lg:hidden">

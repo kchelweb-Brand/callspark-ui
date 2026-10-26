@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import {
   ArrowRight,
   AudioLines,
@@ -9,7 +9,6 @@ import {
   Download,
   Headset,
   MessageSquare,
-  MonitorCheck,
   PhoneCall,
   ShieldCheck,
   Voicemail,
@@ -121,36 +120,26 @@ function HomePage() {
       <SiteHeader />
 
       {/* ---------- hero ---------- */}
-      <section className="relative overflow-hidden bg-brand-black">
-        {/* Brand wash: green and blue bleeding out of a black ground. */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 opacity-70"
-          style={{
-            background:
-              "radial-gradient(60rem 32rem at 12% -10%, var(--color-brand-green) 0%, transparent 60%), radial-gradient(50rem 30rem at 90% 0%, var(--color-brand-blue) 0%, transparent 62%)",
-          }}
-        />
-        <div className="relative mx-auto max-w-6xl px-6 py-24 sm:py-32">
-          <div className="max-w-3xl">
-            <span className="inline-flex items-center gap-2 rounded-full border border-brand-yellow/40 bg-brand-yellow/15 px-3 py-1 text-xs font-semibold text-brand-yellow">
+      <section className="ks-ground">
+        <div className="relative mx-auto grid max-w-6xl items-center gap-6 px-6 pb-10 pt-20 sm:pt-24 lg:grid-cols-[1.05fr_0.95fr]">
+          <div>
+            <span className="ks-rise inline-flex items-center gap-2 rounded-full border border-brand-yellow/40 bg-brand-yellow/15 px-3 py-1 text-xs font-semibold text-brand-yellow">
               <span className="size-1.5 rounded-full bg-brand-yellow" />
               Free for 14 days — no card required
             </span>
 
-            <h1 className="mt-6 text-4xl font-bold leading-[1.08] tracking-tight text-white sm:text-6xl">
-              The phone system your sales floor{" "}
-              <span className="text-brand-yellow">actually dials with</span>
+            <h1 className="ks-rise ks-rise-2 mt-6 text-4xl font-extrabold leading-[1.06] tracking-tight text-white sm:text-6xl">
+              The phone system your sales floor <span className="ks-grad">actually dials with</span>
             </h1>
 
-            <p className="mt-6 max-w-2xl text-lg leading-relaxed text-white/75">
-              IVR menus, call routing, business hours and voicemail — plus a real dialer your
-              agents run from the browser. Bring your own SIP trunk and keep your carrier rates,
-              or let us supply one.
+            <p className="ks-rise ks-rise-3 mt-6 max-w-xl text-lg leading-relaxed text-white/75">
+              IVR menus, call routing, business hours and voicemail — plus a real dialer your agents
+              run from the browser. Bring your own SIP trunk and keep your carrier rates, or let us
+              supply one.
             </p>
 
-            <div className="mt-9 flex flex-wrap items-center gap-3">
-              <Button size="lg" asChild className="h-12 px-7 text-base">
+            <div className="ks-rise ks-rise-4 mt-9 flex flex-wrap items-center gap-3">
+              <Button size="lg" asChild className="ks-glow h-12 px-7 text-base">
                 <Link to="/signup">
                   Start free <ArrowRight className="size-4" />
                 </Link>
@@ -164,70 +153,139 @@ function HomePage() {
                 <a href="#pricing">See pricing</a>
               </Button>
             </div>
-
-            <dl className="mt-14 grid max-w-2xl grid-cols-2 gap-x-8 gap-y-6 sm:grid-cols-4">
-              {[
-                ["14 days", "free trial"],
-                ["Your carrier", "or ours"],
-                ["Unlimited", "IVR menus"],
-                ["No contract", "cancel anytime"],
-              ].map(([big, small]) => (
-                <div key={small}>
-                  <dt className="text-xl font-bold text-white">{big}</dt>
-                  <dd className="mt-0.5 text-sm text-white/60">{small}</dd>
-                </div>
-              ))}
-            </dl>
           </div>
+
+          {/* A dialer, floating over the signal rings. */}
+          <div className="ks-stage ks-rise ks-rise-3 hidden lg:block" aria-hidden>
+            <div className="ks-phone">
+              <div className="ks-phone-status">
+                <i /> Registered · Sales line
+              </div>
+              <div className="ks-phone-number">+1 866 787 9664</div>
+              <div className="ks-keys">
+                {[
+                  ["1", ""],
+                  ["2", "ABC"],
+                  ["3", "DEF"],
+                  ["4", "GHI"],
+                  ["5", "JKL"],
+                  ["6", "MNO"],
+                  ["7", "PQRS"],
+                  ["8", "TUV"],
+                  ["9", "WXYZ"],
+                  ["*", ""],
+                  ["0", "+"],
+                  ["#", ""],
+                ].map(([d, l]) => (
+                  <span key={d}>
+                    {d}
+                    <small>{l || " "}</small>
+                  </span>
+                ))}
+              </div>
+              <div className="ks-phone-call">
+                <PhoneCall className="size-5" /> Call
+              </div>
+            </div>
+
+            <div className="ks-float ks-f1">
+              <span className="ico bg-brand-yellow text-black">
+                <PhoneCall className="size-[18px]" />
+              </span>
+              <div>
+                <strong>Incoming call</strong>
+                <span className="sub">Sales line · ringing</span>
+              </div>
+            </div>
+
+            <div className="ks-float ks-f2">
+              <div>
+                <strong>AI agent dialing</strong>
+                <span className="sub">Spring outreach · 24 of 60 calls</span>
+              </div>
+              <div className="ks-bar">
+                <i />
+              </div>
+            </div>
+
+            <div className="ks-float ks-f3">
+              <span className="ico bg-brand-green text-white">
+                <BarChart3 className="size-[18px]" />
+              </span>
+              <div>
+                <strong>68% connect rate</strong>
+                <span className="sub">Up 12% this week</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="relative mx-auto max-w-6xl px-6 pb-16">
+          <dl className="ks-stats ks-rise ks-rise-4 grid grid-cols-2 gap-x-8 gap-y-6 p-6 sm:grid-cols-4 sm:px-8">
+            {[
+              ["14 days", "free trial"],
+              ["Your carrier", "or ours"],
+              ["Unlimited", "IVR menus"],
+              ["No contract", "cancel anytime"],
+            ].map(([big, small]) => (
+              <div key={small}>
+                <dt className="text-xl font-extrabold text-white">{big}</dt>
+                <dd className="mt-0.5 text-sm text-white/60">{small}</dd>
+              </div>
+            ))}
+          </dl>
         </div>
       </section>
 
       {/* ---------- features ---------- */}
-      <section id="features" className="mx-auto max-w-6xl px-6 py-24">
-        <div className="max-w-2xl">
-          <p className="text-sm font-bold uppercase tracking-[0.14em] text-primary">
-            Everything included
-          </p>
-          <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
-            A full phone system, not a dialer bolted onto a CRM
-          </h2>
-          <p className="mt-4 text-lg text-muted-foreground">
-            Every plan gets the calling, menus, routing and reporting. Tiers differ by how many
-            people and contacts you bring — and, at the top, by who runs the carrier for you.
-          </p>
-        </div>
+      <section id="features" className="ks-mesh">
+        <div className="mx-auto max-w-6xl px-6 py-24">
+          <div className="max-w-2xl">
+            <p className="ks-eyebrow">Everything included</p>
+            <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
+              A full phone system, not a dialer bolted onto a CRM
+            </h2>
+            <p className="mt-4 text-lg text-muted-foreground">
+              Every plan gets the calling, menus, routing and reporting. Tiers differ by how many
+              people and contacts you bring — and, at the top, by who runs the carrier for you.
+            </p>
+          </div>
 
-        <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {FEATURES.map(({ icon: Icon, title, body }, i) => {
-            // Cycle the brand across the grid so no single colour dominates.
-            const tone = [
-              "bg-primary/12 text-primary",
-              "bg-brand-blue/12 text-brand-blue",
-              "bg-brand-yellow/20 text-warning-foreground",
-              "bg-foreground/8 text-foreground",
-            ][i % 4];
-            return (
-              <div key={title} className="card-surface p-6">
-                <span className={`flex size-11 items-center justify-center rounded-xl ${tone}`}>
-                  <Icon className="size-5" />
-                </span>
-                <h3 className="mt-5 font-semibold">{title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{body}</p>
-              </div>
-            );
-          })}
+          <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {FEATURES.map(({ icon: Icon, title, body }, i) => {
+              // Cycle the brand across the grid so no single colour dominates.
+              const tone = ["var(--g)", "var(--b)", "var(--y)", "var(--ink-2)"][i % 4];
+              return (
+                <div key={title} className="ks-card" style={{ "--tone": tone } as CSSProperties}>
+                  <span className={`ks-icon ${i % 4 === 2 ? "!text-black" : ""}`}>
+                    <Icon className="size-5" />
+                  </span>
+                  <h3 className="relative mt-5 font-bold">{title}</h3>
+                  <p className="relative mt-2 text-sm leading-relaxed text-muted-foreground">
+                    {body}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </section>
 
       {/* ---------- how it works ---------- */}
-      <section className="border-y border-border bg-secondary/50">
+      <section className="ks-steps border-y border-border">
         <div className="mx-auto max-w-6xl px-6 py-20">
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Live the same day</h2>
-          <div className="mt-12 grid gap-8 md:grid-cols-3">
-            {STEPS.map((s) => (
-              <div key={s.n} className="relative">
-                <span className="font-mono text-5xl font-bold text-primary/20">{s.n}</span>
-                <h3 className="mt-3 text-lg font-semibold">{s.title}</h3>
+          <p className="ks-eyebrow">How it works</p>
+          <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">Live the same day</h2>
+          <div className="mt-12 grid gap-10 md:grid-cols-3">
+            {STEPS.map((s, i) => (
+              <div key={s.n} className="ks-step relative">
+                <span
+                  className="ks-step-n"
+                  style={{ "--tone": ["var(--g)", "var(--b)", "#b8940a"][i] } as CSSProperties}
+                >
+                  {s.n}
+                </span>
+                <h3 className="mt-5 text-lg font-bold">{s.title}</h3>
                 <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{s.body}</p>
               </div>
             ))}
@@ -238,7 +296,7 @@ function HomePage() {
       {/* ---------- pricing ---------- */}
       <section id="pricing" className="mx-auto max-w-6xl px-6 py-24">
         <div className="mx-auto max-w-2xl text-center">
-          <p className="text-sm font-bold uppercase tracking-[0.14em] text-primary">Pricing</p>
+          <p className="ks-eyebrow">Pricing</p>
           <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
             Per agent as you grow. Flat once you scale.
           </h2>
@@ -255,14 +313,10 @@ function HomePage() {
             return (
               <div
                 key={p.id}
-                className={
-                  featured
-                    ? "relative rounded-xl border-2 border-primary bg-card p-6 shadow-lift"
-                    : "card-surface p-6"
-                }
+                className={featured ? "ks-featured p-6" : "card-surface rounded-2xl p-6"}
               >
                 {featured && (
-                  <span className="absolute -top-3 left-6 rounded-full bg-primary px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-primary-foreground">
+                  <span className="ks-glow absolute -top-3 left-6 rounded-full bg-primary px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-primary-foreground">
                     Most popular
                   </span>
                 )}
@@ -304,11 +358,7 @@ function HomePage() {
                   <Line on={p.managedSip} text="SIP trunk included" />
                 </ul>
 
-                <Button
-                  className="mt-7 w-full"
-                  variant={featured ? "default" : "outline"}
-                  asChild
-                >
+                <Button className="mt-7 w-full" variant={featured ? "default" : "outline"} asChild>
                   {/* The flat-priced tier is quoted, not self-serve, so it must
                       not inherit the trial's "Start free" from a zero seat price. */}
                   <Link to="/signup">
@@ -342,9 +392,7 @@ function HomePage() {
       <section className="border-t border-border bg-muted/30 py-20">
         <div className="mx-auto grid max-w-6xl items-center gap-10 px-6 md:grid-cols-2">
           <div>
-            <p className="text-sm font-bold uppercase tracking-[0.14em] text-primary">
-              Desktop app
-            </p>
+            <p className="ks-eyebrow">Desktop app</p>
             <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
               Kchel Dialer, off to the side of your browser
             </h2>
@@ -378,15 +426,40 @@ function HomePage() {
               </span>
             </div>
           </div>
-          <div className="card-surface flex flex-col items-center gap-4 p-10 text-center">
-            <div className="flex size-16 items-center justify-center rounded-2xl bg-primary/10">
-              <MonitorCheck className="size-8 text-primary" />
+          <div className="ks-win" aria-hidden>
+            <div className="ks-win-bar">
+              <i className="bg-[#ff6159]" />
+              <i className="bg-[#ffbd2e]" />
+              <i className="bg-[#28c840]" />
+              <span className="ml-2">Kchel Dialer</span>
             </div>
-            <p className="font-semibold">Built from the same product</p>
-            <p className="max-w-xs text-sm text-muted-foreground">
-              The desktop app loads your live workspace directly — no separate build to fall
-              behind, no second login to manage.
-            </p>
+            <div className="ks-win-body">
+              <div className="ks-win-side">
+                <b />
+                <b />
+                <b />
+                <b />
+              </div>
+              <div className="ks-win-main">
+                <div className="ks-win-card">
+                  <div className="num">+1 866 787 9664</div>
+                  <div className="k">
+                    {Array.from({ length: 12 }).map((_, i) => (
+                      <i key={i} />
+                    ))}
+                  </div>
+                  <div className="go" />
+                </div>
+                <div className="ks-win-list">
+                  {["var(--g)", "var(--b)", "var(--y)", "var(--g)", "var(--b)"].map((c, i) => (
+                    <div key={i} className="ks-win-row">
+                      <i style={{ background: c }} />
+                      <u />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -407,18 +480,18 @@ function HomePage() {
       </section>
 
       {/* ---------- closing CTA ---------- */}
-      <section className="border-t border-border bg-brand-black">
-        <div className="mx-auto flex max-w-6xl flex-col items-start gap-6 px-6 py-20 md:flex-row md:items-center md:justify-between">
+      <section className="ks-ground">
+        <div className="relative mx-auto flex max-w-6xl flex-col items-start gap-6 px-6 py-24 md:flex-row md:items-center md:justify-between">
           <div>
-            <h2 className="text-3xl font-bold tracking-tight text-white">
-              Put your team on the phone today
+            <h2 className="text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
+              Put your team on the phone <span className="ks-grad">today</span>
             </h2>
             <p className="mt-3 max-w-xl text-white/70">
               Fourteen days free. Bring your own SIP trunk and you can be dialling within the hour.
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
-            <Button size="lg" asChild className="h-12 px-7 text-base">
+            <Button size="lg" asChild className="ks-glow h-12 px-7 text-base">
               <Link to="/signup">
                 Create your workspace <ArrowRight className="size-4" />
               </Link>
@@ -441,15 +514,7 @@ function HomePage() {
 }
 
 /** A limit rendered as a benefit — "Up to 25 agents", "Unlimited contacts". */
-function PlanLine({
-  value,
-  one,
-  many,
-}: {
-  value: number | null;
-  one: string;
-  many: string;
-}) {
+function PlanLine({ value, one, many }: { value: number | null; one: string; many: string }) {
   const text =
     value === null
       ? `Unlimited ${many}`
@@ -470,7 +535,7 @@ function Line({ on, text }: { on: boolean; text: string }) {
 
 function SiteHeader() {
   return (
-    <header className="sticky top-0 z-50 border-b border-white/10 bg-brand-black/90 backdrop-blur">
+    <header className="ks-header">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
         <Link to="/" className="flex items-center gap-2.5">
           <LogoMark className="size-9" />
@@ -487,11 +552,7 @@ function SiteHeader() {
         </nav>
 
         <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            asChild
-            className="text-white hover:bg-white/10 hover:text-white"
-          >
+          <Button variant="ghost" asChild className="text-white hover:bg-white/10 hover:text-white">
             <Link to="/login">Sign in</Link>
           </Button>
           <Button asChild>
@@ -505,7 +566,7 @@ function SiteHeader() {
 
 function SiteFooter() {
   return (
-    <footer className="bg-brand-black">
+    <footer className="ks-foot">
       <div className="mx-auto flex max-w-6xl flex-col gap-6 border-t border-white/10 px-6 py-10 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2.5">
           <LogoMark className="size-8" />
