@@ -238,7 +238,7 @@ function HomePage() {
       </section>
 
       {/* ---------- features ---------- */}
-      <section id="features" className="ks-mesh">
+      <section id="features" className="ks-night">
         <div className="mx-auto max-w-6xl px-6 py-24">
           <div className="max-w-2xl">
             <p className="ks-eyebrow">Everything included</p>
@@ -294,102 +294,112 @@ function HomePage() {
       </section>
 
       {/* ---------- pricing ---------- */}
-      <section id="pricing" className="mx-auto max-w-6xl px-6 py-24">
-        <div className="mx-auto max-w-2xl text-center">
-          <p className="ks-eyebrow">Pricing</p>
-          <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
-            Per agent as you grow. Flat once you scale.
-          </h2>
-          <p className="mt-4 text-lg text-muted-foreground">
-            On Starter and Professional you bring your own SIP trunk, so your call minutes stay on
-            your carrier bill at your rates. On Managed Enterprise we supply the trunk, run the
-            carrier relationship, and charge one flat fee however large your team gets.
+      <section id="pricing" className="ks-tint">
+        <div className="mx-auto max-w-6xl px-6 py-24">
+          <div className="mx-auto max-w-2xl text-center">
+            <p className="ks-eyebrow">Pricing</p>
+            <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
+              Per agent as you grow. Flat once you scale.
+            </h2>
+            <p className="mt-4 text-lg text-muted-foreground">
+              On Starter and Professional you bring your own SIP trunk, so your call minutes stay on
+              your carrier bill at your rates. On Managed Enterprise we supply the trunk, run the
+              carrier relationship, and charge one flat fee however large your team gets.
+            </p>
+          </div>
+
+          <div className="mt-14 grid gap-6 lg:grid-cols-4">
+            {plans.map((p) => {
+              const featured = p.id === "professional";
+              return (
+                <div
+                  key={p.id}
+                  className={featured ? "ks-featured p-6" : "card-surface rounded-2xl p-6"}
+                >
+                  {featured && (
+                    <span className="ks-glow absolute -top-3 left-6 rounded-full bg-primary px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-primary-foreground">
+                      Most popular
+                    </span>
+                  )}
+                  <h3 className="font-semibold">{p.name}</h3>
+                  <p className="mt-1 min-h-10 text-sm text-muted-foreground">{p.blurb}</p>
+
+                  <p className="mt-5">
+                    <span className="text-3xl font-bold tracking-tight">
+                      {p.priceFlatMonthly !== null
+                        ? `$${p.priceFlatMonthly.toLocaleString()}`
+                        : p.price === 0
+                          ? "Free"
+                          : `$${p.price}`}
+                    </span>
+                    {p.priceFlatMonthly !== null ? (
+                      <span className="text-sm text-muted-foreground"> /month, any team size</span>
+                    ) : (
+                      p.price > 0 && (
+                        <span className="text-sm text-muted-foreground"> /agent/month</span>
+                      )
+                    )}
+                  </p>
+
+                  <ul className="mt-6 flex flex-col gap-2.5 text-sm">
+                    <PlanLine value={p.limits.agents} one="agent" many="agents" />
+                    <PlanLine value={p.limits.contacts} one="contact" many="contacts" />
+                    <PlanLine value={p.limits.ivrMenus} one="IVR menu" many="IVR menus" />
+                    <PlanLine
+                      value={p.limits.phoneNumbers}
+                      one="phone number"
+                      many="phone numbers"
+                    />
+                    <Line
+                      on={p.limits.recordingRetentionDays !== 0}
+                      text={
+                        p.limits.recordingRetentionDays === null
+                          ? "Call recordings"
+                          : p.limits.recordingRetentionDays === 0
+                            ? "Call recordings"
+                            : `${p.limits.recordingRetentionDays}-day recordings`
+                      }
+                    />
+                    <Line on={p.managedSip} text="SIP trunk included" />
+                  </ul>
+
+                  <Button
+                    className="mt-7 w-full"
+                    variant={featured ? "default" : "outline"}
+                    asChild
+                  >
+                    {/* The flat-priced tier is quoted, not self-serve, so it must
+                      not inherit the trial's "Start free" from a zero seat price. */}
+                    <Link to="/signup">
+                      {p.priceFlatMonthly !== null
+                        ? "Talk to us"
+                        : p.price === 0
+                          ? "Start free"
+                          : "Get started"}
+                    </Link>
+                  </Button>
+                </div>
+              );
+            })}
+            {plans.length === 0 && (
+              <p className="col-span-full text-center text-sm text-muted-foreground">
+                Loading plans…
+              </p>
+            )}
+          </div>
+
+          <p className="mt-8 text-center text-sm text-muted-foreground">
+            Annual billing saves two months. Need more seats or a trunk from us?{" "}
+            <Link to="/signup" className="font-semibold text-primary hover:underline">
+              Get in touch
+            </Link>
+            .
           </p>
         </div>
-
-        <div className="mt-14 grid gap-6 lg:grid-cols-4">
-          {plans.map((p) => {
-            const featured = p.id === "professional";
-            return (
-              <div
-                key={p.id}
-                className={featured ? "ks-featured p-6" : "card-surface rounded-2xl p-6"}
-              >
-                {featured && (
-                  <span className="ks-glow absolute -top-3 left-6 rounded-full bg-primary px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-primary-foreground">
-                    Most popular
-                  </span>
-                )}
-                <h3 className="font-semibold">{p.name}</h3>
-                <p className="mt-1 min-h-10 text-sm text-muted-foreground">{p.blurb}</p>
-
-                <p className="mt-5">
-                  <span className="text-3xl font-bold tracking-tight">
-                    {p.priceFlatMonthly !== null
-                      ? `$${p.priceFlatMonthly.toLocaleString()}`
-                      : p.price === 0
-                        ? "Free"
-                        : `$${p.price}`}
-                  </span>
-                  {p.priceFlatMonthly !== null ? (
-                    <span className="text-sm text-muted-foreground"> /month, any team size</span>
-                  ) : (
-                    p.price > 0 && (
-                      <span className="text-sm text-muted-foreground"> /agent/month</span>
-                    )
-                  )}
-                </p>
-
-                <ul className="mt-6 flex flex-col gap-2.5 text-sm">
-                  <PlanLine value={p.limits.agents} one="agent" many="agents" />
-                  <PlanLine value={p.limits.contacts} one="contact" many="contacts" />
-                  <PlanLine value={p.limits.ivrMenus} one="IVR menu" many="IVR menus" />
-                  <PlanLine value={p.limits.phoneNumbers} one="phone number" many="phone numbers" />
-                  <Line
-                    on={p.limits.recordingRetentionDays !== 0}
-                    text={
-                      p.limits.recordingRetentionDays === null
-                        ? "Call recordings"
-                        : p.limits.recordingRetentionDays === 0
-                          ? "Call recordings"
-                          : `${p.limits.recordingRetentionDays}-day recordings`
-                    }
-                  />
-                  <Line on={p.managedSip} text="SIP trunk included" />
-                </ul>
-
-                <Button className="mt-7 w-full" variant={featured ? "default" : "outline"} asChild>
-                  {/* The flat-priced tier is quoted, not self-serve, so it must
-                      not inherit the trial's "Start free" from a zero seat price. */}
-                  <Link to="/signup">
-                    {p.priceFlatMonthly !== null
-                      ? "Talk to us"
-                      : p.price === 0
-                        ? "Start free"
-                        : "Get started"}
-                  </Link>
-                </Button>
-              </div>
-            );
-          })}
-          {plans.length === 0 && (
-            <p className="col-span-full text-center text-sm text-muted-foreground">
-              Loading plans…
-            </p>
-          )}
-        </div>
-
-        <p className="mt-8 text-center text-sm text-muted-foreground">
-          Annual billing saves two months. Need more seats or a trunk from us?{" "}
-          <Link to="/signup" className="font-semibold text-primary hover:underline">
-            Get in touch
-          </Link>
-          .
-        </p>
       </section>
 
       {/* ---------- desktop app ---------- */}
-      <section className="border-t border-border bg-muted/30 py-20">
+      <section className="ks-tint border-t border-border py-20">
         <div className="mx-auto grid max-w-6xl items-center gap-10 px-6 md:grid-cols-2">
           <div>
             <p className="ks-eyebrow">Desktop app</p>

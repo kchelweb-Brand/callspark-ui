@@ -102,7 +102,7 @@ h1, h2, .page-title, .brand, .brand-small, .call-number {
     radial-gradient(520px 420px at 0% 0%, rgba(16, 161, 87, 0.5), transparent 68%),
     radial-gradient(560px 480px at 100% 38%, rgba(0, 118, 211, 0.55), transparent 68%),
     radial-gradient(420px 300px at 70% 100%, rgba(240, 198, 48, 0.2), transparent 70%),
-    linear-gradient(160deg, #0a6b58, #0a5a9e 55%, #0a4796);
+    linear-gradient(160deg, #0a6b58, #0a5a9e 48%, #072b5e 78%, #04121a);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -1022,7 +1022,7 @@ button.link:hover { background: var(--blue-tint); color: var(--brand-blue); }
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 86'%3E%3Cg fill='white' opacity='.15'%3E%3Ccircle cx='8' cy='8' r='3.4'/%3E%3Ccircle cx='30' cy='8' r='3.4'/%3E%3Ccircle cx='52' cy='8' r='3.4'/%3E%3Ccircle cx='8' cy='30' r='3.4'/%3E%3Ccircle cx='30' cy='30' r='3.4'/%3E%3Ccircle cx='52' cy='30' r='3.4'/%3E%3Ccircle cx='8' cy='52' r='3.4'/%3E%3Ccircle cx='30' cy='52' r='3.4'/%3E%3Ccircle cx='52' cy='52' r='3.4'/%3E%3Ccircle cx='8' cy='74' r='3.4'/%3E%3Ccircle cx='52' cy='74' r='3.4'/%3E%3C/g%3E%3Ccircle cx='30' cy='74' r='3.8' fill='%2310a157' opacity='.9'/%3E%3C/svg%3E") right 22px bottom 112px / 46px auto no-repeat,
     radial-gradient(320px 260px at -10% -6%, rgba(16, 161, 87, 0.42), transparent 70%),
     radial-gradient(360px 300px at 112% 104%, rgba(0, 118, 211, 0.38), transparent 70%),
-    linear-gradient(176deg, var(--ink-1) 0%, var(--ink-2) 55%, var(--ink-3) 100%);
+    linear-gradient(176deg, var(--ink-1) 0%, var(--ink-2) 48%, #072b5e 80%, #04121a 100%);
   border-right: none;
   box-shadow: 1px 0 0 rgba(255, 255, 255, 0.04), 12px 0 32px -18px rgba(5, 33, 69, 0.55);
   position: relative;
