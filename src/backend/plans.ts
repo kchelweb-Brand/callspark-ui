@@ -152,7 +152,7 @@ export const PLANS: Record<PlanId, Plan> = {
     id: "business",
     name: "Business",
     pricePerAgentMonthly: 0,
-    priceFlatMonthly: 599,
+    priceFlatMonthly: 570,
     blurb:
       "Up to 8 agents on your own carrier, with the AI receptionist, call summaries and number rotation included.",
     managedSip: false,
@@ -369,6 +369,8 @@ export const CHECKOUT_OPTIONS: CheckoutOption[] = [
   { planId: "professional", seats: 1, interval: "monthly", amountUsd: 59, url: "https://flutterwave.com/pay/fa7ud7yi3t6y" },
   { planId: "professional", seats: 3, interval: "monthly", amountUsd: 177, url: "https://flutterwave.com/pay/f2yqb3yrt2wi" },
   { planId: "professional", seats: 5, interval: "monthly", amountUsd: 295, url: "https://flutterwave.com/pay/303kjupgfy6d" },
+  // Business — flat monthly fee for the whole team (up to 8 agents)
+  { planId: "business", seats: 8, interval: "monthly", amountUsd: 570, url: "https://flutterwave.com/pay/vk8xp15ozzlf" },
   // Annual — two months free
   { planId: "starter", seats: 1, interval: "annual", amountUsd: 290, url: "https://flutterwave.com/pay/rgjlitvdbkij" },
   { planId: "professional", seats: 1, interval: "annual", amountUsd: 590, url: "https://flutterwave.com/pay/jroblvkfoagm" },
