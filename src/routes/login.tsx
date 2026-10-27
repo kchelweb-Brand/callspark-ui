@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Loader2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -37,6 +37,15 @@ function LoginPage() {
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
 
+  // The invitation email links here with the workspace and address filled in.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const w = params.get("workspace");
+    const e = params.get("email");
+    if (w) setWorkspace(w);
+    if (e) setEmail(e);
+  }, []);
+
   async function handleSendCode(event: React.FormEvent) {
     event.preventDefault();
     if (!email) {
@@ -63,10 +72,16 @@ function LoginPage() {
     }
     setBusy(true);
     try {
-      const { token, user } = await verifyLoginCode({ email, code, purpose: "login" });
+      const { token, user } = await verifyLoginCode({
+        email,
+        code,
+        purpose: "login",
+        ...(workspace.trim() ? { workspaceSlug: workspace.trim() } : {}),
+      });
       saveSession(token, user);
       toast.success("Welcome back", { description: "Opening your workspace…" });
-      navigate({ to: "/dashboard" });
+      // Invited agents have their own, narrower dashboard.
+      navigate({ to: user.role === "agent" ? "/agent" : "/dashboard" });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Invalid or expired code.");
     } finally {

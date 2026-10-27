@@ -1,5 +1,5 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { Menu, Search, Bell, ArrowLeftRight, LogOut } from "lucide-react";
+import { Menu, Search, ArrowLeftRight, LogOut } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -9,10 +9,11 @@ import { cn } from "@/lib/utils";
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { SoftphoneBar } from "@/components/dash/SoftphoneBar";
 import { clearSession, getSessionUser } from "@/lib/auth-api";
-import { tenantNav, adminNav, type NavItem } from "./nav";
+import { tenantNav, adminNav, agentNav, type NavItem } from "./nav";
+import { NotificationBell } from "./NotificationBell";
 import { LogoMark } from "@/components/brand/Logo";
 
-type Scope = "tenant" | "admin";
+type Scope = "tenant" | "admin" | "agent";
 
 function NavList({ items, onNavigate }: { items: NavItem[]; onNavigate?: (() => void) | undefined }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -47,7 +48,7 @@ function NavList({ items, onNavigate }: { items: NavItem[]; onNavigate?: (() => 
 
 function SidebarBody({ scope, onNavigate }: { scope: Scope; onNavigate?: (() => void) | undefined }) {
   const sessionUser = getSessionUser();
-  const items = scope === "admin" ? adminNav : tenantNav;
+  const items = scope === "admin" ? adminNav : scope === "agent" ? agentNav : tenantNav;
 
   return (
     <div className="flex h-full flex-col bg-sidebar py-5">
@@ -58,7 +59,7 @@ function SidebarBody({ scope, onNavigate }: { scope: Scope; onNavigate?: (() => 
             Kchel Dialer
           </span>
           <span className="block text-[11px] font-medium uppercase tracking-[0.14em] text-sidebar-foreground/55">
-            {scope === "admin" ? "Platform admin" : "Dialer suite"}
+            {scope === "admin" ? "Platform admin" : scope === "agent" ? "Agent dashboard" : "Dialer suite"}
           </span>
         </span>
       </div>
@@ -83,14 +84,16 @@ function SidebarBody({ scope, onNavigate }: { scope: Scope; onNavigate?: (() => 
       </div>
 
       <div className="mt-4 flex flex-col gap-1 px-3">
-        <Link
-          to={scope === "admin" ? "/" : "/admin"}
-          onClick={onNavigate}
-          className="flex items-center gap-3 rounded-lg border border-sidebar-border px-3 py-2 text-sm font-medium text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-        >
-          <ArrowLeftRight className="size-4" />
-          {scope === "admin" ? "Tenant dashboard" : "Super admin"}
-        </Link>
+        {scope !== "agent" && (
+          <Link
+            to={scope === "admin" ? "/" : "/admin"}
+            onClick={onNavigate}
+            className="flex items-center gap-3 rounded-lg border border-sidebar-border px-3 py-2 text-sm font-medium text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+          >
+            <ArrowLeftRight className="size-4" />
+            {scope === "admin" ? "Tenant dashboard" : "Super admin"}
+          </Link>
+        )}
         <SignOutButton scope={scope} onNavigate={onNavigate} />
       </div>
     </div>
@@ -164,9 +167,7 @@ export function Shell({
           </div>
 
           <div className="ml-auto flex items-center gap-2">
-            <Button variant="ghost" size="icon" aria-label="Notifications">
-              <Bell className="size-5" />
-            </Button>
+            <NotificationBell />
             <span className="flex size-9 items-center justify-center rounded-full bg-primary/12 text-sm font-bold text-primary">
               {(user?.email || "?").slice(0, 2).toUpperCase()}
             </span>
@@ -190,7 +191,7 @@ export function Shell({
       </div>
 
       {/* Tenant only — the platform admin console has no carrier connection. */}
-      {scope === "tenant" && <SoftphoneBar />}
+      {scope !== "admin" && <SoftphoneBar />}
     </div>
     </AuthGuard>
   );

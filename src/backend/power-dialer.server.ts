@@ -12,8 +12,8 @@
 // predictive one: it never dials ahead of an agent who is free.
 
 import { sql } from "./db";
-import { verifyToken } from "./tokens";
 import { requireFeature, requireCanCreate } from "./entitlements";
+import { requireMember } from "./access.server";
 
 /** A claimed contact nobody reported on within this long is treated as abandoned. */
 const ABANDONED_MINUTES = 10;
@@ -30,10 +30,28 @@ export const DISPOSITIONS: Record<string, { label: string; queue: "completed" | 
   skipped: { label: "Skipped", queue: "skipped" },
 };
 
+// Owners always; agents only with the dialer and power dialer switched on.
 async function requireTenant(token: string) {
-  const payload = await verifyToken(token);
-  if (!payload || !payload.tenantId) throw new Error("Not signed in.");
-  return payload as typeof payload & { tenantId: string };
+  const member = await requireMember(token);
+  if (member.permissions && !(member.permissions.dial && member.permissions.powerDialer)) {
+    throw new Error("You don't have permission to use the power dialer.");
+  }
+  return member;
+}
+
+/** The manual campaigns that have a list to work through. */
+export async function listPowerCampaigns(data: { token: string }) {
+  const user = await requireTenant(data.token);
+  const rows = await sql`
+    select c.id, c.name, c.status,
+           count(cc.id)::int as total,
+           count(cc.id) filter (where cc.status in ('completed','failed','skipped'))::int as done
+    from campaigns c
+    left join campaign_calls cc on cc.campaign_id = c.id
+    where c.tenant_id = ${user.tenantId} and c.mode = 'manual' and c.list_id is not null
+    group by c.id order by c.created_at desc
+  `;
+  return { ok: true as const, campaigns: rows as unknown as { id: string; name: string; status: string; total: number; done: number }[] };
 }
 
 async function counts(campaignId: string) {

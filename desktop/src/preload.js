@@ -6,7 +6,7 @@ contextBridge.exposeInMainWorld("kchel", {
   getSession: () => ipcRenderer.invoke("auth:get-session"),
   getApiBase: () => ipcRenderer.invoke("app:get-api-base"),
   requestCode: (email, workspaceSlug) => ipcRenderer.invoke("auth:request-code", { email, workspaceSlug }),
-  verifyCode: (email, code) => ipcRenderer.invoke("auth:verify-code", { email, code }),
+  verifyCode: (email, code, workspaceSlug) => ipcRenderer.invoke("auth:verify-code", { email, code, workspaceSlug }),
   resumeSession: () => ipcRenderer.invoke("auth:resume"),
   logout: () => ipcRenderer.invoke("auth:logout"),
 

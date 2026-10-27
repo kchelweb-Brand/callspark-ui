@@ -10,7 +10,7 @@ import {
   touchSession,
 } from "@/lib/auth-api";
 
-type Scope = "tenant" | "admin";
+type Scope = "tenant" | "admin" | "agent";
 
 // Interactions that count as "the user is still here".
 const ACTIVITY_EVENTS = ["mousedown", "keydown", "scroll", "touchstart", "click"] as const;
@@ -69,6 +69,15 @@ export function AuthGuard({ scope, children }: { scope: Scope; children: ReactNo
     }
     if (scope === "tenant" && user?.is_super_admin) {
       void navigate({ to: "/admin" });
+      return;
+    }
+    // Invited agents have their own dashboard; owners have no business there.
+    if (scope === "tenant" && user?.role === "agent") {
+      void navigate({ to: "/agent" });
+      return;
+    }
+    if (scope === "agent" && user?.role !== "agent") {
+      void navigate({ to: user?.is_super_admin ? "/admin" : "/dashboard" });
       return;
     }
 

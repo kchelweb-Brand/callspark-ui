@@ -120,8 +120,8 @@ ipcMain.handle("auth:request-code", async (_e, { email, workspaceSlug }) => {
   return apiPost("login/request-code", { email, workspaceSlug });
 });
 
-ipcMain.handle("auth:verify-code", async (_e, { email, code }) => {
-  const result = await apiPost("login/verify-code", { email, code });
+ipcMain.handle("auth:verify-code", async (_e, { email, code, workspaceSlug }) => {
+  const result = await apiPost("login/verify-code", { email, code, workspaceSlug });
   saveSession({ token: result.token, user: result.user });
   const sip = await connectSip(result.token);
   return { ...result, sip };

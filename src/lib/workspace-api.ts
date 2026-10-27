@@ -126,11 +126,15 @@ export function createAgent(input: {
   email: string;
   extension?: string;
   role?: string;
+  permissions?: unknown;
 }) {
   return createAgentFn({ data: { token: requireToken(), ...input } });
 }
 
-export function updateAgent(id: string, changes: { status?: string; role?: string }) {
+export function updateAgent(
+  id: string,
+  changes: { status?: string; role?: string; access?: "disabled" | "enabled"; permissions?: unknown },
+) {
   return updateAgentFn({ data: { token: requireToken(), id, ...changes } });
 }
 

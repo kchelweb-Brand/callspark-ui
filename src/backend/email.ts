@@ -277,6 +277,118 @@ export async function sendCustomerReplyEmail(to: string[], data: TicketMessageEm
   await send(to, `[Reply] ${data.ref} — ${data.subject}`, shell("Customer reply", body), "ticket-customer-reply");
 }
 
+// ---------- team: invites, task and message alerts, announcements ----------
+
+function ctaButton(label: string, url: string): string {
+  return `<p style="margin:22px 0 4px"><a href="${escapeHtml(url)}" style="display:inline-block;background:#10a157;color:#ffffff;font-weight:700;font-size:14px;text-decoration:none;padding:12px 22px;border-radius:999px">${escapeHtml(label)}</a></p>`;
+}
+
+export interface AgentInviteData {
+  agentName: string;
+  workspaceName: string;
+  workspaceSlug: string;
+  invitedBy: string;
+}
+
+/** Tells a new agent they've been added, and exactly how to sign in. */
+export async function sendAgentInviteEmail(to: string, data: AgentInviteData) {
+  const signIn = `${PUBLIC_ORIGIN}/login?workspace=${encodeURIComponent(data.workspaceSlug)}&email=${encodeURIComponent(to)}`;
+  const body = `
+    <p style="font-size:14px;color:#475569;margin:0 0 14px">Hi ${escapeHtml(data.agentName)}, ${escapeHtml(data.invitedBy)} added you to <strong style="color:#0f172a">${escapeHtml(data.workspaceName)}</strong> on Kchel Dialer.</p>
+    <p style="font-size:14px;color:#475569;margin:0 0 6px">To sign in, use:</p>
+    <table style="width:100%;border-collapse:collapse;border-top:1px solid #e2e8f0">
+      ${detailRow("Workspace", data.workspaceSlug)}
+      ${detailRow("Your email", to)}
+    </table>
+    ${ctaButton("Open your dashboard", signIn)}
+    <p style="font-size:12px;color:#94a3b8;margin-top:20px">There is no password. We email you a one-time code each time you sign in. If you weren't expecting this, you can ignore it.</p>
+  `;
+  await send(to, `${data.invitedBy} added you to ${data.workspaceName} on Kchel Dialer`, shell("You've been added to a team", body), "agent-invite");
+}
+
+export interface TeamAlertData {
+  heading: string;
+  message: string;
+  ctaLabel: string;
+  ctaPath: string;
+}
+
+/** A task or message the recipient hasn't seen because they aren't in the app. */
+export async function sendTeamAlertEmail(to: string, subject: string, data: TeamAlertData) {
+  const body = `
+    <p style="font-size:14px;color:#0f172a;white-space:pre-wrap;background:#f1f5f9;padding:14px 16px;border-radius:10px;margin:0">${escapeHtml(data.message)}</p>
+    ${ctaButton(data.ctaLabel, `${PUBLIC_ORIGIN}${data.ctaPath}`)}
+  `;
+  await send(to, subject, shell(data.heading, body), "team-alert");
+}
+
+export interface AnnouncementEmailData {
+  title: string;
+  body: string;
+  howTo?: string | null;
+  linkUrl?: string | null;
+  linkLabel?: string | null;
+}
+
+function announcementHtml(data: AnnouncementEmailData): string {
+  const steps = (data.howTo ?? "")
+    .split(/\r?\n/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const body = `
+    <p style="font-size:14px;color:#0f172a;white-space:pre-wrap;margin:0 0 16px;line-height:1.55">${escapeHtml(data.body)}</p>
+    ${
+      steps.length
+        ? `<p style="font-size:13px;font-weight:700;color:#0f172a;margin:0 0 6px">How to use it</p>
+           <ol style="margin:0;padding-left:20px;font-size:14px;color:#475569;line-height:1.6">${steps.map((s) => `<li>${escapeHtml(s)}</li>`).join("")}</ol>`
+        : ""
+    }
+    ${data.linkUrl ? ctaButton(data.linkLabel || "Learn more", data.linkUrl) : ""}
+    <p style="font-size:12px;color:#94a3b8;margin-top:24px">You're receiving this because you use Kchel Dialer.</p>
+  `;
+  return shell(data.title, body);
+}
+
+/**
+ * One announcement to many people, through Resend's batch endpoint (up to 100
+ * messages per request) so a large audience doesn't mean a large number of
+ * subrequests. Returns how many went out; never throws.
+ */
+export async function sendAnnouncementEmails(
+  recipients: string[],
+  data: AnnouncementEmailData,
+): Promise<{ sent: number; failed: number }> {
+  const unique = [...new Set(recipients.filter(Boolean))];
+  if (unique.length === 0) return { sent: 0, failed: 0 };
+  if (!env.resendApiKey) {
+    console.log(`[email:dev-mode] announcement "${data.title}" -> ${unique.length} recipients`);
+    return { sent: unique.length, failed: 0 };
+  }
+
+  const html = announcementHtml(data);
+  let sent = 0;
+  let failed = 0;
+  for (let i = 0; i < unique.length; i += 100) {
+    const chunk = unique.slice(i, i + 100);
+    try {
+      const res = await fetch("https://api.resend.com/emails/batch", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${env.resendApiKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify(chunk.map((to) => ({ from: env.resendFromEmail, to: [to], subject: data.title, html }))),
+      });
+      if (res.ok) sent += chunk.length;
+      else {
+        failed += chunk.length;
+        console.error(`Resend announcement batch failed (${res.status}): ${await res.text().catch(() => "")}`);
+      }
+    } catch (err) {
+      failed += chunk.length;
+      console.error("Resend announcement batch threw:", err);
+    }
+  }
+  return { sent, failed };
+}
+
 // ---------- account activation ----------
 
 export interface ActivationEmailData {

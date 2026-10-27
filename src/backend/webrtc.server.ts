@@ -24,8 +24,9 @@ import { getTurnIceServers } from "./cloudflare-turn";
 export const getAgentSipConfigFn = createServerFn({ method: "POST" })
   .validator((data: { token: string }) => data)
   .handler(async ({ data }) => {
-    const payload = await verifyToken(data.token);
+    const payload = await verifyToken(data.token, { allowAgent: true });
     if (!payload || !payload.tenantId) throw new Error("Not signed in.");
+    if (payload.agent && !payload.permissions?.dial) throw new Error("You don't have permission to place calls.");
 
     const rows = await sql`
       select mode, label, sip_host, sip_port, sip_username, sip_password_enc,
@@ -96,8 +97,9 @@ export const getAgentSipConfigFn = createServerFn({ method: "POST" })
 
 /** Records the outcome of a registration attempt so the Connection tab can show real status. */
 export async function reportRegistration(data: { token: string; success: boolean; error?: string }) {
-    const payload = await verifyToken(data.token);
+    const payload = await verifyToken(data.token, { allowAgent: true });
     if (!payload || !payload.tenantId) throw new Error("Not signed in.");
+    if (payload.agent && !payload.permissions?.dial) throw new Error("You don't have permission to place calls.");
 
     if (data.success) {
       await sql`

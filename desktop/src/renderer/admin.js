@@ -11,6 +11,7 @@
     ["revenue", "Revenue"],
     ["health", "System health"],
     ["tickets", "Support"],
+    ["outreach", "Outreach"],
   ];
   const STATUSES = ["Open", "In progress", "Waiting on customer", "Escalated", "Resolved"];
   const money = (n) => "$" + Number(n || 0).toLocaleString();
@@ -158,6 +159,93 @@
           d.failures.map((f) => [U.esc(f.tenant_name), U.esc(f.last_error), U.esc(U.when(f.updated_at))]),
           "No failing trunks.",
         )}</div>`;
+    },
+
+    // Outreach: tell every user (or a chosen group) about an update.
+    async outreach(body) {
+      const d = await api("admin/broadcasts");
+      body.innerHTML = `
+        <div class="panel stack">
+          <p class="eyebrow">New announcement</p>
+          <label>Title<input id="bc-title" type="text" maxlength="150" placeholder="New: power dialer is live" /></label>
+          <label>What changed<textarea id="bc-body" rows="4" maxlength="4000" placeholder="Explain the update in a few sentences."></textarea></label>
+          <label>How to use it (one step per line, optional)<textarea id="bc-how" rows="4" maxlength="2000" placeholder="Open Campaigns&#10;Pick a contact list&#10;Press Power dial"></textarea></label>
+          <div class="perm-grid">
+            <label>Link (optional)<input id="bc-link" type="text" placeholder="https://..." /></label>
+            <label>Link button text<input id="bc-linklabel" type="text" maxlength="60" placeholder="Read the guide" /></label>
+          </div>
+          <p class="eyebrow">Who gets it</p>
+          <div class="perm-grid">
+            <label>People<select id="bc-roles"><option value="all">Everyone (owners and agents)</option><option value="owners">Workspace owners only</option><option value="agents">Agents only</option></select></label>
+            <label>Plan<select id="bc-plan"><option value="">All plans</option>${d.plans.map((p) => `<option value="${U.esc(p)}">${U.esc(p)}</option>`).join("")}</select></label>
+            <label>Workspace<select id="bc-tenant"><option value="">All workspaces</option>${d.tenants.map((t) => `<option value="${t.id}">${U.esc(t.name)}</option>`).join("")}</select></label>
+          </div>
+          <label class="inline"><input id="bc-email" type="checkbox" /> Also send as an email</label>
+          <p class="hint" id="bc-count">Counting...</p>
+          <div class="row-actions"><button id="bc-send">Send announcement</button><span class="hint" id="bc-hint"></span></div>
+        </div>
+        <div class="panel table-panel"><p class="eyebrow" style="padding:10px 6px 0">Sent</p>${U.table(
+          ["Announcement", "Sent to", "Opened", "Email", "When"],
+          d.broadcasts.map((b) => [
+            `<strong>${U.esc(b.title)}</strong><br><span class="hint">${U.esc(b.body.slice(0, 90))}</span>`,
+            U.esc(String(b.recipient_count)),
+            U.esc(b.read_count + " (" + (b.recipient_count ? Math.round((b.read_count / b.recipient_count) * 100) : 0) + "%)"),
+            b.send_email ? U.esc(b.email_sent + " sent" + (b.email_failed ? ", " + b.email_failed + " failed" : "")) : "-",
+            U.esc(U.when(b.created_at)),
+          ]),
+          "Nothing sent yet.",
+        )}</div>`;
+
+      const audience = () => {
+        const plan = document.getElementById("bc-plan").value;
+        const tenant = document.getElementById("bc-tenant").value;
+        return { roles: document.getElementById("bc-roles").value, plans: plan ? [plan] : [], tenantIds: tenant ? [tenant] : [] };
+      };
+      let countTimer = null;
+      const refreshCount = () => {
+        clearTimeout(countTimer);
+        countTimer = setTimeout(async () => {
+          const el = document.getElementById("bc-count");
+          if (!el) return;
+          try {
+            const r = await api("admin/broadcast-audience", { audience: audience() });
+            el.textContent = r.users + " people in " + r.workspaces + " workspace" + (r.workspaces === 1 ? "" : "s") + " will get this.";
+          } catch (err) {
+            el.textContent = err.message;
+          }
+        }, 250);
+      };
+      ["bc-roles", "bc-plan", "bc-tenant"].forEach((id) => document.getElementById(id).addEventListener("change", refreshCount));
+      refreshCount();
+
+      document.getElementById("bc-send").addEventListener("click", async () => {
+        const hint = document.getElementById("bc-hint");
+        const title = document.getElementById("bc-title").value.trim();
+        const text = document.getElementById("bc-body").value.trim();
+        if (!title || !text) {
+          hint.textContent = "Add a title and a message first.";
+          return;
+        }
+        const count = document.getElementById("bc-count").textContent;
+        const ok = await U.confirm({ title: "Send to everyone selected?", message: count + " It cannot be unsent.", confirmLabel: "Send now" });
+        if (!ok) return;
+        hint.textContent = "Sending...";
+        try {
+          const r = await api("admin/broadcast-send", {
+            title,
+            body: text,
+            howTo: document.getElementById("bc-how").value,
+            linkUrl: document.getElementById("bc-link").value,
+            linkLabel: document.getElementById("bc-linklabel").value,
+            audience: audience(),
+            sendEmail: document.getElementById("bc-email").checked,
+          });
+          U.toast("Sent to " + r.recipients + " people" + (r.emailSent ? " (" + r.emailSent + " emailed)" : ""), "info");
+          void render();
+        } catch (err) {
+          hint.textContent = err.message;
+        }
+      });
     },
 
     // Support inbox: every customer conversation on the left, the open thread

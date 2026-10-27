@@ -35,6 +35,7 @@ let activeCall = null; // { callId, engineCallId, direction, answeredAt }
 let timerInterval = null;
 let sipRegistered = false;
 let dialedNumber = "";
+let agentLanded = false;
 
 // Each of these pages (sip-config.js, contacts.js, campaigns.js, ivr.js,
 // settings.js) is a real native screen — its own DOM, its own calls to
@@ -60,6 +61,9 @@ const PAGE_INIT = {
   admin: () => window.KchelAdmin?.init(),
   automations: () => window.KchelAutomations?.init(),
   health: () => window.KchelHealth?.init(),
+  agenthome: () => window.KchelAgentHome?.init(),
+  tasks: () => window.KchelTasks?.init(),
+  messages: () => window.KchelMessages?.init(),
 };
 const pageLoaded = {};
 
@@ -97,6 +101,12 @@ async function revealAdminNav() {
   try {
     const me = await window.kchel.api("me", {});
     document.getElementById("admin-nav").classList.toggle("hidden", !me.canAdmin);
+    // Owners and agents see different menus; agents land on their own home.
+    await window.KchelTeam?.start(me);
+    if (me.isAgent && !agentLanded) {
+      agentLanded = true;
+      showView("agenthome");
+    }
   } catch {
     document.getElementById("admin-nav").classList.add("hidden");
   }
@@ -160,7 +170,7 @@ els.formVerifyCode.addEventListener("submit", async (e) => {
   e.preventDefault();
   els.verifyHint.textContent = "Signing in…";
   try {
-    const result = await window.kchel.verifyCode(pendingEmail, els.inputCode.value.trim());
+    const result = await window.kchel.verifyCode(pendingEmail, els.inputCode.value.trim(), pendingSlug);
     show("app");
     renderNumberDisplay();
     void loadRecentCalls();
@@ -171,6 +181,8 @@ els.formVerifyCode.addEventListener("submit", async (e) => {
 });
 
 els.btnLogout.addEventListener("click", async () => {
+  window.KchelTeam?.stop();
+  agentLanded = false;
   await window.kchel.logout();
   show("login");
   els.formRequestCode.classList.remove("hidden");
@@ -372,4 +384,5 @@ window.kchel.onEngineDisconnected(() => {
   setRegStatus("Reconnecting…", "pending");
 });
 
-boot();
+// Wait for every script (team.js, admin.js, ...) so each page module exists before boot opens a view.
+window.addEventListener("load", boot);

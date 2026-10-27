@@ -6,8 +6,9 @@ import { findContactByPhone } from "./phone-numbers";
 import { requireCanCreate } from "./entitlements";
 import { ensureSchema } from "./schema.server";
 
+// Agents may use the call functions, within what the owner has switched on.
 async function requireSession(token: string) {
-  const payload = await verifyToken(token);
+  const payload = await verifyToken(token, { allowAgent: true });
   if (!payload || !payload.tenantId) throw new Error("Not signed in.");
   return payload;
 }
@@ -44,6 +45,7 @@ export async function startCall(data: {
   contactId?: string;
 }) {
     const payload = await requireSession(data.token);
+    if (payload.agent && !payload.permissions?.dial) throw new Error("You don't have permission to place calls.");
 
     // Enforced here, where a person deliberately starts a call. Inbound calls
     // still count toward usage but are never blocked mid-flight — dropping a
@@ -86,9 +88,11 @@ export const startCallFn = createServerFn({ method: "POST" })
 /** Marks the moment the far end picked up — this is what separates a connect from a dial. */
 export async function answerCall(data: { token: string; callId: string }) {
     const payload = await requireSession(data.token);
+    // An agent can only touch their own calls.
     await sql`
       update calls set status = 'active', answered_at = now()
       where id = ${data.callId} and tenant_id = ${payload.tenantId}
+        and (${Boolean(payload.agent)}::boolean = false or agent_email = ${payload.email})
     `;
     return { ok: true as const };
 }
@@ -112,7 +116,8 @@ export async function endCall(data: {
     const payload = await requireSession(data.token);
 
     const rows = await sql`
-      select answered_at from calls where id = ${data.callId} and tenant_id = ${payload.tenantId} limit 1
+      select answered_at from calls where id = ${data.callId} and tenant_id = ${payload.tenantId}
+        and (${Boolean(payload.agent)}::boolean = false or agent_email = ${payload.email}) limit 1
     `;
     const existing = rows[0] as { answered_at: string | null } | undefined;
     if (!existing) return { ok: true as const };
@@ -154,6 +159,8 @@ export async function listCalls(data: {
     }) {
     const payload = await requireSession(data.token);
     await ensureSchema();
+    // Unless the owner allowed everyone's history, an agent sees only their own calls.
+    if (payload.agent && payload.permissions?.callHistory !== "all") data = { ...data, agent: payload.email };
     const page = Math.max(1, data.page || 1);
     const pageSize = Math.min(200, Math.max(1, data.pageSize || 50));
 
@@ -202,10 +209,12 @@ export async function listCalls(data: {
       select distinct outcome from calls
       where tenant_id = ${payload.tenantId} and outcome is not null order by outcome
     `;
-    const agents = await sql`
-      select distinct agent_email from calls
-      where tenant_id = ${payload.tenantId} and agent_email is not null order by agent_email
-    `;
+    const agents = payload.agent
+      ? []
+      : await sql`
+          select distinct agent_email from calls
+          where tenant_id = ${payload.tenantId} and agent_email is not null order by agent_email
+        `;
 
     return {
       ok: true as const,

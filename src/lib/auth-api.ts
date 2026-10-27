@@ -24,6 +24,7 @@ export interface VerifyCodeParams {
   email: string;
   code: string;
   purpose: AuthPurpose;
+  workspaceSlug?: string;
 }
 
 export interface AuthUser {

@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AgentRouteImport } from './routes/agent'
 import { Route as AgentsRouteImport } from './routes/agents'
 import { Route as AnalyticsRouteImport } from './routes/analytics'
 import { Route as AutomationsRouteImport } from './routes/automations'
@@ -26,8 +27,10 @@ import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as SmsRouteImport } from './routes/sms'
 import { Route as SupportRouteImport } from './routes/support'
+import { Route as TeamRouteImport } from './routes/team'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AdminLoginRouteImport } from './routes/admin.login'
+import { Route as AdminOutreachRouteImport } from './routes/admin.outreach'
 import { Route as AdminRevenueRouteImport } from './routes/admin.revenue'
 import { Route as AdminSupportRouteImport } from './routes/admin.support'
 import { Route as AdminSystemHealthRouteImport } from './routes/admin.system-health'
@@ -36,6 +39,11 @@ import { Route as AdminTenantsRouteImport } from './routes/admin.tenants'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AgentRoute = AgentRouteImport.update({
+  id: '/agent',
+  path: '/agent',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AgentsRoute = AgentsRouteImport.update({
@@ -118,6 +126,11 @@ const SupportRoute = SupportRouteImport.update({
   path: '/support',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TeamRoute = TeamRouteImport.update({
+  id: '/team',
+  path: '/team',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminIndexRoute = AdminIndexRouteImport.update({
   id: '/admin/',
   path: '/admin/',
@@ -126,6 +139,11 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
 const AdminLoginRoute = AdminLoginRouteImport.update({
   id: '/admin/login',
   path: '/admin/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminOutreachRoute = AdminOutreachRouteImport.update({
+  id: '/admin/outreach',
+  path: '/admin/outreach',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminRevenueRoute = AdminRevenueRouteImport.update({
@@ -151,6 +169,7 @@ const AdminTenantsRoute = AdminTenantsRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/agent': typeof AgentRoute
   '/agents': typeof AgentsRoute
   '/analytics': typeof AnalyticsRoute
   '/automations': typeof AutomationsRoute
@@ -167,7 +186,9 @@ export interface FileRoutesByFullPath {
   '/signup': typeof SignupRoute
   '/sms': typeof SmsRoute
   '/support': typeof SupportRoute
+  '/team': typeof TeamRoute
   '/admin/login': typeof AdminLoginRoute
+  '/admin/outreach': typeof AdminOutreachRoute
   '/admin/revenue': typeof AdminRevenueRoute
   '/admin/support': typeof AdminSupportRoute
   '/admin/system-health': typeof AdminSystemHealthRoute
@@ -176,6 +197,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/agent': typeof AgentRoute
   '/agents': typeof AgentsRoute
   '/analytics': typeof AnalyticsRoute
   '/automations': typeof AutomationsRoute
@@ -192,7 +214,9 @@ export interface FileRoutesByTo {
   '/signup': typeof SignupRoute
   '/sms': typeof SmsRoute
   '/support': typeof SupportRoute
+  '/team': typeof TeamRoute
   '/admin/login': typeof AdminLoginRoute
+  '/admin/outreach': typeof AdminOutreachRoute
   '/admin/revenue': typeof AdminRevenueRoute
   '/admin/support': typeof AdminSupportRoute
   '/admin/system-health': typeof AdminSystemHealthRoute
@@ -202,6 +226,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/agent': typeof AgentRoute
   '/agents': typeof AgentsRoute
   '/analytics': typeof AnalyticsRoute
   '/automations': typeof AutomationsRoute
@@ -218,7 +243,9 @@ export interface FileRoutesById {
   '/signup': typeof SignupRoute
   '/sms': typeof SmsRoute
   '/support': typeof SupportRoute
+  '/team': typeof TeamRoute
   '/admin/login': typeof AdminLoginRoute
+  '/admin/outreach': typeof AdminOutreachRoute
   '/admin/revenue': typeof AdminRevenueRoute
   '/admin/support': typeof AdminSupportRoute
   '/admin/system-health': typeof AdminSystemHealthRoute
@@ -229,6 +256,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/agent'
     | '/agents'
     | '/analytics'
     | '/automations'
@@ -245,7 +273,9 @@ export interface FileRouteTypes {
     | '/signup'
     | '/sms'
     | '/support'
+    | '/team'
     | '/admin/login'
+    | '/admin/outreach'
     | '/admin/revenue'
     | '/admin/support'
     | '/admin/system-health'
@@ -254,6 +284,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/agent'
     | '/agents'
     | '/analytics'
     | '/automations'
@@ -270,7 +301,9 @@ export interface FileRouteTypes {
     | '/signup'
     | '/sms'
     | '/support'
+    | '/team'
     | '/admin/login'
+    | '/admin/outreach'
     | '/admin/revenue'
     | '/admin/support'
     | '/admin/system-health'
@@ -279,6 +312,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/agent'
     | '/agents'
     | '/analytics'
     | '/automations'
@@ -295,7 +329,9 @@ export interface FileRouteTypes {
     | '/signup'
     | '/sms'
     | '/support'
+    | '/team'
     | '/admin/login'
+    | '/admin/outreach'
     | '/admin/revenue'
     | '/admin/support'
     | '/admin/system-health'
@@ -305,6 +341,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AgentRoute: typeof AgentRoute
   AgentsRoute: typeof AgentsRoute
   AnalyticsRoute: typeof AnalyticsRoute
   AutomationsRoute: typeof AutomationsRoute
@@ -321,7 +358,9 @@ export interface RootRouteChildren {
   SignupRoute: typeof SignupRoute
   SmsRoute: typeof SmsRoute
   SupportRoute: typeof SupportRoute
+  TeamRoute: typeof TeamRoute
   AdminLoginRoute: typeof AdminLoginRoute
+  AdminOutreachRoute: typeof AdminOutreachRoute
   AdminRevenueRoute: typeof AdminRevenueRoute
   AdminSupportRoute: typeof AdminSupportRoute
   AdminSystemHealthRoute: typeof AdminSystemHealthRoute
@@ -336,6 +375,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/agent': {
+      id: '/agent'
+      path: '/agent'
+      fullPath: '/agent'
+      preLoaderRoute: typeof AgentRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/agents': {
@@ -450,6 +496,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SupportRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/team': {
+      id: '/team'
+      path: '/team'
+      fullPath: '/team'
+      preLoaderRoute: typeof TeamRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/': {
       id: '/admin/'
       path: '/admin'
@@ -462,6 +515,13 @@ declare module '@tanstack/react-router' {
       path: '/admin/login'
       fullPath: '/admin/login'
       preLoaderRoute: typeof AdminLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/outreach': {
+      id: '/admin/outreach'
+      path: '/admin/outreach'
+      fullPath: '/admin/outreach'
+      preLoaderRoute: typeof AdminOutreachRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/revenue': {
@@ -497,6 +557,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AgentRoute: AgentRoute,
   AgentsRoute: AgentsRoute,
   AnalyticsRoute: AnalyticsRoute,
   AutomationsRoute: AutomationsRoute,
@@ -513,7 +574,9 @@ const rootRouteChildren: RootRouteChildren = {
   SignupRoute: SignupRoute,
   SmsRoute: SmsRoute,
   SupportRoute: SupportRoute,
+  TeamRoute: TeamRoute,
   AdminLoginRoute: AdminLoginRoute,
+  AdminOutreachRoute: AdminOutreachRoute,
   AdminRevenueRoute: AdminRevenueRoute,
   AdminSupportRoute: AdminSupportRoute,
   AdminSystemHealthRoute: AdminSystemHealthRoute,

@@ -70,7 +70,13 @@ import { requestPlanUpgrade } from "./billing.server";
 import { getAutomations, saveAutomations, listAutoTexts } from "./automation.server";
 import { getNumberHealth, restNumber } from "./reputation.server";
 import { summarizeCall, getCallSummary } from "./call-summary.server";
-import { powerStart, powerNext, powerResult, powerStop } from "./power-dialer.server";
+import { powerStart, powerNext, powerResult, powerStop, listPowerCampaigns } from "./power-dialer.server";
+import { resendInvite } from "./agents.server";
+import { listTasks, createTask, updateTask, deleteTask } from "./tasks.server";
+import { listThreads, getThread, sendMessage } from "./messages.server";
+import { listNotifications, markNotificationsRead } from "./notifications.server";
+import { getAgentHome } from "./agent-home.server";
+import { previewAudience, sendBroadcast, listBroadcasts } from "./broadcast.server";
 
 export const NATIVE_API_PREFIX = "/api/native/";
 
@@ -103,8 +109,9 @@ function jsonError(error: unknown): Response {
  * restriction (and the iceServers it hands back for WebRTC) don't apply.
  */
 async function getNativeSipConfig(token: string) {
-  const payload = await verifyToken(token);
+  const payload = await verifyToken(token, { allowAgent: true });
   if (!payload || !payload.tenantId) throw new Error("Not signed in.");
+  if (payload.agent && !payload.permissions?.dial) throw new Error("You don't have permission to place calls.");
 
   const rows = await sql`
     select label, sip_host, sip_port, sip_username, sip_password_enc, sip_realm, sip_transport, status
@@ -166,8 +173,13 @@ export async function handleNativeApi(request: Request, pathname: string): Promi
       }
 
       case "login/verify-code": {
-        const body = await readJson<{ email: string; code: string }>(request);
-        const result = await verifyLoginCode({ email: body.email, code: body.code, purpose: "login" });
+        const body = await readJson<{ email: string; code: string; workspaceSlug?: string }>(request);
+        const result = await verifyLoginCode({
+          email: body.email,
+          code: body.code,
+          purpose: "login",
+          ...(body.workspaceSlug ? { workspaceSlug: body.workspaceSlug } : {}),
+        });
 
         // The Desktop Dialer is a paid add-on, not bundled into any plan —
         // gating it here (not just hiding the download link) means a
@@ -235,8 +247,10 @@ export async function handleNativeApi(request: Request, pathname: string): Promi
 
       case "calls/recent": {
         const body = await readJson<{ token: string }>(request);
-        const payload = await verifyToken(body.token);
+        const payload = await verifyToken(body.token, { allowAgent: true });
         if (!payload || !payload.tenantId) throw new Error("Not signed in.");
+        // An agent's recents are their own calls.
+        const onlyMine = Boolean(payload.agent) && payload.permissions?.callHistory !== "all";
 
         const rows = await sql`
           select c.id, c.direction, c.from_number, c.to_number,
@@ -245,6 +259,7 @@ export async function handleNativeApi(request: Request, pathname: string): Promi
           from calls c
           left join contacts ct on ct.id = c.contact_id
           where c.tenant_id = ${payload.tenantId}
+            and (${onlyMine}::boolean = false or c.agent_email = ${payload.email})
           order by c.started_at desc
           limit 5
         `;
@@ -310,7 +325,7 @@ export async function handleNativeApi(request: Request, pathname: string): Promi
       // ---------- who am I (drives which screens the app shows) ----------
       case "me": {
         const body = await readJson<{ token: string }>(request);
-        const payload = await verifyToken(body.token);
+        const payload = await verifyToken(body.token, { allowAgent: true });
         if (!payload || !payload.tenantId) throw new Error("Not signed in.");
         const admins = await sql`
           select 1 from users where email = ${payload.email} and is_super_admin = true limit 1
@@ -321,6 +336,8 @@ export async function handleNativeApi(request: Request, pathname: string): Promi
           workspaceSlug: payload.workspaceSlug,
           isSuperAdmin: Boolean(payload.isSuperAdmin),
           canAdmin: Boolean(payload.isSuperAdmin) || admins.length > 0,
+          isAgent: Boolean(payload.agent),
+          permissions: payload.permissions ?? null,
         });
       }
 
@@ -386,6 +403,32 @@ export async function handleNativeApi(request: Request, pathname: string): Promi
         return jsonOk(await getCallSummary(await readJson(request)));
 
       // ---------- power dialer ----------
+      // ---------- team: invites, tasks, messages, notifications ----------
+      case "agents/resend-invite":
+        return jsonOk(await resendInvite(await readJson(request)));
+      case "agent/home":
+        return jsonOk(await getAgentHome(await readJson(request)));
+      case "power/campaigns":
+        return jsonOk(await listPowerCampaigns(await readJson(request)));
+      case "tasks/list":
+        return jsonOk(await listTasks(await readJson(request)));
+      case "tasks/create":
+        return jsonOk(await createTask(await readJson(request)));
+      case "tasks/update":
+        return jsonOk(await updateTask(await readJson(request)));
+      case "tasks/delete":
+        return jsonOk(await deleteTask(await readJson(request)));
+      case "messages/threads":
+        return jsonOk(await listThreads(await readJson(request)));
+      case "messages/thread":
+        return jsonOk(await getThread(await readJson(request)));
+      case "messages/send":
+        return jsonOk(await sendMessage(await readJson(request)));
+      case "notifications/list":
+        return jsonOk(await listNotifications(await readJson(request)));
+      case "notifications/read":
+        return jsonOk(await markNotificationsRead(await readJson(request)));
+
       case "power/start":
         return jsonOk(await powerStart(await readJson(request)));
       case "power/next":
@@ -433,6 +476,12 @@ export async function handleNativeApi(request: Request, pathname: string): Promi
         return jsonOk(await setDialerAddon(await readJson(request)));
       case "admin/set-sip":
         return jsonOk(await setSipAddon(await readJson(request)));
+      case "admin/broadcast-audience":
+        return jsonOk(await previewAudience(await readJson(request)));
+      case "admin/broadcast-send":
+        return jsonOk(await sendBroadcast(await readJson(request)));
+      case "admin/broadcasts":
+        return jsonOk(await listBroadcasts(await readJson(request)));
       case "admin/conversations":
         return jsonOk(await listConversations(await readJson(request)));
       case "admin/conversation":

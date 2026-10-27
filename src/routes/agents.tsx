@@ -1,9 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Loader2, MoreVertical, Trash2, UserPlus } from "lucide-react";
+import { ListChecks, Loader2, MessageSquare, MoreVertical, RotateCw, ShieldCheck, Trash2, UserPlus } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { Shell } from "@/components/dash/Shell";
+import { AccessEditor } from "@/components/dash/AccessEditor";
+import { PRESETS, resolvePermissions, type AgentPermissions } from "@/backend/permissions";
+import { resendInvite } from "@/lib/team-api";
 import { Panel, StatusPill } from "@/components/dash/bits";
 import { Button } from "@/components/ui/button";
 import {
@@ -98,6 +101,9 @@ function AgentsPage() {
   const [busy, setBusy] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [form, setForm] = useState({ name: "", email: "", ext: "", role: "Agent" });
+  const [formPerms, setFormPerms] = useState<AgentPermissions>({ ...PRESETS.caller });
+  const [accessTarget, setAccessTarget] = useState<Agent | null>(null);
+  const [accessPerms, setAccessPerms] = useState<AgentPermissions>({ ...PRESETS.caller });
   const [removeTarget, setRemoveTarget] = useState<Agent | null>(null);
 
   const signedIn = agents.filter((a) => a.status !== "Offline").length;
@@ -130,12 +136,14 @@ function AgentsPage() {
         email: form.email.trim(),
         ...(form.ext.trim() ? { extension: form.ext.trim() } : {}),
         role: form.role,
+        permissions: formPerms,
       });
       setAgents((prev) => [...prev, result.agent]);
-      toast.success(`Invited ${result.agent.name}`, {
-        description: `Extension ${result.agent.extension}`,
+      toast.success(`Invitation sent to ${result.agent.email}`, {
+        description: `Extension ${result.agent.extension}. They sign in with an emailed code.`,
       });
       setForm({ name: "", email: "", ext: "", role: "Agent" });
+      setFormPerms({ ...PRESETS.caller });
       setInviteOpen(false);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not invite that agent.");
@@ -150,6 +158,40 @@ function AgentsPage() {
       setAgents((prev) => prev.map((a) => (a.id === id ? result.agent : a)));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not update that agent.");
+    }
+  }
+
+  async function setAccess(agent: Agent, access: "disabled" | "enabled") {
+    try {
+      const result = await updateAgent(agent.id, { access });
+      setAgents((prev) => prev.map((a) => (a.id === agent.id ? result.agent : a)));
+      toast.success(access === "disabled" ? `${agent.name} can no longer sign in` : `${agent.name} can sign in again`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not change that agent's access.");
+    }
+  }
+
+  async function saveAccess() {
+    if (!accessTarget) return;
+    setBusy(true);
+    try {
+      const result = await updateAgent(accessTarget.id, { permissions: accessPerms });
+      setAgents((prev) => prev.map((a) => (a.id === accessTarget.id ? result.agent : a)));
+      toast.success("Access updated. It applies straight away.");
+      setAccessTarget(null);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not update access.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function resend(agent: Agent) {
+    try {
+      await resendInvite(agent.id);
+      toast.success(`Invitation sent again to ${agent.email}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not resend that invitation.");
     }
   }
 
@@ -202,6 +244,7 @@ function AgentsPage() {
                 </div>
               </div>
               <div className="flex items-center gap-1.5">
+                {a.access && <StatusPill status={a.access === "active" ? "Active" : a.access === "invited" ? "Pending" : "Suspended"} />}
                 <StatusPill status={a.status} />
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -216,6 +259,35 @@ function AgentsPage() {
                         {s}
                       </DropdownMenuItem>
                     ))}
+                    <DropdownMenuSeparator />
+                    {a.user_id && (
+                      <>
+                        <DropdownMenuItem onClick={() => window.location.assign(`/team?assign=${a.user_id}`)}>
+                          <ListChecks className="size-3.5" /> Assign task
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => window.location.assign(`/team?agent=${a.user_id}`)}>
+                          <MessageSquare className="size-3.5" /> Message
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setAccessTarget(a);
+                            setAccessPerms(resolvePermissions({ permissions: a.permissions }));
+                          }}
+                        >
+                          <ShieldCheck className="size-3.5" /> What they can do
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                    {a.access === "invited" && (
+                      <DropdownMenuItem onClick={() => void resend(a)}>
+                        <RotateCw className="size-3.5" /> Resend invitation
+                      </DropdownMenuItem>
+                    )}
+                    {a.access === "disabled" ? (
+                      <DropdownMenuItem onClick={() => void setAccess(a, "enabled")}>Turn access on</DropdownMenuItem>
+                    ) : a.access ? (
+                      <DropdownMenuItem onClick={() => void setAccess(a, "disabled")}>Turn access off</DropdownMenuItem>
+                    ) : null}
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       className="text-destructive focus:text-destructive"
@@ -284,8 +356,26 @@ function AgentsPage() {
       </Panel>
       )}
 
+      <Dialog open={!!accessTarget} onOpenChange={(o) => !o && setAccessTarget(null)}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>What {accessTarget?.name} can do</DialogTitle>
+          </DialogHeader>
+          <AccessEditor value={accessPerms} onChange={setAccessPerms} />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAccessTarget(null)}>
+              Cancel
+            </Button>
+            <Button disabled={busy} onClick={() => void saveAccess()}>
+              {busy ? <Loader2 className="size-4 animate-spin" /> : null}
+              Save access
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-xl">
           <DialogHeader>
             <DialogTitle>Invite agent</DialogTitle>
           </DialogHeader>
@@ -328,6 +418,8 @@ function AgentsPage() {
               </Select>
             </div>
           </div>
+          <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">What they can do</p>
+          <AccessEditor value={formPerms} onChange={setFormPerms} />
           <DialogFooter>
             <Button variant="outline" onClick={() => setInviteOpen(false)}>
               Cancel
@@ -345,7 +437,7 @@ function AgentsPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Remove {removeTarget?.name}?</AlertDialogTitle>
             <AlertDialogDescription>
-              They'll lose access to the dialer immediately. Their call history is kept.
+              Their login is removed immediately, along with their tasks and messages. Their call history is kept.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

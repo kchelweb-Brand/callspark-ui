@@ -7,6 +7,7 @@ import { sendCodeEmail } from "./email";
 import { callingCodeFromE164 } from "./phone-numbers";
 import { PLANS } from "./plans";
 import { signToken, verifyToken } from "./tokens";
+import { ensureSchema } from "./schema.server";
 
 type Purpose = "login" | "admin_login" | "signup";
 
@@ -53,6 +54,7 @@ interface UserRow {
   email: string;
   role: string;
   is_super_admin: boolean;
+  status?: string;
 }
 
 interface TenantRow {
@@ -106,8 +108,10 @@ export async function requestLoginCode(data: {
       const tenants = await sql`select id from tenants where workspace_slug = ${slug} limit 1`;
       const tenant = tenants[0] as { id: string } | undefined;
       if (tenant) {
+        await ensureSchema();
+        // A person whose access the owner turned off gets no code at all.
         const users = await sql`
-          select id from users where tenant_id = ${tenant.id} and email = ${email} limit 1
+          select id from users where tenant_id = ${tenant.id} and email = ${email} and status <> 'disabled' limit 1
         `;
         if (users.length > 0) {
           const sent = await issueCode(email, "login");
@@ -142,7 +146,14 @@ export const requestLoginCodeFn = createServerFn({ method: "POST" })
 
 // ---------- verify-code ----------
 
-export async function verifyLoginCode(data: { email: string; code: string; purpose: "login" | "admin_login" }) {
+export async function verifyLoginCode(data: {
+  email: string;
+  code: string;
+  purpose: "login" | "admin_login";
+  /** Which workspace they are signing in to. Matters when one email belongs to several. */
+  workspaceSlug?: string;
+}) {
+    await ensureSchema();
     const email = data.email.trim().toLowerCase();
     const code = data.code.trim();
 
@@ -170,14 +181,24 @@ export async function verifyLoginCode(data: { email: string; code: string; purpo
       `;
       user = users[0] as UserRow | undefined;
     } else {
-      const users = await sql`
-        select id, tenant_id, email, role, is_super_admin from users
-        where email = ${email} and tenant_id is not null
-        order by created_at desc limit 1
-      `;
+      const slug = (data.workspaceSlug || "").trim().toLowerCase();
+      const users = slug
+        ? await sql`
+            select u.id, u.tenant_id, u.email, u.role, u.is_super_admin, u.status from users u
+            join tenants t on t.id = u.tenant_id
+            where u.email = ${email} and t.workspace_slug = ${slug} limit 1
+          `
+        : await sql`
+            select id, tenant_id, email, role, is_super_admin, status from users
+            where email = ${email} and tenant_id is not null
+            order by created_at desc limit 1
+          `;
       user = users[0] as UserRow | undefined;
     }
     if (!user) throw new Error("Invalid or expired code.");
+    if (user.status === "disabled") {
+      throw new Error("Your access to this workspace has been turned off. Ask the workspace owner.");
+    }
 
     let workspaceSlug: string | null = null;
     if (user.tenant_id) {
@@ -198,6 +219,11 @@ export async function verifyLoginCode(data: { email: string; code: string; purpo
       }
     }
 
+    // The first sign-in is what accepts an invitation.
+    if (user.status === "invited") {
+      await sql`update users set status = 'active', accepted_at = coalesce(accepted_at, now()) where id = ${user.id}`;
+    }
+
     const token = await signToken({
       sub: user.id,
       email: user.email,
@@ -205,13 +231,14 @@ export async function verifyLoginCode(data: { email: string; code: string; purpo
       tenantId: user.tenant_id,
       isSuperAdmin: user.is_super_admin,
       workspaceSlug,
+      ...(user.role === "agent" && !user.is_super_admin ? { agent: true } : {}),
     });
 
     return { ok: true as const, token, user: toAuthUser(user, workspaceSlug) };
 }
 
 export const verifyLoginCodeFn = createServerFn({ method: "POST" })
-  .validator((data: { email: string; code: string; purpose: "login" | "admin_login" }) => data)
+  .validator((data: Parameters<typeof verifyLoginCode>[0]) => data)
   .handler(async ({ data }) => verifyLoginCode(data));
 
 // ---------- signup ----------

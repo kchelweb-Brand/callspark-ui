@@ -29,20 +29,50 @@
       try {
         const d = await api("agents/list");
         const body = root.querySelector("[data-body]");
+        const ACCESS = { invited: ["Invited", "pending"], active: ["Active", "ok"], disabled: ["Access off", "error"] };
         body.innerHTML = `<div class="panel table-panel">${U.table(
-          ["Agent", "Ext", "Role", "Status", "Calls today", "Talk", "Connect", ""],
-          d.agents.map((a) => [
-            `${U.esc(a.name)}<br><span class="hint">${U.esc(a.email || "")}</span>`,
-            `<span class="mono">${U.esc(a.extension || "—")}</span>`,
-            U.esc(a.role),
-            `<select data-status="${a.id}">${STATUSES.map((s) => `<option ${s === a.status ? "selected" : ""}>${s}</option>`).join("")}</select>`,
-            U.esc(String(a.calls_today ?? 0)),
-            U.esc(U.dur(a.talk_seconds)),
-            U.esc(Math.round(Number(a.connect_rate) || 0) + "%"),
-            `<span class="row-actions"><button data-del="${a.id}" data-name="${U.esc(a.name)}">Remove</button></span>`,
-          ]),
-          "No agents yet — add your first one.",
+          ["Agent", "Login", "Role", "Status", "Today", ""],
+          d.agents.map((a) => {
+            const acc = ACCESS[a.access] || ["No login", ""];
+            return [
+              `${U.esc(a.name)} <span class="mono hint">ext ${U.esc(a.extension || "—")}</span><br><span class="hint">${U.esc(a.email || "")}</span>`,
+              `<span class="status status-${acc[1]}">${acc[0]}</span>${a.last_seen_at ? `<br><span class="hint">seen ${U.esc(U.when(a.last_seen_at))}</span>` : ""}`,
+              U.esc(a.role),
+              `<select data-status="${a.id}">${STATUSES.map((s) => `<option ${s === a.status ? "selected" : ""}>${s}</option>`).join("")}</select>`,
+              `${U.esc(String(a.calls_today ?? 0))} calls<br><span class="hint">${U.esc(U.dur(a.talk_seconds))} talk</span>`,
+              `<span class="row-actions">
+                ${a.user_id ? `<button data-msg="${a.id}">Message</button><button data-task="${a.id}">Task</button><button data-access="${a.id}">Access</button>` : ""}
+                ${a.access === "invited" ? `<button data-resend="${a.id}">Resend invite</button>` : ""}
+                ${a.access === "disabled" ? `<button data-enable="${a.id}">Turn on</button>` : a.access ? `<button data-disable="${a.id}">Turn off</button>` : ""}
+                <button data-del="${a.id}" data-name="${U.esc(a.name)}">Remove</button></span>`,
+            ];
+          }),
+          "No agents yet. Invite your first one.",
         )}</div>`;
+        const find = (id) => d.agents.find((x) => x.id === id);
+        body.querySelectorAll("[data-msg]").forEach((b) => b.addEventListener("click", () => window.KchelTeam.messagesFor(find(b.dataset.msg))));
+        body.querySelectorAll("[data-task]").forEach((b) => b.addEventListener("click", () => window.KchelTeam.tasksFor(find(b.dataset.task))));
+        body.querySelectorAll("[data-access]").forEach((b) =>
+          b.addEventListener("click", () => {
+            const ag = find(b.dataset.access);
+            window.KchelTeam.accessModal({
+              title: "What " + ag.name + " can do",
+              submitLabel: "Save access",
+              perms: ag.permissions,
+              onSubmit: async (_v, permissions) => {
+                await api("agents/update", { id: ag.id, permissions });
+                U.toast("Access updated. It applies straight away.", "info");
+                void load();
+              },
+            });
+          }),
+        );
+        body.querySelectorAll("[data-resend]").forEach((b) =>
+          b.addEventListener("click", () => api("agents/resend-invite", { id: b.dataset.resend }).then(() => U.toast("Invitation sent again", "info"), (e) => U.toast(e.message, "error"))),
+        );
+        const setAccess = (id, access) => api("agents/update", { id, access }).then(() => { U.toast(access === "disabled" ? "Access turned off" : "Access turned on", "info"); void load(); }, (e) => U.toast(e.message, "error"));
+        body.querySelectorAll("[data-disable]").forEach((b) => b.addEventListener("click", () => setAccess(b.dataset.disable, "disabled")));
+        body.querySelectorAll("[data-enable]").forEach((b) => b.addEventListener("click", () => setAccess(b.dataset.enable, "enabled")));
         body.querySelectorAll("[data-status]").forEach((sel) =>
           sel.addEventListener("change", async () => {
             try {
@@ -56,7 +86,7 @@
         );
         body.querySelectorAll("[data-del]").forEach((btn) =>
           btn.addEventListener("click", async () => {
-            const ok = await U.confirm({ title: `Remove ${btn.dataset.name}?`, message: "They will no longer be able to take calls.", confirmLabel: "Remove", danger: true });
+            const ok = await U.confirm({ title: `Remove ${btn.dataset.name}?`, message: "Their login is removed, along with their tasks and messages.", confirmLabel: "Remove", danger: true });
             if (!ok) return;
             try {
               await api("agents/delete", { id: btn.dataset.del });
@@ -72,17 +102,18 @@
     }
 
     function openAdd() {
-      U.formModal({
-        title: "Add agent",
-        submitLabel: "Add agent",
+      window.KchelTeam.accessModal({
+        title: "Invite an agent",
+        submitLabel: "Send invitation",
         fields: [
           { id: "name", label: "Name", required: true },
           { id: "email", label: "Email", type: "email", required: true },
           { id: "extension", label: "Extension (optional)" },
           { id: "role", label: "Role", type: "select", options: ROLES, value: "Agent" },
         ],
-        onSubmit: async (v) => {
-          await api("agents/create", { name: v.name, email: v.email, extension: v.extension || undefined, role: v.role });
+        onSubmit: async (v, permissions) => {
+          await api("agents/create", { name: v.name, email: v.email, extension: v.extension || undefined, role: v.role, permissions });
+          U.toast("Invitation sent to " + v.email, "info");
           void load();
         },
       });
@@ -92,7 +123,7 @@
       init() {
         if (started) return;
         started = true;
-        skeleton(root, "Agents", "Your team, their status and daily performance.", '<button id="btn-add-agent">Add agent</button>');
+        skeleton(root, "Agents", "Invite your team, choose what each person can do, and follow their day.", '<button id="btn-add-agent">Invite agent</button>');
         $("btn-add-agent").addEventListener("click", openAdd);
         void load();
       },

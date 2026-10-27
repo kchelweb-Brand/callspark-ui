@@ -101,7 +101,7 @@
   </section>
 
   <section id="screen-app" class="screen app-shell hidden">
-    <div class="mobile-bar"><button id="btn-menu" aria-label="Menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button><strong>Kchel Dialer</strong></div>
+    <div class="mobile-bar"><button id="btn-menu" aria-label="Menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button><strong>Kchel Dialer</strong><button id="btn-bell-m" class="bell-m" aria-label="Notifications"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg><i id="bell-badge-m" class="badge hidden">0</i></button></div>
     <div id="nav-scrim" class="nav-scrim"></div>
     <nav class="sidebar">
       <div class="brand-small">
@@ -113,6 +113,28 @@
         Kchel Dialer
       </div>
       <div class="brand-stripe"></div>
+
+      <button class="nav-item bell-item" id="btn-bell" type="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+        <span>Notifications</span>
+        <i id="bell-badge" class="badge hidden">0</i>
+      </button>
+
+      <p class="nav-group" data-team-group>Team</p>
+      <button class="nav-item" data-view="agenthome" id="nav-agenthome">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11 12 3l9 8"/><path d="M5 10v10h14V10"/></svg>
+        <span>My day</span>
+      </button>
+      <button class="nav-item" data-view="tasks" id="nav-tasks">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="m8 9 2 2 4-4M8 16h8"/></svg>
+        <span id="nav-tasks-label">Tasks</span>
+        <i id="badge-tasks" class="badge hidden">0</i>
+      </button>
+      <button class="nav-item" data-view="messages" id="nav-messages">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M8 9h8M8 13h5"/></svg>
+        <span>Messages</span>
+        <i id="badge-messages" class="badge hidden">0</i>
+      </button>
 
       <p class="nav-group">Workspace</p>
       <button class="nav-item" data-view="overview">
@@ -228,6 +250,9 @@
       <section id="view-billing" class="view hidden"></section>
       <section id="view-support" class="view hidden"></section>
       <section id="view-admin" class="view hidden"></section>
+      <section id="view-agenthome" class="view hidden"></section>
+      <section id="view-tasks" class="view hidden"></section>
+      <section id="view-messages" class="view hidden"></section>
       <section id="view-health" class="view hidden"></section>
       <section id="view-automations" class="view hidden"></section>
       <section id="view-dialer" class="view">
@@ -436,6 +461,7 @@
     </main>
   </section>
 
+  <div id="bell-panel" class="bell-panel hidden"></div>
   <div id="modal-root"></div>
   <div id="toast-root" class="toast-root"></div>
 
@@ -452,6 +478,7 @@
   <script src="workspace-pages.js"></script>
   <script src="admin.js"></script>
   <script src="automations.js"></script>
+  <script src="team.js"></script>
   <script src="power.js"></script>
 </body>
 </html>

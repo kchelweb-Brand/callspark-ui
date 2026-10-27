@@ -3,11 +3,27 @@ import { createServerFn } from "@tanstack/react-start";
 import { sql, sqlQuery } from "./db";
 import { verifyToken } from "./tokens";
 import { requireCanCreate } from "./entitlements";
+import { requireMember } from "./access.server";
+import { ensureSchema } from "./schema.server";
 
 async function requireTenant(token: string): Promise<string> {
   const payload = await verifyToken(token);
   if (!payload || !payload.tenantId) throw new Error("Not signed in.");
   return payload.tenantId;
+}
+
+/**
+ * Agents reach contacts only as far as the owner allows: 'all' sees the whole
+ * book, 'assigned' only the contacts on their open tasks, 'none' nothing.
+ */
+async function contactScope(token: string, write = false) {
+  const member = await requireMember(token);
+  if (!member.isAgent) return { tenantId: member.tenantId, onlyForAgent: null as string | null };
+  const p = member.permissions!;
+  if (p.contacts === "none") throw new Error("You don't have access to contacts.");
+  if (write && !p.editContacts) throw new Error("You don't have permission to add contacts.");
+  await ensureSchema();
+  return { tenantId: member.tenantId, onlyForAgent: p.contacts === "assigned" ? member.userId : null };
 }
 
 /** 10-digit numbers are treated as US; everything else is kept as-is (trimmed to digits + leading +). */
@@ -62,12 +78,16 @@ export async function listContacts(data: {
   page?: number;
   pageSize?: number;
 }) {
-    const tenantId = await requireTenant(data.token);
+    const { tenantId, onlyForAgent } = await contactScope(data.token);
     const page = Math.max(1, data.page || 1);
     const pageSize = Math.min(200, Math.max(1, data.pageSize || 50));
 
     const params: unknown[] = [tenantId];
     let where = "c.tenant_id = $1";
+    if (onlyForAgent) {
+      params.push(onlyForAgent);
+      where += ` and c.id in (select contact_id from agent_tasks where assignee_id = $${params.length} and status <> 'Done' and contact_id is not null)`;
+    }
 
     if (data.search?.trim()) {
       params.push(`%${data.search.trim()}%`);
@@ -109,7 +129,9 @@ export const listContactsFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => listContacts(data));
 
 export async function getContactsMeta(data: { token: string }) {
-    const tenantId = await requireTenant(data.token);
+    const { tenantId, onlyForAgent } = await contactScope(data.token);
+    // An agent limited to their assigned contacts has no use for the lists.
+    if (onlyForAgent) return { ok: true as const, lists: [] as { id: string; name: string; contact_count: number }[], tags: [] as string[] };
 
     const lists = await sql`
       select l.id, l.name, count(c.id)::int as contact_count
@@ -145,7 +167,7 @@ export async function createContact(data: {
   tags?: string[];
   listName?: string;
 }) {
-    const tenantId = await requireTenant(data.token);
+    const { tenantId } = await contactScope(data.token, true);
     await requireCanCreate(tenantId, "contacts");
 
     const phone = normalizePhone(data.phone);
