@@ -36,6 +36,8 @@ export interface ImportRow {
   phone: string;
   email?: string;
   tags?: string[];
+  /** The line in the file, echoed back by the server if the row is rejected. */
+  line?: number;
 }
 
 function requireToken(): string {

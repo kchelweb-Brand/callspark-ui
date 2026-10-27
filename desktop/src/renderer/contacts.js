@@ -52,26 +52,6 @@
     }
   }
 
-  /** Minimal CSV parser: no embedded-comma/quote support, matches the
-   * simple company,person,phone,email,tags export format. */
-  function parseCsv(text) {
-    const lines = text.split(/\r?\n/).filter((l) => l.trim());
-    if (lines.length === 0) return [];
-    const header = lines[0].split(",").map((h) => h.trim().toLowerCase());
-    return lines.slice(1).map((line) => {
-      const cells = line.split(",").map((c) => c.trim());
-      const row = {};
-      header.forEach((h, i) => (row[h] = cells[i] ?? ""));
-      return {
-        company: row.company || undefined,
-        person: row.person || row.name || undefined,
-        phone: row.phone || "",
-        email: row.email || undefined,
-        tags: row.tags ? row.tags.split(";").map((t) => t.trim()).filter(Boolean) : undefined,
-      };
-    });
-  }
-
   function bind() {
     els.search.addEventListener("input", () => {
       clearTimeout(searchTimer);
@@ -79,24 +59,112 @@
     });
 
     els.csvInput.addEventListener("change", async () => {
-      const file = els.csvInput.files?.[0];
+      const file = els.csvInput.files && els.csvInput.files[0];
+      els.csvInput.value = "";
       if (!file) return;
-      els.hint.textContent = "Importing…";
+      els.hint.textContent = "Reading file...";
       try {
-        const text = await file.text();
-        const rows = parseCsv(text).filter((r) => r.phone);
-        if (rows.length === 0) throw new Error("No valid rows found in that file.");
-        const result = await window.kchel.api("contacts/import", {
-          rows,
-          listName: file.name.replace(/\.csv$/i, ""),
-        });
-        els.hint.textContent = `Imported ${result.imported}, ${result.duplicates} duplicates skipped, ${result.invalidCount} invalid.`;
-        await load(els.search.value.trim());
+        if (/\.(xlsx?|ods|numbers)$/i.test(file.name)) {
+          throw new Error("That is a spreadsheet file. In Excel or Sheets choose File > Save as > CSV, then import that file.");
+        }
+        if (file.size === 0) throw new Error("That file is empty.");
+        if (file.size > 8 * 1024 * 1024) throw new Error("That file is over 8 MB. Split it into smaller files.");
+        const buffer = await file.arrayBuffer();
+        if (window.KchelCsv.looksBinary(buffer)) {
+          throw new Error("That does not look like a CSV text file. In Excel or Sheets choose File > Save as > CSV.");
+        }
+        const decoded = window.KchelCsv.decodeCsvBuffer(buffer);
+        const parse = window.KchelCsv.csvToContacts(decoded.text);
+        if (parse.rows.length === 0) {
+          throw new Error(
+            parse.totalRows === 0
+              ? "The file has no data rows."
+              : "No phone numbers found. Make sure there is a column named Phone, Mobile or Number.",
+          );
+        }
+        if (parse.rows.length > MAX_IMPORT_ROWS) {
+          throw new Error("That file has " + parse.rows.length.toLocaleString() + " contacts. Import up to " + MAX_IMPORT_ROWS.toLocaleString() + " at a time: split the file in parts.");
+        }
+        els.hint.textContent = "";
+        openPreview(file, parse, decoded.encoding);
       } catch (err) {
         els.hint.textContent = err.message;
-      } finally {
-        els.csvInput.value = "";
+        window.KchelUi.toast(err.message, "error");
       }
+    });
+  }
+
+  const MAX_IMPORT_ROWS = 10000;
+
+  function openPreview(file, parse, encoding) {
+    const U = window.KchelUi;
+    const detected = Object.entries(parse.detectedColumns)
+      .map(([field, label]) => "<li><span class=\"hint\">" + U.esc(field) + "</span> &larr; " + U.esc(label) + "</li>")
+      .join("");
+    const sample = parse.rows
+      .slice(0, 5)
+      .map((r) => "<div class=\"task-line\"><span class=\"mono\">" + U.esc(r.phone) + "</span><span>" + U.esc([r.person, r.company].filter(Boolean).join(" · ")) + "</span></div>")
+      .join("");
+    const m = U.modal({
+      title: "Import contacts",
+      wide: true,
+      html:
+        "<p class=\"hint\">" + parse.rows.length.toLocaleString() + " contact" + (parse.rows.length === 1 ? "" : "s") + " ready from " + U.esc(file.name) + "</p>" +
+        "<div class=\"panel\"><p class=\"eyebrow\">Columns we found</p><ul class=\"hint\" style=\"margin:4px 0;padding-left:18px\">" + detected + "</ul>" +
+        (parse.hadHeader ? "" : "<p class=\"hint\">No header row, so columns were guessed from the data.</p>") +
+        (parse.ignoredColumns.length ? "<p class=\"hint\">Not imported: " + U.esc(parse.ignoredColumns.join(", ")) + "</p>" : "") +
+        (encoding === "windows-1252" ? "<p class=\"hint\">Read as Windows text. Check that names with accents look right below.</p>" : "") +
+        "</div>" +
+        (parse.skippedNoPhone ? "<p class=\"hint lock-note\">" + parse.skippedNoPhone + " row" + (parse.skippedNoPhone === 1 ? "" : "s") + " had no phone number and will be skipped.</p>" : "") +
+        "<label>Add to list<input id=\"imp-list\" type=\"text\" maxlength=\"100\" value=\"" + U.esc(file.name.replace(/\.(csv|txt)$/i, "").slice(0, 100)) + "\" /></label>" +
+        "<p class=\"hint\">Created if it does not exist. Duplicates are skipped automatically.</p>" +
+        "<div class=\"panel\"><p class=\"eyebrow\">Preview</p>" + sample + "</div>" +
+        "<div class=\"modal-actions\" style=\"margin-top:12px\"><button id=\"imp-go\">Import " + parse.rows.length.toLocaleString() + " contacts</button></div>" +
+        "<p class=\"hint\" id=\"imp-hint\"></p>",
+    });
+    const go = m.el.querySelector("#imp-go");
+    go.addEventListener("click", async () => {
+      go.disabled = true;
+      const hint = m.el.querySelector("#imp-hint");
+      hint.textContent = "Importing...";
+      try {
+        const result = await window.kchel.api("contacts/import", {
+          rows: parse.rows,
+          listName: m.el.querySelector("#imp-list").value.trim() || undefined,
+        });
+        m.close();
+        showResult(result);
+        await load(els.search.value.trim());
+      } catch (err) {
+        hint.textContent = err.message;
+        go.disabled = false;
+      }
+    });
+  }
+
+  function showResult(result) {
+    const U = window.KchelUi;
+    const parts = [result.duplicates ? result.duplicates + " already existed" : "", result.invalidCount ? result.invalidCount + " could not be imported" : ""].filter(Boolean).join(" · ");
+    els.hint.textContent = "Imported " + result.imported.toLocaleString() + (parts ? " · " + parts : "") + ".";
+    if (result.imported > 0) U.toast(result.imported.toLocaleString() + " contacts imported", "info");
+    else U.toast("No new contacts were added", "info");
+    if (!result.invalidCount && !result.droppedEmails) return;
+    U.modal({
+      title: "Some rows were not imported",
+      wide: true,
+      html:
+        "<p class=\"hint\">" + result.imported.toLocaleString() + " imported, " + result.duplicates.toLocaleString() + " already existed, " + result.invalidCount.toLocaleString() + " could not be read" +
+        (result.droppedEmails ? ", " + result.droppedEmails + " email" + (result.droppedEmails === 1 ? "" : "s") + " left blank because they were not valid" : "") + ".</p>" +
+        (result.invalid.length
+          ? "<div class=\"table-panel\">" +
+            U.table(
+              ["Line", "Value", "Why"],
+              result.invalid.map((r) => ["<span class=\"mono\">" + r.row + "</span>", "<span class=\"mono\">" + U.esc(r.phone || "(blank)") + "</span>", U.esc(r.reason)]),
+            ) +
+            "</div>" +
+            (result.invalidCount > result.invalid.length ? "<p class=\"hint\">Showing the first " + result.invalid.length + " of " + result.invalidCount.toLocaleString() + ".</p>" : "")
+          : "") +
+        "<p class=\"hint\">Fix those lines in your file and import it again. Contacts already added are skipped, so nothing is duplicated.</p>",
     });
   }
 
@@ -105,6 +173,8 @@
       if (initialized) return;
       initialized = true;
       bind();
+      // Importing is an owner task; the server refuses it for agents, so do not offer it.
+      if (window.KchelTeam && window.KchelTeam.isAgent()) els.csvInput.closest(".file-btn").classList.add("hidden");
       void load();
     },
   };

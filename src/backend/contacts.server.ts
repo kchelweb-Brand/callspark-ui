@@ -5,6 +5,17 @@ import { verifyToken } from "./tokens";
 import { requireCanCreate } from "./entitlements";
 import { requireMember } from "./access.server";
 import { ensureSchema } from "./schema.server";
+import { callingCodeFromE164 } from "./phone-numbers";
+import {
+  MAX_IMPORT_ROWS,
+  cleanEmail,
+  cleanTags,
+  parsePhone,
+  phoneKey,
+  prepareRows,
+  type InvalidRow,
+  type RawImportRow,
+} from "./contact-import";
 
 async function requireTenant(token: string): Promise<string> {
   const payload = await verifyToken(token);
@@ -24,20 +35,6 @@ async function contactScope(token: string, write = false) {
   if (write && !p.editContacts) throw new Error("You don't have permission to add contacts.");
   await ensureSchema();
   return { tenantId: member.tenantId, onlyForAgent: p.contacts === "assigned" ? member.userId : null };
-}
-
-/** 10-digit numbers are treated as US; everything else is kept as-is (trimmed to digits + leading +). */
-function normalizePhone(raw: string): string {
-  const trimmed = raw.trim();
-  const digits = trimmed.replace(/[^\d]/g, "");
-  if (digits.length === 10) return `+1${digits}`;
-  if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`;
-  if (trimmed.startsWith("+")) return `+${digits}`;
-  return digits ? `+${digits}` : trimmed;
-}
-
-function isValidPhone(normalized: string): boolean {
-  return /^\+\d{7,15}$/.test(normalized);
 }
 
 interface ContactRow {
@@ -158,6 +155,26 @@ export const getContactsMetaFn = createServerFn({ method: "POST" })
 
 // ---------- create / import / delete ----------
 
+/**
+ * The country code national numbers should be read against: the one set in
+ * Phone System → Routing, else the one the owner's signup phone number carried.
+ */
+async function workspaceDialCode(tenantId: string): Promise<string | null> {
+  const routing = await sql`
+    select routing ->> 'defaultDialCode' as code from phone_system_settings where tenant_id = ${tenantId} limit 1
+  `;
+  const set = ((routing[0] as { code: string | null } | undefined)?.code ?? "").replace(/\D/g, "");
+  if (set) return set;
+
+  const signup = await sql`
+    select phone from signup_requests
+    where workspace_slug = (select workspace_slug from tenants where id = ${tenantId}) and phone is not null
+    order by created_at asc limit 1
+  `;
+  const phone = (signup[0] as { phone: string } | undefined)?.phone;
+  return phone ? callingCodeFromE164(phone) || null : null;
+}
+
 export async function createContact(data: {
   token: string;
   company?: string;
@@ -170,14 +187,24 @@ export async function createContact(data: {
     const { tenantId } = await contactScope(data.token, true);
     await requireCanCreate(tenantId, "contacts");
 
-    const phone = normalizePhone(data.phone);
-    if (!isValidPhone(phone)) throw new Error("Enter a valid phone number.");
+    const parsed = parsePhone(data.phone, await workspaceDialCode(tenantId));
+    if (parsed.error !== undefined) throw new Error(parsed.error);
+    const phone = parsed.phone;
 
-    const listId = data.listName?.trim() ? await findOrCreateList(tenantId, data.listName.trim()) : null;
+    const duplicate = await sql`
+      select 1 from contacts
+      where tenant_id = ${tenantId} and right(regexp_replace(phone, '\\D', '', 'g'), 10) = ${phoneKey(phone)} limit 1
+    `;
+    if (duplicate.length > 0) throw new Error("A contact with that phone number already exists.");
+
+    if (data.email?.trim() && !cleanEmail(data.email)) throw new Error("That email address doesn't look right.");
+
+    const listId = data.listName?.trim() ? await findOrCreateList(tenantId, data.listName.trim().slice(0, 100)) : null;
 
     const inserted = await sql`
       insert into contacts (tenant_id, list_id, company, person, phone, email, tags)
-      values (${tenantId}, ${listId}, ${data.company || null}, ${data.person || null}, ${phone}, ${data.email || null}, ${data.tags || []})
+      values (${tenantId}, ${listId}, ${data.company?.trim().slice(0, 200) || null}, ${data.person?.trim().slice(0, 200) || null},
+              ${phone}, ${cleanEmail(data.email)}, ${cleanTags(data.tags ?? [])})
       returning id
     `;
 
@@ -198,61 +225,80 @@ export const createContactFn = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => createContact(data));
 
+export interface ImportResult {
+  imported: number;
+  /** Numbers that were already in the workspace, or repeated within the file. */
+  duplicates: number;
+  /** The first rows that could not be imported, each with the reason. */
+  invalid: InvalidRow[];
+  invalidCount: number;
+  droppedEmails: number;
+  listName: string | null;
+}
+
+/**
+ * Imports a batch of contacts in a single statement.
+ *
+ * One statement means all-or-nothing: a failure leaves nothing half-written for
+ * the user to reconcile by hand. (The old loop issued one request per row, which
+ * ran into the Worker's request limits on any real-sized file and could stop
+ * halfway.) Numbers are normalised against the workspace's country code,
+ * repeats are dropped by comparing the last ten digits, and the plan limit is
+ * checked against the contacts that will actually be added, not the raw row
+ * count.
+ */
 export async function importContacts(data: {
   token: string;
-  rows: { company?: string; person?: string; phone: string; email?: string; tags?: string[] }[];
+  rows: RawImportRow[];
   listName?: string;
 }) {
     const tenantId = await requireTenant(data.token);
-    // Checked against the whole batch before anything is written — a partial
-    // import that stops halfway would leave the user reconciling by hand.
-    await requireCanCreate(tenantId, "contacts", data.rows.length);
-
-    const listId = data.listName?.trim() ? await findOrCreateList(tenantId, data.listName.trim()) : null;
-
-    const existingRows = await sql`select phone from contacts where tenant_id = ${tenantId}`;
-    const existingPhones = new Set((existingRows as { phone: string }[]).map((r) => r.phone));
-    const seenInBatch = new Set<string>();
-
-    const invalid: { row: number; phone: string }[] = [];
-    let duplicates = 0;
-    let imported = 0;
-
-    for (let i = 0; i < data.rows.length; i++) {
-      const row = data.rows[i]!;
-      const phone = normalizePhone(row.phone);
-      if (!isValidPhone(phone)) {
-        invalid.push({ row: i + 1, phone: row.phone });
-        continue;
-      }
-      if (existingPhones.has(phone) || seenInBatch.has(phone)) {
-        duplicates++;
-        continue;
-      }
-      seenInBatch.add(phone);
-      await sql`
-        insert into contacts (tenant_id, list_id, company, person, phone, email, tags)
-        values (${tenantId}, ${listId}, ${row.company || null}, ${row.person || null}, ${phone}, ${row.email || null}, ${row.tags || []})
-      `;
-      imported++;
+    if (!Array.isArray(data.rows) || data.rows.length === 0) throw new Error("There are no rows to import.");
+    if (data.rows.length > MAX_IMPORT_ROWS) {
+      throw new Error(`Import up to ${MAX_IMPORT_ROWS.toLocaleString()} contacts at a time. Split the file and import it in parts.`);
     }
 
-    return {
-      ok: true as const,
+    const dialCode = await workspaceDialCode(tenantId);
+    const prepared = prepareRows(data.rows, dialCode);
+
+    const existingRows = await sql`
+      select right(regexp_replace(phone, '\\D', '', 'g'), 10) as k from contacts where tenant_id = ${tenantId}
+    `;
+    const existing = new Set((existingRows as { k: string }[]).map((r) => r.k));
+    const fresh = prepared.ready.filter((r) => !existing.has(r.key));
+    const duplicates = prepared.duplicatesInFile + (prepared.ready.length - fresh.length);
+
+    const listName = data.listName?.trim().slice(0, 100) || null;
+    let imported = 0;
+
+    if (fresh.length > 0) {
+      // Only the contacts that will really be added count against the plan.
+      await requireCanCreate(tenantId, "contacts", fresh.length);
+      const listId = listName ? await findOrCreateList(tenantId, listName) : null;
+      const payload = fresh.map(({ company, person, phone, email, tags }) => ({ company, person, phone, email, tags }));
+      const inserted = await sql`
+        insert into contacts (tenant_id, list_id, company, person, phone, email, tags)
+        select ${tenantId}, ${listId}, r.company, r.person, r.phone, r.email, coalesce(r.tags, '{}')
+        from jsonb_to_recordset(${JSON.stringify(payload)}::jsonb) as r(company text, person text, phone text, email text, tags text[])
+        returning id
+      `;
+      imported = inserted.length;
+    }
+
+    const result: ImportResult = {
       imported,
       duplicates,
-      invalid,
-      invalidCount: invalid.length,
+      invalid: prepared.invalid.slice(0, 100),
+      invalidCount: prepared.invalid.length,
+      droppedEmails: prepared.droppedEmails,
+      listName,
     };
+    return { ok: true as const, ...result };
 }
 
 export const importContactsFn = createServerFn({ method: "POST" })
   .validator(
-    (data: {
-      token: string;
-      rows: { company?: string; person?: string; phone: string; email?: string; tags?: string[] }[];
-      listName?: string;
-    }) => data,
+    (data: { token: string; rows: RawImportRow[]; listName?: string }) => data,
   )
   .handler(async ({ data }) => importContacts(data));
 

@@ -33,7 +33,8 @@ import {
   type Contact,
   type ContactList,
 } from "@/lib/contacts-api";
-import { csvToContacts, type ParsedContactRow } from "@/lib/csv";
+import { csvToContacts, decodeCsvBuffer, looksBinary, type CsvParseResult, type ParsedContactRow } from "@/lib/csv";
+import { MAX_IMPORT_ROWS, type InvalidRow } from "@/backend/contact-import";
 import { useSoftphoneContext } from "@/components/dash/SoftphoneProvider";
 
 export const Route = createFileRoute("/contacts")({
@@ -107,6 +108,15 @@ function ContactsPage() {
     fileName: string;
     skipped: number;
     listName: string;
+    parse: CsvParseResult;
+    encoding: string;
+  } | null>(null);
+  const [importResult, setImportResult] = useState<{
+    imported: number;
+    duplicates: number;
+    invalid: InvalidRow[];
+    invalidCount: number;
+    droppedEmails: number;
   } | null>(null);
 
   const load = useCallback(async () => {
@@ -178,29 +188,50 @@ function ContactsPage() {
     }
   }
 
-  function handleFile(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
+  async function handleFile(event: React.ChangeEvent<HTMLInputElement>) {
+    const input = event.target;
+    const file = input.files?.[0];
+    input.value = "";
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const { rows, skippedNoPhone } = csvToContacts(String(reader.result || ""));
-      if (rows.length === 0) {
-        toast.error("No usable rows found", {
-          description: "Make sure your file has a phone number column.",
-        });
-        return;
+    try {
+      if (/\.(xlsx?|ods|numbers)$/i.test(file.name)) {
+        throw new Error("That's a spreadsheet file. In Excel or Sheets choose File → Save as → CSV, then import that file.");
+      }
+      if (file.size > 8 * 1024 * 1024) throw new Error("That file is over 8 MB. Split it into smaller files.");
+      if (file.size === 0) throw new Error("That file is empty.");
+
+      const buffer = await file.arrayBuffer();
+      if (looksBinary(buffer)) {
+        throw new Error("That doesn't look like a CSV text file. In Excel or Sheets choose File → Save as → CSV.");
+      }
+      const { text, encoding } = decodeCsvBuffer(buffer);
+      const parse = csvToContacts(text);
+
+      if (parse.rows.length === 0) {
+        throw new Error(
+          parse.totalRows === 0
+            ? "The file has no data rows."
+            : "No phone numbers found. Make sure there is a column named Phone, Mobile or Number.",
+        );
+      }
+      if (parse.rows.length > MAX_IMPORT_ROWS) {
+        throw new Error(`That file has ${parse.rows.length.toLocaleString()} contacts. Import up to ${MAX_IMPORT_ROWS.toLocaleString()} at a time: split the file in parts.`);
       }
       setPending({
-        rows,
+        rows: parse.rows,
         fileName: file.name,
-        skipped: skippedNoPhone,
-        listName: file.name.replace(/\.csv$/i, ""),
+        skipped: parse.skippedNoPhone,
+        listName: file.name.replace(/\.(csv|txt)$/i, "").slice(0, 100),
+        parse,
+        encoding,
       });
       setImportOpen(true);
-    };
-    reader.readAsText(file);
-    event.target.value = "";
+    } catch (err) {
+      toast.error("Couldn't read that file", {
+        description: err instanceof Error ? err.message : "Try saving it as CSV and importing again.",
+      });
+    }
   }
 
   async function handleImport() {
@@ -208,14 +239,16 @@ function ContactsPage() {
     setBusy(true);
     try {
       const result = await importContacts(pending.rows, pending.listName.trim() || undefined);
-      toast.success(`${result.imported} contacts imported`, {
-        description: [
+      const detail =
+        [
           result.duplicates ? `${result.duplicates} already existed` : null,
-          result.invalidCount ? `${result.invalidCount} had invalid numbers` : null,
+          result.invalidCount ? `${result.invalidCount} couldn't be imported` : null,
         ]
           .filter(Boolean)
-          .join(" · ") || undefined,
-      });
+          .join(" · ") || undefined;
+      if (result.imported > 0) toast.success(`${result.imported.toLocaleString()} contacts imported`, detail ? { description: detail } : {});
+      else toast.info("No new contacts were added", detail ? { description: detail } : {});
+      if (result.invalidCount > 0 || result.droppedEmails > 0) setImportResult(result);
       setImportOpen(false);
       setPending(null);
       setPage(1);
@@ -270,9 +303,9 @@ function ContactsPage() {
           <input
             ref={fileRef}
             type="file"
-            accept=".csv,text/csv"
+            accept=".csv,.txt,text/csv,text/plain"
             className="hidden"
-            onChange={handleFile}
+            onChange={(e) => void handleFile(e)}
           />
           <ActionButton variant="outline" onClick={() => setAddOpen(true)}>
             <Plus className="size-4" /> Add contact
@@ -638,6 +671,54 @@ function ContactsPage() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={!!importResult} onOpenChange={(o) => !o && setImportResult(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Some rows weren't imported</DialogTitle>
+            <DialogDescription>
+              {importResult
+                ? `${importResult.imported.toLocaleString()} imported, ${importResult.duplicates.toLocaleString()} already existed, ${importResult.invalidCount.toLocaleString()} couldn't be read${
+                    importResult.droppedEmails ? `, ${importResult.droppedEmails} email${importResult.droppedEmails === 1 ? "" : "s"} left blank because they weren't valid` : ""
+                  }.`
+                : ""}
+            </DialogDescription>
+          </DialogHeader>
+          {importResult && importResult.invalid.length > 0 && (
+            <div className="max-h-72 overflow-y-auto rounded-md border border-border">
+              <table className="w-full text-left text-sm">
+                <thead className="sticky top-0 bg-card">
+                  <tr className="border-b border-border text-xs uppercase tracking-wide text-muted-foreground">
+                    <th className="px-3 py-2 font-semibold">Line</th>
+                    <th className="px-3 py-2 font-semibold">Value</th>
+                    <th className="px-3 py-2 font-semibold">Why</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {importResult.invalid.map((r, i) => (
+                    <tr key={i} className="border-b border-border last:border-0">
+                      <td className="px-3 py-1.5 font-mono text-xs">{r.row}</td>
+                      <td className="px-3 py-1.5 font-mono text-xs">{r.phone || "(blank)"}</td>
+                      <td className="px-3 py-1.5 text-xs text-muted-foreground">{r.reason}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {importResult.invalidCount > importResult.invalid.length && (
+                <p className="px-3 py-2 text-xs text-muted-foreground">
+                  Showing the first {importResult.invalid.length} of {importResult.invalidCount.toLocaleString()}.
+                </p>
+              )}
+            </div>
+          )}
+          <p className="text-xs text-muted-foreground">
+            Fix those lines in your file and import it again. Contacts already added are skipped, so nothing is duplicated.
+          </p>
+          <DialogFooter>
+            <ActionButton onClick={() => setImportResult(null)}>Done</ActionButton>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={importOpen} onOpenChange={setImportOpen}>
         <DialogContent>
           <DialogHeader>
@@ -653,6 +734,26 @@ function ContactsPage() {
 
           {pending && (
             <div className="flex flex-col gap-4">
+              <div className="rounded-md border border-border bg-muted/40 p-3 text-xs">
+                <p className="mb-1.5 font-semibold text-muted-foreground">Columns we found</p>
+                <ul className="grid gap-x-6 gap-y-0.5 sm:grid-cols-2">
+                  {Object.entries(pending.parse.detectedColumns).map(([field, label]) => (
+                    <li key={field}>
+                      <span className="capitalize text-muted-foreground">{field}</span> ← {label}
+                    </li>
+                  ))}
+                </ul>
+                {!pending.parse.hadHeader && (
+                  <p className="mt-2 text-muted-foreground">No header row, so columns were guessed from the data.</p>
+                )}
+                {pending.parse.ignoredColumns.length > 0 && (
+                  <p className="mt-2 text-muted-foreground">Not imported: {pending.parse.ignoredColumns.join(", ")}</p>
+                )}
+                {pending.encoding === "windows-1252" && (
+                  <p className="mt-2 text-muted-foreground">Read as Windows text. Check names with accents look right below.</p>
+                )}
+              </div>
+
               {pending.skipped > 0 && (
                 <p className="flex items-start gap-2 rounded-md border border-warning/35 bg-warning/10 p-3 text-xs text-warning-foreground">
                   <FileWarning className="mt-0.5 size-3.5 shrink-0" />
@@ -678,7 +779,7 @@ function ContactsPage() {
                   Preview
                 </p>
                 <div className="divide-y divide-border">
-                  {pending.rows.slice(0, 3).map((r, i) => (
+                  {pending.rows.slice(0, 5).map((r, i) => (
                     <div key={i} className="px-3 py-2 text-sm">
                       <span className="font-mono">{r.phone}</span>
                       {r.company ? (
