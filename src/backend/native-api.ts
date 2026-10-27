@@ -36,7 +36,6 @@ import { getSipConnection, saveByoSip, deleteSipConnection } from "./sip.server"
 import {
   getTenantSettings,
   saveTenantSettings,
-  listMyTickets,
   createMyTicket,
   listSms,
   createSmsCampaign,
@@ -59,6 +58,19 @@ import {
   deleteTicket,
 } from "./admin.server";
 import { listTenants, setTenantStatus } from "./auth.server";
+import {
+  listConversations,
+  getConversation,
+  replyAsSupport,
+  listMyConversations,
+  getMyConversation,
+  replyAsCustomer,
+} from "./support.server";
+import { requestPlanUpgrade } from "./billing.server";
+import { getAutomations, saveAutomations, listAutoTexts } from "./automation.server";
+import { getNumberHealth, restNumber } from "./reputation.server";
+import { summarizeCall, getCallSummary } from "./call-summary.server";
+import { powerStart, powerNext, powerResult, powerStop } from "./power-dialer.server";
 
 export const NATIVE_API_PREFIX = "/api/native/";
 
@@ -187,6 +199,18 @@ export async function handleNativeApi(request: Request, pathname: string): Promi
           fromNumber?: string;
           contactId?: string;
         }>(request);
+        // The desktop softphone dials through the workspace's SIP trunk, which
+        // sets the caller ID. Record which number that is when there is only one
+        // possibility, so number health can attribute these calls.
+        if (body.direction === "outbound" && !body.fromNumber) {
+          const payload = await verifyToken(body.token);
+          if (payload?.tenantId) {
+            const owned = await sql`
+              select number from phone_numbers where tenant_id = ${payload.tenantId} and status = 'Active' limit 2
+            `;
+            if (owned.length === 1) body.fromNumber = (owned[0] as { number: string }).number;
+          }
+        }
         const result = await startCall(body);
         return jsonOk(result);
       }
@@ -333,9 +357,43 @@ export async function handleNativeApi(request: Request, pathname: string): Promi
         return jsonOk(await deleteSmsDraft(await readJson(request)));
 
       case "support/list":
-        return jsonOk(await listMyTickets(await readJson(request)));
+        return jsonOk(await listMyConversations(await readJson(request)));
       case "support/create":
         return jsonOk(await createMyTicket(await readJson(request)));
+      case "support/thread":
+        return jsonOk(await getMyConversation(await readJson(request)));
+      case "support/reply":
+        return jsonOk(await replyAsCustomer(await readJson(request)));
+
+      // ---------- automations: text-back, AI receptionist, rotation ----------
+      case "automations/get":
+        return jsonOk(await getAutomations(await readJson(request)));
+      case "automations/save":
+        return jsonOk(await saveAutomations(await readJson(request)));
+      case "automations/texts":
+        return jsonOk(await listAutoTexts(await readJson(request)));
+
+      // ---------- number health ----------
+      case "numbers/health":
+        return jsonOk(await getNumberHealth(await readJson(request)));
+      case "numbers/rest":
+        return jsonOk(await restNumber(await readJson(request)));
+
+      // ---------- call summaries ----------
+      case "calls/summarize":
+        return jsonOk(await summarizeCall(await readJson(request)));
+      case "calls/summary":
+        return jsonOk(await getCallSummary(await readJson(request)));
+
+      // ---------- power dialer ----------
+      case "power/start":
+        return jsonOk(await powerStart(await readJson(request)));
+      case "power/next":
+        return jsonOk(await powerNext(await readJson(request)));
+      case "power/result":
+        return jsonOk(await powerResult(await readJson(request)));
+      case "power/stop":
+        return jsonOk(await powerStop(await readJson(request)));
 
       case "billing/plans":
         return jsonOk(await listPlans({}));
@@ -347,6 +405,8 @@ export async function handleNativeApi(request: Request, pathname: string): Promi
         return jsonOk(await requestDialerAddon(await readJson(request)));
       case "billing/request-sip":
         return jsonOk(await requestSipAddon(await readJson(request)));
+      case "billing/request-plan":
+        return jsonOk(await requestPlanUpgrade(await readJson(request)));
 
       // ---------- super admin ----------
       // A founder's tenant login isn't always flagged super-admin, so the app
@@ -373,6 +433,12 @@ export async function handleNativeApi(request: Request, pathname: string): Promi
         return jsonOk(await setDialerAddon(await readJson(request)));
       case "admin/set-sip":
         return jsonOk(await setSipAddon(await readJson(request)));
+      case "admin/conversations":
+        return jsonOk(await listConversations(await readJson(request)));
+      case "admin/conversation":
+        return jsonOk(await getConversation(await readJson(request)));
+      case "admin/reply":
+        return jsonOk(await replyAsSupport(await readJson(request)));
       case "admin/tickets":
         return jsonOk(await listTickets(await readJson(request)));
       case "admin/ticket-create":

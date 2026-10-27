@@ -12,6 +12,7 @@ import { env } from "./env";
 import { verifyToken } from "./tokens";
 import { requireCanCreate } from "./entitlements";
 import { originateAiCall } from "./signalwire-rest";
+import { pickOutboundNumber } from "./reputation.server";
 import { verifySignalWireSignature } from "./signalwire";
 import { createServerFn } from "@tanstack/react-start";
 
@@ -115,7 +116,7 @@ export async function dialNextPendingContact(
     await sql`
       update campaigns set status = 'Paused', updated_at = now() where id = ${campaignId} and status = 'Active'
     `;
-    console.warn(`[campaign-dialer] ${campaignId} paused — no outbound number configured`);
+    console.warn(`[campaign-dialer] ${campaignId} paused — no usable outbound number (none configured, or all at their daily limit or resting)`);
     return;
   }
 
@@ -150,10 +151,7 @@ export async function dialNextPendingContact(
 
 /** The tenant's own number to dial out from — an AI campaign needs a SignalWire-provisioned number, same as any other outbound leg. */
 async function primaryOutboundNumber(tenantId: string): Promise<string | null> {
-  const [row] = await sql`
-    select number from phone_numbers where tenant_id = ${tenantId} and status = 'Active' order by created_at limit 1
-  `;
-  return row?.number ?? null;
+  return pickOutboundNumber(tenantId);
 }
 
 /**

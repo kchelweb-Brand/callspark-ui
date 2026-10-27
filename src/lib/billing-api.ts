@@ -3,6 +3,7 @@ import {
   activateTenantFn,
   getPlanUsageFn,
   listPlansFn,
+  requestPlanUpgradeFn,
   setTenantPlanFn,
 } from "@/backend/billing.server";
 import {
@@ -22,6 +23,10 @@ function requireToken(): string {
 
 export function listPlans() {
   return listPlansFn({ data: {} });
+}
+
+export function requestPlanUpgrade(planId: string) {
+  return requestPlanUpgradeFn({ data: { token: requireToken(), planId } });
 }
 
 export function getPlanUsage() {

@@ -5,6 +5,7 @@ import { verifyToken } from "./tokens";
 import { sendTicketRaisedEmail } from "./email";
 import type { JsonObject } from "./phone-system.server";
 import { requireCanCreate } from "./entitlements";
+import { ensureSchema } from "./schema.server";
 
 async function requireTenant(token: string): Promise<string> {
   const payload = await verifyToken(token);
@@ -117,9 +118,10 @@ export async function createMyTicket(data: { token: string; subject: string; bod
       ? data.priority!
       : "Medium";
 
+    await ensureSchema();
     const inserted = await sql`
-      insert into support_tickets (tenant_id, subject, body, priority, created_by_email)
-      values (${payload.tenantId}, ${subject}, ${data.body ?? null}, ${priority}, ${payload.email})
+      insert into support_tickets (tenant_id, subject, body, priority, created_by_email, admin_unread)
+      values (${payload.tenantId}, ${subject}, ${data.body ?? null}, ${priority}, ${payload.email}, true)
       returning id
     `;
     const rows = await sql`

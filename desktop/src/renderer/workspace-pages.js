@@ -310,6 +310,14 @@
     let started = false;
     const LABELS = { agents: "Agents", contacts: "Contacts", campaigns: "Campaigns", ivrMenus: "IVR menus", phoneNumbers: "Phone numbers", calls: "Calls", smsCampaigns: "SMS campaigns" };
 
+    const FEATURES = [
+      ["powerDialer", "Power dialer"],
+      ["missedCallTextBack", "Text-back"],
+      ["numberRotation", "Number rotation"],
+      ["callSummaries", "Call summaries"],
+      ["aiReceptionist", "AI receptionist"],
+    ];
+
     function addonRow(name, price, a, key) {
       const state = a.enabled ? '<span class="status status-ok">Active</span>' : a.requestedAt ? '<span class="status status-pending">Requested</span>' : "";
       const action = a.enabled ? "" : a.requestedAt ? "" : `<button data-addon="${key}">Request</button>`;
@@ -348,12 +356,23 @@
                   <strong>${U.esc(pl.name)}</strong><p class="plan-price">${U.esc(priceOf(pl))}</p>
                   <p class="hint">${U.esc(pl.blurb || "")}</p>
                   <p class="hint">${pl.limits.agents ?? "∞"} agents · ${pl.limits.contacts?.toLocaleString() ?? "∞"} contacts · ${pl.limits.ivrMenus ?? "∞"} IVR · ${pl.limits.phoneNumbers ?? "∞"} numbers</p>
-                  ${pl.id === u.plan.id ? '<span class="status status-ok">Current</span>' : opts.map((o) => `<button data-pay="${U.esc(o.url)}">${o.seats} seat${o.seats > 1 ? "s" : ""} · $${o.amountUsd}/mo</button>`).join("") || '<span class="hint">Contact us to get started</span>'}
+                  <p class="hint">${FEATURES.filter(([k]) => pl.features && pl.features[k]).map(([, l]) => l).join(" · ")}</p>
+                  ${pl.id === u.plan.id ? '<span class="status status-ok">Current</span>' : opts.map((o) => `<button data-pay="${U.esc(o.url)}">${o.seats} seat${o.seats > 1 ? "s" : ""} · $${o.amountUsd}/mo</button>`).join("") || `<button data-plan="${U.esc(pl.id)}">Request ${U.esc(pl.name)}</button>`}
                 </div>`;
               })
               .join("")}</div>
           </div>`;
         root.querySelectorAll("[data-pay]").forEach((b) => b.addEventListener("click", () => openLink(b.dataset.pay)));
+        root.querySelectorAll("[data-plan]").forEach((b) =>
+          b.addEventListener("click", async () => {
+            try {
+              const r = await api("billing/request-plan", { planId: b.dataset.plan });
+              U.toast(r.alreadyRequested ? `You already have an open request (${r.ticketRef}). We'll reply in Support.` : `Request sent (${r.ticketRef}). We'll reply in Support.`, "info");
+            } catch (err) {
+              U.toast(err.message, "error");
+            }
+          }),
+        );
         root.querySelectorAll("[data-addon]").forEach((b) =>
           b.addEventListener("click", async () => {
             try {
@@ -389,24 +408,62 @@
       try {
         const d = await api("support/list");
         root.querySelector("[data-body]").innerHTML = `<div class="panel table-panel">${U.table(
-          ["Ref", "Subject", "Priority", "Status", "Updated"],
+          ["Ref", "Subject", "Status", "Updated", ""],
           d.tickets.map((t) => [
             `<span class="mono">${U.esc(t.ticket_ref)}</span>`,
-            U.esc(t.subject),
-            U.esc(t.priority),
+            `${U.esc(t.subject)}${t.customer_unread ? ' <span class="status status-ok">New reply</span>' : ""}`,
             `<span class="status status-${t.status === "Resolved" ? "ok" : "pending"}">${U.esc(t.status)}</span>`,
             U.esc(U.when(t.updated_at)),
+            `<span class="row-actions"><button data-open="${t.id}">Open</button></span>`,
           ]),
-          "No tickets yet. Raise one if something isn't working.",
+          "No requests yet. Message us if something isn't working.",
         )}</div>`;
+        root.querySelectorAll("[data-open]").forEach((b) => b.addEventListener("click", () => openThread(b.dataset.open)));
       } catch (err) {
         showError(root, err);
       }
     }
 
+    async function openThread(id) {
+      let data;
+      try {
+        data = await api("support/thread", { id });
+      } catch (err) {
+        U.toast(err.message, "error");
+        return;
+      }
+      const m = U.modal({
+        title: `${data.ticket.ticket_ref} · ${data.ticket.subject}`,
+        wide: true,
+        html: `<p class="hint">Status: ${U.esc(data.ticket.status)}</p>
+          <div id="thread-box">${U.thread(data.messages, "customer")}</div>
+          <form id="thread-form" class="stack"><textarea id="thread-text" rows="3" maxlength="4000" placeholder="Write a reply…"></textarea>
+          <p class="hint" id="thread-hint"></p><button type="submit">Send reply</button></form>`,
+      });
+      const box = m.el.querySelector("#thread-box");
+      box.scrollTop = box.scrollHeight;
+      m.el.querySelector("#thread-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const text = m.el.querySelector("#thread-text");
+        const hint = m.el.querySelector("#thread-hint");
+        hint.textContent = "Sending…";
+        try {
+          const r = await api("support/reply", { id, body: text.value });
+          box.innerHTML = U.thread(r.messages, "customer");
+          box.scrollTop = box.scrollHeight;
+          text.value = "";
+          hint.textContent = "";
+          void load();
+        } catch (err) {
+          hint.textContent = err.message;
+        }
+      });
+      void load();
+    }
+
     function openNew() {
       U.formModal({
-        title: "Raise a support request",
+        title: "Message support",
         submitLabel: "Submit",
         fields: [
           { id: "subject", label: "Subject", required: true },
@@ -415,7 +472,7 @@
         ],
         onSubmit: async (v) => {
           await api("support/create", { subject: v.subject, body: v.body, priority: v.priority });
-          U.toast("Ticket submitted", "info");
+          U.toast("Message sent. We'll reply here and by email.", "info");
           void load();
         },
       });
@@ -425,7 +482,7 @@
       init() {
         if (started) return;
         started = true;
-        skeleton(root, "Support", "Raise a request and track its status.", '<button id="btn-new-ticket">New ticket</button>');
+        skeleton(root, "Support", "Message our team and follow the conversation here.", '<button id="btn-new-ticket">New message</button>');
         $("btn-new-ticket").addEventListener("click", openNew);
         void load();
       },

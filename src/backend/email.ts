@@ -247,6 +247,36 @@ export async function sendTicketStatusEmail(to: string, ticket: TicketEmailData)
   await send(to, `${ticket.ref} is now ${ticket.status ?? "updated"}`, shell("Support update", body), "ticket-status");
 }
 
+export interface TicketMessageEmailData {
+  ref: string;
+  subject: string;
+  message: string;
+  /** Who wrote it — a workspace name for customer replies, "Kchel support" otherwise. */
+  from: string;
+}
+
+/** Support answered: tells the customer there is a reply waiting on their Support page. */
+export async function sendSupportReplyEmail(to: string, data: TicketMessageEmailData) {
+  const body = `
+    <p style="font-size:14px;color:#475569;margin:0 0 12px">${escapeHtml(data.from)} replied to your request.</p>
+    <p style="font-size:15px;font-weight:600;color:#0f172a;margin:0 0 8px">${escapeHtml(data.subject)}</p>
+    <p style="font-size:14px;color:#0f172a;white-space:pre-wrap;background:#f1f5f9;padding:14px 16px;border-radius:10px;margin:0 0 20px">${escapeHtml(data.message)}</p>
+    <p style="font-size:12px;color:#94a3b8">Reply from the Support page in your workspace or the Kchel Dialer app. Ticket ${escapeHtml(data.ref)}.</p>
+  `;
+  await send(to, `Re: ${data.subject} (${data.ref})`, shell("New reply from support", body), "ticket-reply");
+}
+
+/** A customer wrote back: tells the platform owners there is something to answer. */
+export async function sendCustomerReplyEmail(to: string[], data: TicketMessageEmailData) {
+  const body = `
+    <p style="font-size:14px;color:#475569;margin:0 0 12px">${escapeHtml(data.from)} wrote on <strong>${escapeHtml(data.ref)}</strong>.</p>
+    <p style="font-size:15px;font-weight:600;color:#0f172a;margin:0 0 8px">${escapeHtml(data.subject)}</p>
+    <p style="font-size:14px;color:#0f172a;white-space:pre-wrap;background:#f1f5f9;padding:14px 16px;border-radius:10px;margin:0 0 20px">${escapeHtml(data.message)}</p>
+    <p style="font-size:12px;color:#94a3b8">Open Super admin → Support to reply.</p>
+  `;
+  await send(to, `[Reply] ${data.ref} — ${data.subject}`, shell("Customer reply", body), "ticket-customer-reply");
+}
+
 // ---------- account activation ----------
 
 export interface ActivationEmailData {

@@ -24,6 +24,40 @@
     return `<span class="status status-${kind}">${U.esc(String(s).replace(/_/g, " "))}</span>`;
   }
 
+  /** Opens the written summary and transcript for a call, creating them first if needed. */
+  async function showSummary(callId, hasSummary) {
+    const m = U.modal({ title: "Call summary", wide: true, html: `<p class="hint">${hasSummary ? "Loading…" : "Listening to the recording and writing a summary. This can take up to a minute…"}</p>` });
+    const bodyEl = m.el.querySelector(".modal-body");
+    try {
+      const r = await api(hasSummary ? "calls/summary" : "calls/summarize", { callId });
+      if (!r.summary) {
+        bodyEl.innerHTML = '<p class="hint">No summary was saved for this call.</p>';
+        return;
+      }
+      bodyEl.innerHTML = `
+        <p class="eyebrow">Summary</p>
+        <p class="summary-text">${U.esc(r.summary)}</p>
+        ${r.transcript ? `<details><summary>Full transcript</summary><p class="summary-transcript">${U.esc(r.transcript)}</p></details>` : ""}`;
+    } catch (err) {
+      bodyEl.innerHTML = `<p class="hint status-error" style="padding:12px;border-radius:10px">${U.esc(err.message)}</p>`;
+    }
+  }
+
+  function summaryButton(c) {
+    if (c.has_summary) return `<button data-summary="${c.id}" data-has="1">View summary</button>`;
+    if (c.has_recording !== false && (c.recording_url || c.has_recording)) return `<button data-summary="${c.id}">Summarize</button>`;
+    return "—";
+  }
+
+  function wireSummaryButtons(scope, reload) {
+    scope.querySelectorAll("[data-summary]").forEach((b) =>
+      b.addEventListener("click", async () => {
+        await showSummary(b.dataset.summary, b.dataset.has === "1");
+        if (reload) reload();
+      }),
+    );
+  }
+
   // ---------- Overview ----------
   const overview = (() => {
     const root = $("view-overview");
@@ -124,14 +158,15 @@
         root.querySelector("[data-body]").innerHTML = `
           <div class="panel table-panel">
             ${U.table(
-              ["Who", "Direction", "Agent", "Result", "Duration", "When"],
+              ["Who", "Direction", "Agent", "Result", "Duration", "When", "Notes"],
               calls.map((c) => [
                 U.esc(who(c)),
                 U.esc(c.direction),
-                U.esc(c.agent_email || "—"),
+                c.handled_by === "ai" ? '<span class="status status-ok">AI receptionist</span>' : U.esc(c.agent_email || "—"),
                 statusPill(c),
                 U.esc(U.dur(c.duration_seconds)),
                 U.esc(U.when(c.started_at)),
+                summaryButton(c),
               ]),
               "No calls match.",
             )}
@@ -141,6 +176,7 @@
             <span class="hint">Page ${page} · ${total} calls</span>
             <button id="hist-next" ${page * PAGE >= total ? "disabled" : ""}>Next</button>
           </div>`;
+        wireSummaryButtons(root, () => void load());
         $("hist-prev").addEventListener("click", () => { page -= 1; void load(); });
         $("hist-next").addEventListener("click", () => { page += 1; void load(); });
       } catch (err) {
@@ -174,7 +210,7 @@
           <p class="hint">${U.esc(String(d.completedCalls ?? 0))} completed calls · ${d.recordings.length} with a recording</p>
           <div class="panel table-panel">
             ${U.table(
-              ["Who", "Agent", "Length", "When", "Listen"],
+              ["Who", "Agent", "Length", "When", "Listen", "Summary"],
               d.recordings.map((r) => [
                 U.esc(who(r)),
                 U.esc(r.agent_email || "—"),
@@ -183,10 +219,12 @@
                 r.recording_url && /^https:/.test(r.recording_url)
                   ? `<audio controls preload="none" src="${U.esc(r.recording_url)}"></audio>`
                   : "—",
+                summaryButton({ ...r, has_recording: true }),
               ]),
               "No recordings yet. Turn on call recording in Settings.",
             )}
           </div>`;
+        wireSummaryButtons(root, () => void load());
       } catch (err) {
         showError(root, err);
       }

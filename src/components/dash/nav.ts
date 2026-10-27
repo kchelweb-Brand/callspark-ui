@@ -14,6 +14,7 @@ import {
   Activity,
   LifeBuoy,
   Workflow,
+  Zap,
   type LucideIcon,
 } from "lucide-react";
 
@@ -30,6 +31,7 @@ export const tenantNav: NavItem[] = [
   { label: "Recordings", to: "/recordings", icon: AudioLines },
   { label: "Analytics", to: "/analytics", icon: BarChart3 },
   { label: "Phone System", to: "/phone-system", icon: Workflow },
+  { label: "Automations", to: "/automations", icon: Zap },
   { label: "Settings", to: "/settings", icon: Settings },
   { label: "Billing", to: "/billing", icon: CreditCard },
   { label: "Support", to: "/support", icon: LifeBuoy },

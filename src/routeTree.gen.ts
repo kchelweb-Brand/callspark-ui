@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AgentsRouteImport } from './routes/agents'
 import { Route as AnalyticsRouteImport } from './routes/analytics'
+import { Route as AutomationsRouteImport } from './routes/automations'
 import { Route as BillingRouteImport } from './routes/billing'
 import { Route as CallHistoryRouteImport } from './routes/call-history'
 import { Route as CampaignsRouteImport } from './routes/campaigns'
@@ -45,6 +46,11 @@ const AgentsRoute = AgentsRouteImport.update({
 const AnalyticsRoute = AnalyticsRouteImport.update({
   id: '/analytics',
   path: '/analytics',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AutomationsRoute = AutomationsRouteImport.update({
+  id: '/automations',
+  path: '/automations',
   getParentRoute: () => rootRouteImport,
 } as any)
 const BillingRoute = BillingRouteImport.update({
@@ -147,6 +153,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/agents': typeof AgentsRoute
   '/analytics': typeof AnalyticsRoute
+  '/automations': typeof AutomationsRoute
   '/billing': typeof BillingRoute
   '/call-history': typeof CallHistoryRoute
   '/campaigns': typeof CampaignsRoute
@@ -171,6 +178,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/agents': typeof AgentsRoute
   '/analytics': typeof AnalyticsRoute
+  '/automations': typeof AutomationsRoute
   '/billing': typeof BillingRoute
   '/call-history': typeof CallHistoryRoute
   '/campaigns': typeof CampaignsRoute
@@ -196,6 +204,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/agents': typeof AgentsRoute
   '/analytics': typeof AnalyticsRoute
+  '/automations': typeof AutomationsRoute
   '/billing': typeof BillingRoute
   '/call-history': typeof CallHistoryRoute
   '/campaigns': typeof CampaignsRoute
@@ -222,6 +231,7 @@ export interface FileRouteTypes {
     | '/'
     | '/agents'
     | '/analytics'
+    | '/automations'
     | '/billing'
     | '/call-history'
     | '/campaigns'
@@ -246,6 +256,7 @@ export interface FileRouteTypes {
     | '/'
     | '/agents'
     | '/analytics'
+    | '/automations'
     | '/billing'
     | '/call-history'
     | '/campaigns'
@@ -270,6 +281,7 @@ export interface FileRouteTypes {
     | '/'
     | '/agents'
     | '/analytics'
+    | '/automations'
     | '/billing'
     | '/call-history'
     | '/campaigns'
@@ -295,6 +307,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AgentsRoute: typeof AgentsRoute
   AnalyticsRoute: typeof AnalyticsRoute
+  AutomationsRoute: typeof AutomationsRoute
   BillingRoute: typeof BillingRoute
   CallHistoryRoute: typeof CallHistoryRoute
   CampaignsRoute: typeof CampaignsRoute
@@ -337,6 +350,13 @@ declare module '@tanstack/react-router' {
       path: '/analytics'
       fullPath: '/analytics'
       preLoaderRoute: typeof AnalyticsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/automations': {
+      id: '/automations'
+      path: '/automations'
+      fullPath: '/automations'
+      preLoaderRoute: typeof AutomationsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/billing': {
@@ -479,6 +499,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AgentsRoute: AgentsRoute,
   AnalyticsRoute: AnalyticsRoute,
+  AutomationsRoute: AutomationsRoute,
   BillingRoute: BillingRoute,
   CallHistoryRoute: CallHistoryRoute,
   CampaignsRoute: CampaignsRoute,

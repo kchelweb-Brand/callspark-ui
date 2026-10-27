@@ -37,6 +37,15 @@ import {
   type SmsDraftRecord,
 } from "@/backend/workspace.server";
 import type { JsonObject } from "@/backend/phone-system.server";
+import {
+  getMyConversationFn,
+  listMyConversationsFn,
+  replyAsCustomerFn,
+  type MyConversation,
+  type ThreadMessage as SupportThreadMessage,
+} from "@/backend/support.server";
+
+export type { MyConversation, SupportThreadMessage };
 import { getSessionToken } from "./auth-api";
 
 export type { CampaignRecord, AgentRecord, SmsCampaignRecord, SmsDraftRecord, MyTicketRecord };
@@ -164,6 +173,18 @@ export function listMyTickets() {
 
 export function createMyTicket(input: { subject: string; body?: string; priority?: string }) {
   return createMyTicketFn({ data: { token: requireToken(), ...input } });
+}
+
+export function listMyConversations() {
+  return listMyConversationsFn({ data: { token: requireToken() } });
+}
+
+export function getMyConversation(id: string) {
+  return getMyConversationFn({ data: { token: requireToken(), id } });
+}
+
+export function replyAsCustomer(id: string, body: string) {
+  return replyAsCustomerFn({ data: { token: requireToken(), id, body } });
 }
 
 // ---------- workspace settings ----------

@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 
 import { sql, sqlQuery } from "./db";
 import { verifyToken } from "./tokens";
+import { ensureSchema } from "./schema.server";
 
 async function requireTenant(token: string): Promise<string> {
   const payload = await verifyToken(token);
@@ -247,6 +248,7 @@ export const getLiveFloorFn = createServerFn({ method: "POST" })
 
 export async function listRecordings(data: { token: string; search?: string }) {
     const tenantId = await requireTenant(data.token);
+    await ensureSchema();
 
     const params: unknown[] = [tenantId];
     let where = "c.tenant_id = $1 and c.recording_url is not null";
@@ -259,7 +261,8 @@ export async function listRecordings(data: { token: string; search?: string }) {
     const rows = await sqlQuery(
       `select c.id, c.recording_url, c.recording_seconds, c.duration_seconds,
               c.started_at, c.agent_email, c.to_number, c.from_number, c.direction,
-              c.outcome, coalesce(ct.company, ct.person) as contact_name
+              c.outcome, coalesce(ct.company, ct.person) as contact_name,
+              (c.summary is not null) as has_summary, c.handled_by
        from calls c
        left join contacts ct on ct.id = c.contact_id
        where ${where}
@@ -288,6 +291,8 @@ export async function listRecordings(data: { token: string; search?: string }) {
         from_number: string | null;
         direction: string;
         outcome: string | null;
+        has_summary: boolean;
+        handled_by: string | null;
         contact_name: string | null;
       }[],
       completedCalls: num((completed[0] as { n: number }).n),

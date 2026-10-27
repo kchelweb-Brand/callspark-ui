@@ -2,17 +2,22 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState, type CSSProperties } from "react";
 import {
   ArrowRight,
+  Activity,
   AudioLines,
   BarChart3,
+  Bot,
   Check,
   Clock,
   Download,
+  FileText,
   Headset,
   MessageSquare,
   PhoneCall,
+  Repeat,
   ShieldCheck,
   Voicemail,
   Workflow,
+  Zap,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -80,6 +85,54 @@ const FEATURES = [
     title: "Call history you can search",
     body: "Every call logged against the contact it belongs to, with its outcome, duration and recording.",
   },
+];
+
+const EXTRAS = [
+  {
+    icon: Bot,
+    title: "AI receptionist",
+    body: "Answers when you're closed or busy, asks who is calling and why, and takes a message. You get a written summary on the call.",
+    plan: "Business and up",
+  },
+  {
+    icon: Zap,
+    title: "Missed-call text-back",
+    body: "A call goes unanswered and the caller gets a text within seconds, before they dial your competitor.",
+    plan: "Starter and up",
+  },
+  {
+    icon: FileText,
+    title: "Call transcripts and summaries",
+    body: "Turn any recording into a transcript and a short summary with next steps, so nobody replays a 20-minute call.",
+    plan: "Professional and up",
+  },
+  {
+    icon: Activity,
+    title: "Number health",
+    body: "See which numbers are being answered and which are drifting toward a spam label, before your connect rate falls.",
+    plan: "Every plan",
+  },
+  {
+    icon: Repeat,
+    title: "Number rotation",
+    body: "Spread automated calls across your numbers, cap each one per day, and rest the ones that start to look like spam.",
+    plan: "Professional and up",
+  },
+  {
+    icon: PhoneCall,
+    title: "Power dialer",
+    body: "Work a list one contact after another with a short countdown and one-click call results. No seat minimums, on every plan.",
+    plan: "Every plan",
+  },
+];
+
+const COMPARE = [
+  ["Seat minimum", "None. Start with one agent", "Often 3 or more"],
+  ["Power dialer", "On every plan", "Often a higher tier"],
+  ["Missed-call text-back", "From Starter", "Often an add-on or missing"],
+  ["AI receptionist", "Included from Business", "Often a separate paid add-on"],
+  ["Call summaries", "From Professional", "Often an add-on or a higher tier"],
+  ["Number health and rotation", "Built in", "Usually a separate tool"],
 ];
 
 const STEPS = [
@@ -271,6 +324,56 @@ function HomePage() {
         </div>
       </section>
 
+      {/* ---------- built to win leads ---------- */}
+      <section id="extras" className="ks-tint border-t border-border">
+        <div className="mx-auto max-w-6xl px-6 py-24">
+          <div className="max-w-2xl">
+            <p className="ks-eyebrow">Built to win leads</p>
+            <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
+              The things other phone systems charge extra for, or don't have
+            </h2>
+            <p className="mt-4 text-lg text-muted-foreground">
+              Most of a sales team's lost revenue is a missed call that nobody followed up. These are
+              built in, not bolted on.
+            </p>
+          </div>
+
+          <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {EXTRAS.map(({ icon: Icon, title, body, plan }) => (
+              <div key={title} className="card-surface rounded-2xl p-6">
+                <span className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                  <Icon className="size-5" />
+                </span>
+                <h3 className="mt-5 font-bold">{title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{body}</p>
+                <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-primary">{plan}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="card-surface mt-10 overflow-x-auto rounded-2xl">
+            <table className="w-full min-w-[520px] text-left text-sm">
+              <thead>
+                <tr className="border-b border-border text-xs uppercase tracking-wide text-muted-foreground">
+                  <th className="px-5 py-3 font-semibold" />
+                  <th className="px-5 py-3 font-semibold text-primary">Kchel Dialer</th>
+                  <th className="px-5 py-3 font-semibold">Typical cloud phone systems</th>
+                </tr>
+              </thead>
+              <tbody>
+                {COMPARE.map(([what, us, them]) => (
+                  <tr key={what} className="border-b border-border last:border-0">
+                    <td className="px-5 py-3 font-medium">{what}</td>
+                    <td className="px-5 py-3 font-semibold">{us}</td>
+                    <td className="px-5 py-3 text-muted-foreground">{them}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
       {/* ---------- how it works ---------- */}
       <section className="ks-steps border-y border-border">
         <div className="mx-auto max-w-6xl px-6 py-20">
@@ -299,18 +402,19 @@ function HomePage() {
           <div className="mx-auto max-w-2xl text-center">
             <p className="ks-eyebrow">Pricing</p>
             <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
-              Per agent as you grow. Flat once you scale.
+              Per agent as you start. One flat price once you grow.
             </h2>
             <p className="mt-4 text-lg text-muted-foreground">
-              On Starter and Professional you bring your own SIP trunk, so your call minutes stay on
-              your carrier bill at your rates. On Managed Enterprise we supply the trunk, run the
-              carrier relationship, and charge one flat fee however large your team gets.
+              On Starter, Professional and Business you bring your own SIP trunk, so your call
+              minutes stay on your carrier bill at your rates. Business gives a growing team one
+              flat price with the AI receptionist included. On Managed Enterprise we also supply the
+              trunk, run the carrier relationship and handle support.
             </p>
           </div>
 
-          <div className="mt-14 grid gap-6 lg:grid-cols-4">
+          <div className="mt-14 grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
             {plans.map((p) => {
-              const featured = p.id === "professional";
+              const featured = p.id === "business";
               return (
                 <div
                   key={p.id}
@@ -318,7 +422,7 @@ function HomePage() {
                 >
                   {featured && (
                     <span className="ks-glow absolute -top-3 left-6 rounded-full bg-primary px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-primary-foreground">
-                      Most popular
+                      Best value
                     </span>
                   )}
                   <h3 className="font-semibold">{p.name}</h3>
@@ -360,6 +464,11 @@ function HomePage() {
                             : `${p.limits.recordingRetentionDays}-day recordings`
                       }
                     />
+                    <Line on={p.features.powerDialer} text="Power dialer" />
+                    <Line on={p.features.missedCallTextBack} text="Missed-call text-back" />
+                    <Line on={p.features.numberRotation} text="Number health & rotation" />
+                    <Line on={p.features.callSummaries} text="AI call summaries" />
+                    <Line on={p.features.aiReceptionist} text="AI receptionist" />
                     <Line on={p.managedSip} text="SIP trunk included" />
                   </ul>
 

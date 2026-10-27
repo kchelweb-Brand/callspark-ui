@@ -48,8 +48,9 @@
               <td>${escapeHtml(c.name)}</td>
               <td>${c.mode === "ai_agent" ? "AI agent" : "Manual"}</td>
               <td><span class="status status-${c.status === "Active" ? "ok" : "pending"}">${escapeHtml(c.status)}</span></td>
-              <td class="mono">${c.mode === "ai_agent" ? `${c.queue_completed + c.queue_failed}/${c.queue_total}` : "—"}</td>
+              <td class="mono">${c.mode === "ai_agent" || c.queue_total > 0 ? `${c.queue_completed + c.queue_failed}/${c.queue_total}` : "—"}</td>
               <td class="row-actions">
+                ${c.mode === "manual" && c.list_id ? `<button data-action="power" data-id="${c.id}" data-name="${escapeHtml(c.name)}">Power dial</button>` : ""}
                 ${
                   c.mode === "ai_agent"
                     ? c.status === "Active"
@@ -73,6 +74,7 @@
         if (action === "start") void startCampaign(id);
         if (action === "pause") void pauseCampaign(id);
         if (action === "log") openLog(id, name, status);
+        if (action === "power") void window.KchelPower.start({ id, name });
       });
     });
   }
@@ -176,13 +178,14 @@
               <button type="button" id="nc-mode-manual" class="toggle-btn active">Manual</button>
               <button type="button" id="nc-mode-ai" class="toggle-btn">AI agent</button>
             </div>
+            <label>Contact list
+              <select id="nc-list-id">
+                <option value="">Choose a list…</option>
+                ${lists.map((l) => `<option value="${l.id}">${escapeHtml(l.name)} (${l.contact_count})</option>`).join("")}
+              </select>
+            </label>
+            <p class="hint" id="nc-list-hint">Choose a list to power-dial it from the Dialer, one contact after another.</p>
             <div id="nc-ai-fields" class="hidden">
-              <label>Contact list
-                <select id="nc-list-id">
-                  <option value="">Choose a list…</option>
-                  ${lists.map((l) => `<option value="${l.id}">${escapeHtml(l.name)} (${l.contact_count})</option>`).join("")}
-                </select>
-              </label>
               <label>AI prompt / opening script
                 <textarea id="nc-prompt" rows="5"></textarea>
               </label>
@@ -237,7 +240,7 @@
       e.preventDefault();
       const hint = document.getElementById("nc-hint");
       try {
-        const listId = mode === "ai_agent" ? document.getElementById("nc-list-id").value : undefined;
+        const listId = document.getElementById("nc-list-id").value || undefined;
         if (mode === "ai_agent" && !listId) throw new Error("Choose a contact list.");
         await window.kchel.api("campaigns/create", {
           name: document.getElementById("nc-name").value.trim(),
@@ -264,6 +267,7 @@
       initialized = true;
       apiBase = await window.kchel.getApiBase();
       bind();
+      document.addEventListener("kchel:power-closed", () => void load());
       void load();
     },
   };

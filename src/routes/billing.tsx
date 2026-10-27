@@ -41,6 +41,7 @@ import {
   getPlanUsage,
   listPlans,
   requestDialerAddon,
+  requestPlanUpgrade,
   requestSipAddon,
 } from "@/lib/billing-api";
 import { downloadTextFile } from "@/lib/download";
@@ -105,6 +106,19 @@ function BillingPage() {
       .then(setAddons)
       .catch(() => {});
   }, []);
+
+  async function handleRequestPlan(planId: string, planName: string) {
+    try {
+      const result = await requestPlanUpgrade(planId);
+      toast.success(
+        result.alreadyRequested
+          ? `You already have an open request (${result.ticketRef}).`
+          : `${planName} requested (${result.ticketRef}). We'll reply in Support.`,
+      );
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not send that request.");
+    }
+  }
 
   async function handleRequestDialerAddon() {
     setRequestingDialer(true);
@@ -322,7 +336,7 @@ function BillingPage() {
                 </p>
               </div>
               <Button asChild>
-                <a href="/dl/downloads/Kchel-Dialer-Setup-2.12.0.exe">Download</a>
+                <a href="/dl/downloads/Kchel-Dialer-Setup-2.13.0.exe">Download</a>
               </Button>
             </div>
           ) : (
@@ -494,6 +508,16 @@ function BillingPage() {
                     {p.limits.contacts === null ? "unlimited" : p.limits.contacts.toLocaleString()} contacts ·{" "}
                     {p.limits.ivrMenus === null ? "unlimited" : p.limits.ivrMenus} IVR menus
                   </p>
+                  {!current && p.id !== "trial" && !checkout.some((o) => o.planId === p.id) && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="mt-3"
+                      onClick={() => void handleRequestPlan(p.id, p.name)}
+                    >
+                      Request {p.name}
+                    </Button>
+                  )}
                 </div>
               );
             })}

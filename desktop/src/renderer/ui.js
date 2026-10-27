@@ -135,5 +135,37 @@
     if (first) first.focus();
   }
 
-  window.KchelUi = { toast, confirm: confirmDialog, esc: escapeHtml, dur, when, header, stat, bars, table, formModal };
+  /** A read-only dialog for long content. Returns { el, close }. */
+  function modal({ title, html, wide }) {
+    const backdrop = document.createElement("div");
+    backdrop.className = "modal-backdrop";
+    backdrop.innerHTML = `<div class="modal${wide ? " modal-wide" : ""}" role="dialog" aria-modal="true"><h2>${escapeHtml(title)}</h2><div class="modal-body">${html}</div><div class="modal-actions"><button type="button" data-close>Close</button></div></div>`;
+    const close = () => {
+      document.removeEventListener("keydown", onKey);
+      backdrop.remove();
+    };
+    const onKey = (e) => {
+      if (e.key === "Escape") close();
+    };
+    document.addEventListener("keydown", onKey);
+    backdrop.addEventListener("click", (e) => {
+      if (e.target === backdrop || (e.target.dataset && "close" in e.target.dataset)) close();
+    });
+    document.body.appendChild(backdrop);
+    return { el: backdrop, close };
+  }
+
+  /** Chat bubbles for a support thread. `mine` is the role of whoever is looking at it. */
+  function thread(messages, mine) {
+    if (!messages.length) return '<p class="hint">No messages yet.</p>';
+    return `<div class="thread">${messages
+      .map((m) => {
+        const own = m.sender_role === mine;
+        const name = m.sender_role === "support" ? "Kchel support" : m.sender_email || "Customer";
+        return `<div class="bubble ${own ? "bubble-own" : "bubble-other"}"><p class="bubble-meta">${escapeHtml(name)} · ${escapeHtml(when(m.created_at))}</p><p class="bubble-text">${escapeHtml(m.body)}</p></div>`;
+      })
+      .join("")}</div>`;
+  }
+
+  window.KchelUi = { toast, confirm: confirmDialog, esc: escapeHtml, dur, when, header, stat, bars, table, formModal, modal, thread };
 })();

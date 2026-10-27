@@ -58,6 +58,8 @@ const PAGE_INIT = {
   billing: () => window.KchelBilling?.init(),
   support: () => window.KchelSupport?.init(),
   admin: () => window.KchelAdmin?.init(),
+  automations: () => window.KchelAutomations?.init(),
+  health: () => window.KchelHealth?.init(),
 };
 const pageLoaded = {};
 
@@ -210,14 +212,24 @@ els.btnDial.addEventListener("click", async () => {
   }
   els.dialerHint.textContent = "";
   try {
-    enterCall({ number, direction: "outgoing", state: "Calling…" });
-    const { callId, engineCallId } = await window.kchel.dial(number);
-    activeCall = { ...activeCall, callId, engineCallId };
+    await placeCall(number);
   } catch (err) {
     els.dialerHint.textContent = err.message;
     exitCall();
   }
 });
+
+/** Places an outgoing call and returns its call-record id. Used by the keypad and the power dialer. */
+async function placeCall(number) {
+  if (!sipRegistered) throw new Error("Not registered yet. Can't place a call.");
+  if (activeCall) throw new Error("You're already on a call.");
+  enterCall({ number, direction: "outgoing", state: "Calling…" });
+  const { callId, engineCallId } = await window.kchel.dial(number);
+  activeCall = { ...activeCall, callId, engineCallId };
+  return callId;
+}
+
+window.KchelDialer = { placeCall };
 
 els.btnHangup.addEventListener("click", async () => {
   const callId = activeCall?.callId;
@@ -341,10 +353,16 @@ window.kchel.onCallEvent(async (msg) => {
           activeCall.answeredAt = Date.now();
           startTimer();
           if (activeCall.callId) window.kchel.reportAnswered(activeCall.callId);
+          window.KchelPower?.onCallAnswered();
         }
       }
       break;
     case "CALL_CLOSED":
+      window.KchelPower?.onCallClosed({
+        direction: activeCall?.direction,
+        callId: activeCall?.callId,
+        answered: Boolean(activeCall?.answeredAt),
+      });
       exitCall();
       break;
   }

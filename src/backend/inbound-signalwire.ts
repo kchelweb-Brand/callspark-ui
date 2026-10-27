@@ -41,6 +41,10 @@ import {
   verifySignalWireSignature,
 } from "./signalwire";
 
+import { handleAiDone, receptionistFor, receptionistResponse, type NoAnswerReason } from "./ai-receptionist.server";
+import { maybeSendMissedCallText } from "./automation.server";
+import { ensureSchema } from "./schema.server";
+
 export const SIGNALWIRE_WEBHOOK_PATH = "/api/voice/signalwire";
 
 /** Every step the flow can be waiting on, carried in the action URL. */
@@ -48,6 +52,17 @@ type Step = "answer" | "menu" | "ring" | "voicemail" | "recorded" | "status";
 
 export async function handleSignalWireVoiceWebhook(request: Request): Promise<Response> {
   const url = new URL(request.url);
+
+  // The AI agent's end-of-call report is JSON, not form-encoded, and carries our
+  // own signed token instead of a carrier signature.
+  if (url.searchParams.get("step") === "ai_done") {
+    try {
+      return await handleAiDone(request, url);
+    } catch (err) {
+      console.error("[signalwire] ai_done failed", err);
+      return new Response("{}", { status: 200, headers: { "content-type": "application/json" } });
+    }
+  }
 
   // cXML webhooks are form-encoded, not JSON.
   const raw = await request.text();
@@ -144,8 +159,12 @@ async function onIncoming(params: Record<string, string>, origin: string): Promi
       : null;
     return afterHours
       ? cxml(menuXml(afterHours, origin, callId, 0))
-      : cxml(voicemailXml(config, origin, callId));
+      : missedCallResponse(owner.tenantId, config, origin, callId, "closed");
   }
+
+  // "Always" mode: the receptionist is the front desk, ahead of any menu.
+  const frontDesk = await safeReceptionist(owner.tenantId, "incoming_open");
+  if (frontDesk) return receptionistResponse(frontDesk, origin, callId, "incoming_open");
 
   const assigned = await menuIdForNumber(owner.tenantId, to);
   const menu =
@@ -156,6 +175,52 @@ async function onIncoming(params: Record<string, string>, origin: string): Promi
   const targets = ringTargetsFromRouting(config);
   if (targets.length > 0) return cxml(ringXml(config, targets, origin, callId, to));
 
+  return missedCallResponse(owner.tenantId, config, origin, callId, "unanswered");
+}
+
+/** Never lets a problem in the AI feature stop a caller reaching voicemail. */
+async function safeReceptionist(tenantId: string, situation: "incoming_open" | NoAnswerReason) {
+  try {
+    return await receptionistFor(tenantId, situation);
+  } catch (err) {
+    console.error("[signalwire] receptionist lookup failed", err);
+    return null;
+  }
+}
+
+/**
+ * Nobody picked up. The AI receptionist takes the call if the workspace turned
+ * it on for this situation; otherwise the caller goes to voicemail and is sent
+ * a text-back, if that is switched on.
+ */
+async function missedCallResponse(
+  tenantId: string,
+  config: TenantPhoneConfig,
+  origin: string,
+  callId: string,
+  situation: NoAnswerReason,
+): Promise<Response> {
+  const ai = await safeReceptionist(tenantId, situation);
+  if (ai) {
+    try {
+      return await receptionistResponse(ai, origin, callId, situation);
+    } catch (err) {
+      console.error("[signalwire] receptionist failed, falling back to voicemail", err);
+    }
+  }
+
+  try {
+    await ensureSchema();
+    const rows = await sql`select from_number, to_number from calls where id = ${callId} limit 1`;
+    const row = rows[0] as { from_number: string | null; to_number: string | null } | undefined;
+    // Bounded, so a slow carrier can't leave the caller in silence before voicemail.
+    await Promise.race([
+      maybeSendMissedCallText({ tenantId, callId, from: row?.from_number ?? "", to: row?.to_number ?? "" }),
+      new Promise((resolve) => setTimeout(resolve, 2500)),
+    ]);
+  } catch (err) {
+    console.error("[signalwire] text-back failed", err);
+  }
   return cxml(voicemailXml(config, origin, callId));
 }
 
@@ -236,7 +301,7 @@ async function onDigits(
       const targets = targetsForExtension(config, option.target ?? "");
       if (targets.length === 0) {
         console.warn(`[signalwire] ${callId}: extension "${option.target}" has no destination`);
-        return cxml(voicemailXml(config, origin, callId));
+        return missedCallResponse(tenantId, config, origin, callId, "unanswered");
       }
       const dialed = await dialledNumberFor(callId);
       return cxml(ringXml(config, targets, origin, callId, dialed));
@@ -311,7 +376,7 @@ async function onDialEnded(
   const tenantId = await tenantForCall(callId);
   if (!tenantId) return cxml(hangup());
   const config = await loadConfig(tenantId);
-  return cxml(voicemailXml(config, origin, callId));
+  return missedCallResponse(tenantId, config, origin, callId, "unanswered");
 }
 
 // ---------------------------------------------------------------------------

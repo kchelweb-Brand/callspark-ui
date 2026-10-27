@@ -5,6 +5,7 @@ import { verifyToken } from "./tokens";
 import { getUsageSummary } from "./entitlements";
 import { CHECKOUT_OPTIONS, PLANS, getPlan, isPlanId, type PlanId } from "./plans";
 import { sendAccountActivatedEmail } from "./email";
+import { createMyTicket } from "./workspace.server";
 
 async function requireTenant(token: string): Promise<string> {
   const payload = await verifyToken(token);
@@ -30,6 +31,7 @@ export async function listPlans(_data: Record<string, never>) { return ({
       blurb: p.blurb,
       managedSip: p.managedSip,
       limits: p.limits,
+      features: p.features,
     })),
     // Seat tiers a customer can actually pay for. Managed has none — it's
     // quoted, not self-serve, until the carrier side is approved.
@@ -39,6 +41,43 @@ export async function listPlans(_data: Record<string, never>) { return ({
 export const listPlansFn = createServerFn({ method: "POST" })
   .validator((data: Parameters<typeof listPlans>[0]) => data)
   .handler(async ({ data }) => listPlans(data));
+
+/**
+ * A customer asking for a plan that has no self-serve payment link (Business,
+ * Managed Enterprise). It lands in the support inbox as a high-priority thread
+ * so the conversation about price and payment happens where it can be answered.
+ */
+export async function requestPlanUpgrade(data: { token: string; planId: string }) {
+  const payload = await verifyToken(data.token);
+  if (!payload || !payload.tenantId) throw new Error("Not signed in.");
+  if (!isPlanId(data.planId) || data.planId === "trial") throw new Error("Choose a plan to upgrade to.");
+  const plan = getPlan(data.planId);
+
+  const subject = `Upgrade request: ${plan.name}`;
+  const existing = await sql`
+    select ticket_ref from support_tickets
+    where tenant_id = ${payload.tenantId} and subject = ${subject} and status <> 'Resolved' limit 1
+  `;
+  if (existing.length > 0) {
+    return { ok: true as const, ticketRef: (existing[0] as { ticket_ref: string }).ticket_ref, alreadyRequested: true };
+  }
+
+  const price =
+    plan.priceFlatMonthly !== undefined
+      ? `$${plan.priceFlatMonthly.toLocaleString()}/month flat`
+      : `$${plan.pricePerAgentMonthly}/agent/month`;
+  const result = await createMyTicket({
+    token: data.token,
+    subject,
+    priority: "High",
+    body: `We'd like to move to the ${plan.name} plan (${price}). Please send the payment link and let us know the next steps.`,
+  });
+  return { ok: true as const, ticketRef: result.ticket.ticket_ref, alreadyRequested: false };
+}
+
+export const requestPlanUpgradeFn = createServerFn({ method: "POST" })
+  .validator((data: Parameters<typeof requestPlanUpgrade>[0]) => data)
+  .handler(async ({ data }) => requestPlanUpgrade(data));
 
 /** Current plan plus real usage, for the Billing page. */
 export async function getPlanUsage(data: { token: string }) {
@@ -54,6 +93,7 @@ export async function getPlanUsage(data: { token: string }) {
         priceFlatMonthly: plan.plan.priceFlatMonthly ?? null,
         blurb: plan.plan.blurb,
         managedSip: plan.plan.managedSip,
+        features: plan.plan.features,
       },
       trialEndsAt: plan.trialEndsAt,
       trialExpired: plan.trialExpired,

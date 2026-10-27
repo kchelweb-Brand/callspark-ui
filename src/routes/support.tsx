@@ -32,7 +32,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { createMyTicket, listMyTickets, type MyTicketRecord } from "@/lib/workspace-api";
+import {
+  createMyTicket,
+  getMyConversation,
+  listMyConversations,
+  replyAsCustomer,
+  type MyConversation,
+  type SupportThreadMessage,
+} from "@/lib/workspace-api";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/support")({
   head: () => ({
@@ -58,8 +66,108 @@ const PRIORITIES = [
   { value: "High", hint: "Calls are down or blocked" },
 ];
 
+function ThreadDialog({ id, onClose }: { id: string | null; onClose: () => void }) {
+  const [ticket, setTicket] = useState<{ ticket_ref: string; subject: string; status: string } | null>(null);
+  const [messages, setMessages] = useState<SupportThreadMessage[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [text, setText] = useState("");
+  const [sending, setSending] = useState(false);
+
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    setLoading(true);
+    setTicket(null);
+    getMyConversation(id)
+      .then((r) => {
+        if (cancelled) return;
+        setTicket(r.ticket);
+        setMessages(r.messages);
+      })
+      .catch((err) => toast.error(err instanceof Error ? err.message : "Could not open that request."))
+      .finally(() => !cancelled && setLoading(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
+  async function send() {
+    if (!id || !text.trim()) return;
+    setSending(true);
+    try {
+      const r = await replyAsCustomer(id, text.trim());
+      setMessages(r.messages);
+      setText("");
+      setTicket((t) => (t ? { ...t, status: r.status } : t));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not send that reply.");
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <Dialog open={!!id} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-xl">
+        <DialogHeader>
+          <DialogTitle>{ticket ? `${ticket.ticket_ref} · ${ticket.subject}` : "Support"}</DialogTitle>
+          <DialogDescription>{ticket ? `Status: ${ticket.status}` : "Loading…"}</DialogDescription>
+        </DialogHeader>
+        {loading ? (
+          <p className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+            <Loader2 className="size-4 animate-spin" /> Loading…
+          </p>
+        ) : (
+          <div className="flex max-h-80 flex-col gap-3 overflow-y-auto pr-1">
+            {messages.map((m) => {
+              const mine = m.sender_role === "customer";
+              return (
+                <div
+                  key={m.id}
+                  className={cn(
+                    "max-w-[85%] rounded-2xl px-4 py-2.5",
+                    mine ? "self-end rounded-br-sm bg-primary/12" : "self-start rounded-bl-sm bg-muted",
+                  )}
+                >
+                  <p className="mb-1 text-[11px] font-semibold text-muted-foreground">
+                    {mine ? "You" : "Kchel support"} ·{" "}
+                    {new Date(m.created_at).toLocaleString(undefined, {
+                      month: "short",
+                      day: "numeric",
+                      hour: "numeric",
+                      minute: "2-digit",
+                    })}
+                  </p>
+                  <p className="whitespace-pre-wrap text-sm leading-relaxed">{m.body}</p>
+                </div>
+              );
+            })}
+          </div>
+        )}
+        <Textarea
+          rows={3}
+          maxLength={4000}
+          placeholder="Write a reply…"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+        />
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Close
+          </Button>
+          <Button disabled={sending || !text.trim()} onClick={() => void send()}>
+            {sending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
+            Send reply
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function SupportPage() {
-  const [tickets, setTickets] = useState<MyTicketRecord[]>([]);
+  const [tickets, setTickets] = useState<MyConversation[]>([]);
+  const [openId, setOpenId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -70,7 +178,7 @@ function SupportPage() {
     setLoading(true);
     setError(null);
     try {
-      const result = await listMyTickets();
+      const result = await listMyConversations();
       setTickets(result.tickets);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load your tickets.");
@@ -95,12 +203,12 @@ function SupportPage() {
         priority: form.priority,
         ...(form.body.trim() ? { body: form.body.trim() } : {}),
       });
-      setTickets((prev) => [result.ticket, ...prev]);
       setForm({ subject: "", body: "", priority: "Medium" });
       setOpen(false);
       toast.success(`${result.ticket.ticket_ref} submitted`, {
-        description: "We'll get back to you here.",
+        description: "We'll reply here and by email.",
       });
+      await load();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not submit that request.");
     } finally {
@@ -169,10 +277,17 @@ function SupportPage() {
                 </TableRow>
               ) : (
                 tickets.map((t) => (
-                  <TableRow key={t.id}>
+                  <TableRow key={t.id} className="cursor-pointer" onClick={() => setOpenId(t.id)}>
                     <TableCell className="font-mono text-sm font-semibold">{t.ticket_ref}</TableCell>
                     <TableCell>
-                      <p className="font-medium">{t.subject}</p>
+                      <p className="font-medium">
+                        {t.subject}
+                        {t.customer_unread && (
+                          <span className="ml-2 rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-semibold text-primary">
+                            New reply
+                          </span>
+                        )}
+                      </p>
                       {t.body && (
                         <p className="mt-0.5 max-w-96 truncate text-xs text-muted-foreground">
                           {t.body}
@@ -198,6 +313,14 @@ function SupportPage() {
           </Table>
         </div>
       </Panel>
+
+      <ThreadDialog
+        id={openId}
+        onClose={() => {
+          setOpenId(null);
+          void load();
+        }}
+      />
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>

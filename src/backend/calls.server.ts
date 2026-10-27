@@ -4,6 +4,7 @@ import { sql, sqlQuery } from "./db";
 import { verifyToken } from "./tokens";
 import { findContactByPhone } from "./phone-numbers";
 import { requireCanCreate } from "./entitlements";
+import { ensureSchema } from "./schema.server";
 
 async function requireSession(token: string) {
   const payload = await verifyToken(token);
@@ -25,6 +26,9 @@ export interface CallRecord {
   answered_at: string | null;
   ended_at: string | null;
   duration_seconds: number | null;
+  has_summary?: boolean;
+  has_recording?: boolean;
+  handled_by?: string | null;
 }
 
 /**
@@ -149,6 +153,7 @@ export async function listCalls(data: {
       pageSize?: number;
     }) {
     const payload = await requireSession(data.token);
+    await ensureSchema();
     const page = Math.max(1, data.page || 1);
     const pageSize = Math.min(200, Math.max(1, data.pageSize || 50));
 
@@ -181,7 +186,9 @@ export async function listCalls(data: {
       `select c.id, c.direction, c.from_number, c.to_number, c.contact_id,
               coalesce(ct.company, ct.person) as contact_name,
               c.agent_email, c.status, c.outcome, c.started_at, c.answered_at,
-              c.ended_at, c.duration_seconds
+              c.ended_at, c.duration_seconds,
+              (c.summary is not null) as has_summary, (c.recording_url is not null) as has_recording,
+              c.handled_by
        from calls c
        left join contacts ct on ct.id = c.contact_id
        where ${where}

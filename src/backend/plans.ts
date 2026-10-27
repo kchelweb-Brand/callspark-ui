@@ -5,7 +5,7 @@
 // also what the Billing page renders — a second hardcoded copy in the UI would
 // eventually disagree with what the server actually enforces.
 
-export type PlanId = "trial" | "starter" | "professional" | "managed";
+export type PlanId = "trial" | "starter" | "professional" | "business" | "managed";
 
 /** `null` means unlimited — deliberately not a sentinel like -1 or 0. */
 export type Limit = number | null;
@@ -20,6 +20,25 @@ export interface PlanLimits {
   calls: Limit;
   smsCampaigns: Limit;
   recordingRetentionDays: Limit;
+}
+
+/**
+ * Switches for the features that cost us money to run, or that we sell as an
+ * upgrade. Limits above are counted; these are on or off.
+ */
+export interface PlanFeatures {
+  /** Power dialer: auto-advances through a contact list for human agents. */
+  powerDialer: boolean;
+  /** Per-number answer-rate and daily-volume health scores. */
+  numberHealth: boolean;
+  /** Automatic daily caps and resting of numbers that start to look like spam. */
+  numberRotation: boolean;
+  /** Texts a caller back when their call was missed. */
+  missedCallTextBack: boolean;
+  /** Transcripts and written summaries of recorded calls. */
+  callSummaries: boolean;
+  /** An AI agent that answers inbound calls, after hours or when nobody picks up. */
+  aiReceptionist: boolean;
 }
 
 export interface Plan {
@@ -38,6 +57,7 @@ export interface Plan {
   priceFlatMonthly?: number;
   blurb: string;
   limits: PlanLimits;
+  features: PlanFeatures;
   /** Trial only: how long before it lapses. */
   trialDays?: number;
   /**
@@ -66,6 +86,14 @@ export const PLANS: Record<PlanId, Plan> = {
       smsCampaigns: 0,
       recordingRetentionDays: 0,
     },
+    features: {
+      powerDialer: true,
+      numberHealth: true,
+      numberRotation: false,
+      missedCallTextBack: false,
+      callSummaries: false,
+      aiReceptionist: false,
+    },
   },
   starter: {
     id: "starter",
@@ -83,6 +111,14 @@ export const PLANS: Record<PlanId, Plan> = {
       smsCampaigns: 0,
       recordingRetentionDays: 30,
     },
+    features: {
+      powerDialer: true,
+      numberHealth: true,
+      numberRotation: false,
+      missedCallTextBack: true,
+      callSummaries: false,
+      aiReceptionist: false,
+    },
   },
   professional: {
     id: "professional",
@@ -99,6 +135,44 @@ export const PLANS: Record<PlanId, Plan> = {
       calls: null,
       smsCampaigns: null,
       recordingRetentionDays: 90,
+    },
+    features: {
+      powerDialer: true,
+      numberHealth: true,
+      numberRotation: true,
+      missedCallTextBack: true,
+      callSummaries: true,
+      aiReceptionist: false,
+    },
+  },
+  // The step between Professional ($295 for 5 seats) and Managed ($2,500): a
+  // flat fee that makes the 6th to 8th agent cheap and unlocks the AI
+  // receptionist, while still running on the customer's own carrier.
+  business: {
+    id: "business",
+    name: "Business",
+    pricePerAgentMonthly: 0,
+    priceFlatMonthly: 599,
+    blurb:
+      "Up to 8 agents on your own carrier, with the AI receptionist, call summaries and number rotation included.",
+    managedSip: false,
+    limits: {
+      agents: 8,
+      contacts: 7_500,
+      campaigns: null,
+      ivrMenus: 8,
+      phoneNumbers: 8,
+      calls: null,
+      smsCampaigns: null,
+      recordingRetentionDays: 180,
+    },
+    features: {
+      powerDialer: true,
+      numberHealth: true,
+      numberRotation: true,
+      missedCallTextBack: true,
+      callSummaries: true,
+      aiReceptionist: true,
     },
   },
   managed: {
@@ -122,6 +196,14 @@ export const PLANS: Record<PlanId, Plan> = {
       smsCampaigns: null,
       recordingRetentionDays: 365,
     },
+    features: {
+      powerDialer: true,
+      numberHealth: true,
+      numberRotation: true,
+      missedCallTextBack: true,
+      callSummaries: true,
+      aiReceptionist: true,
+    },
   },
 };
 
@@ -140,12 +222,36 @@ export function monthlyPrice(plan: Plan, seats: number): number {
 }
 
 export function isPlanId(value: string | null | undefined): value is PlanId {
-  return value === "trial" || value === "starter" || value === "professional" || value === "managed";
+  return (
+    value === "trial" ||
+    value === "starter" ||
+    value === "professional" ||
+    value === "business" ||
+    value === "managed"
+  );
 }
 
 /** Never throws on unknown input — an unrecognised plan falls back to the trial. */
 export function getPlan(id: string | null | undefined): Plan {
   return isPlanId(id) ? PLANS[id] : PLANS[DEFAULT_PLAN];
+}
+
+export type FeatureKey = keyof PlanFeatures;
+
+export const FEATURE_LABELS: Record<FeatureKey, string> = {
+  powerDialer: "Power dialer",
+  numberHealth: "Number health",
+  numberRotation: "Number rotation",
+  missedCallTextBack: "Missed-call text-back",
+  callSummaries: "Call summaries",
+  aiReceptionist: "AI receptionist",
+};
+
+/** The cheapest plan that includes a feature — what an upgrade message should name. */
+export function planThatIncludes(feature: FeatureKey): Plan {
+  const order: PlanId[] = ["starter", "professional", "business", "managed"];
+  const id = order.find((p) => PLANS[p].features[feature]) ?? "managed";
+  return PLANS[id];
 }
 
 export type LimitKey = keyof PlanLimits;

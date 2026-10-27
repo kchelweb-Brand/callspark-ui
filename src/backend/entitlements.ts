@@ -6,8 +6,11 @@
 
 import { sql } from "./db";
 import {
+  FEATURE_LABELS,
   checkLimit,
   getPlan,
+  planThatIncludes,
+  type FeatureKey,
   isTrialExpired,
   trialDaysRemaining,
   type LimitKey,
@@ -172,6 +175,22 @@ export async function requireCountWithinLimit(
   // "you're using 6" when they have 5 reads as a bug to the person seeing it.
   const verdict = checkLimit(plan, key, current, nextCount - current);
   throw new PlanLimitError(verdict.message ?? "That would exceed your plan.");
+}
+
+/** Whether the tenant's plan includes a feature. Never throws. */
+export async function tenantHasFeature(tenantId: string, feature: FeatureKey): Promise<boolean> {
+  const { plan, trialExpired } = await getTenantPlan(tenantId);
+  return !trialExpired && plan.features[feature];
+}
+
+/** Blocks a feature the plan doesn't include, naming the plan that does. */
+export async function requireFeature(tenantId: string, feature: FeatureKey): Promise<void> {
+  const { plan } = await getTenantPlan(tenantId);
+  if (plan.features[feature]) return;
+  const needed = planThatIncludes(feature);
+  throw new PlanLimitError(
+    `${FEATURE_LABELS[feature]} isn't included in the ${plan.name} plan. Upgrade to ${needed.name} to use it.`,
+  );
 }
 
 /** Both gates, for the common "create something new" case. */

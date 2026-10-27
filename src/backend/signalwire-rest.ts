@@ -37,6 +37,37 @@ export async function originateAiCall(input: {
   return signalwireFetch(url, body, projectId, apiToken);
 }
 
+/** Sends one SMS through the same SignalWire project that owns the tenant's numbers. */
+export async function sendSms(input: { to: string; from: string; body: string }): Promise<SignalwireResult> {
+  const { projectId, apiToken, spaceName } = signalwireCredentials();
+  if (!projectId || !apiToken || !spaceName) {
+    return { ok: false, status: 0, error: "SignalWire REST credentials are not configured." };
+  }
+  const url = `https://${spaceName}.signalwire.com/api/laml/2010-04-01/Accounts/${projectId}/Messages.json`;
+  const body = new URLSearchParams({ To: input.to, From: input.from, Body: input.body });
+  return signalwireFetch(url, body, projectId, apiToken);
+}
+
+/** Authenticated GET for recordings and other carrier-hosted files. */
+export async function fetchCarrierFile(url: string): Promise<Response> {
+  const { projectId, apiToken } = signalwireCredentials();
+  const headers: Record<string, string> = {};
+  // Credentials only ever go to SignalWire itself, never to whatever host a
+  // stored recording URL happens to name.
+  let host = "";
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "https:") throw new Error("Recording URL must be https.");
+    host = parsed.hostname;
+  } catch {
+    throw new Error("That recording has an invalid address.");
+  }
+  if (projectId && apiToken && host.endsWith(".signalwire.com")) {
+    headers["authorization"] = `Basic ${btoa(`${projectId}:${apiToken}`)}`;
+  }
+  return fetch(url, { headers });
+}
+
 function signalwireCredentials() {
   return {
     projectId: env.signalwireProjectId,

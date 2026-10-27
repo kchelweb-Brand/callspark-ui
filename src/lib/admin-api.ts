@@ -8,9 +8,17 @@ import {
   updateTicketFn,
   type TicketRecord,
 } from "@/backend/admin.server";
+import {
+  getConversationFn,
+  listConversationsFn,
+  replyAsSupportFn,
+  type Conversation,
+  type CustomerProfile,
+  type ThreadMessage,
+} from "@/backend/support.server";
 import { getSessionToken } from "./auth-api";
 
-export type { TicketRecord };
+export type { TicketRecord, Conversation, CustomerProfile, ThreadMessage };
 
 function requireToken(): string {
   const token = getSessionToken();
@@ -49,6 +57,18 @@ export function updateTicket(id: string, changes: { status?: string; priority?: 
 
 export function deleteTicket(id: string) {
   return deleteTicketFn({ data: { token: requireToken(), id } });
+}
+
+export function listConversations() {
+  return listConversationsFn({ data: { token: requireToken() } });
+}
+
+export function getConversation(id: string) {
+  return getConversationFn({ data: { token: requireToken(), id } });
+}
+
+export function replyAsSupport(id: string, body: string, status?: string) {
+  return replyAsSupportFn({ data: { token: requireToken(), id, body, ...(status ? { status } : {}) } });
 }
 
 /** Shared formatting so every admin screen renders these the same way. */

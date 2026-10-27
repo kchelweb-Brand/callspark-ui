@@ -4,6 +4,7 @@ import { sql } from "./db";
 import { getPlan, monthlyPrice } from "./plans";
 import { verifyToken } from "./tokens";
 import { sendTicketStatusEmail } from "./email";
+import { ensureSchema } from "./schema.server";
 
 async function requireSuperAdmin(token: string) {
   const payload = await verifyToken(token);
@@ -304,10 +305,11 @@ export async function createTicket(data: { token: string; tenantId?: string; sub
     const subject = data.subject.trim();
     if (!subject) throw new Error("Give the ticket a subject.");
 
+    await ensureSchema();
     const rows = await sql`
-      insert into support_tickets (tenant_id, subject, body, priority, created_by_email)
+      insert into support_tickets (tenant_id, subject, body, priority, created_by_email, customer_unread)
       values (${data.tenantId ?? null}, ${subject}, ${data.body ?? null},
-              ${data.priority ?? "Medium"}, ${payload.email})
+              ${data.priority ?? "Medium"}, ${payload.email}, ${Boolean(data.tenantId)})
       returning id
     `;
     const created = await sql`
