@@ -78,6 +78,27 @@ export function isOnHold(l: Lifecycle): boolean {
 export const day = (d: Date) => d.toISOString().slice(0, 10);
 export const pretty = (d: Date) => d.toLocaleDateString("en-US", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
 
+/** The short notice shown in the app's notification bell and as a desktop pop-up. */
+export function renewalNotice(
+  kind: RenewalKind,
+  d: { planName: string; daysLeft: number; daysToHold: number; endsOn: string; holdOn: string | null },
+): { title: string; body: string } {
+  const days = (n: number) => `${n} day${n === 1 ? "" : "s"}`;
+  const trial = d.planName === "free trial";
+  const label = trial ? "free trial" : `${d.planName} plan`;
+  switch (kind) {
+    case "ending":
+    case "trial_ending":
+      return { title: `Your ${label} ends in ${days(d.daysLeft)}`, body: `It ends on ${d.endsOn}. Renew in Billing so nothing is interrupted.` };
+    case "grace":
+      return { title: `Your plan has ended: renew within ${days(d.daysToHold)}`, body: `Renew by ${d.holdOn} or the account is put on hold.` };
+    case "hold":
+      return { title: "Your account is on hold", body: "Renew in Billing to start working again. Your data is safe." };
+    default:
+      return { title: "Your free trial has ended", body: "Choose a plan in Billing to pick up where you left off." };
+  }
+}
+
 /** The email owed to this workspace today, if any, and the stage that records it was sent. */
 export function emailDue(l: Lifecycle, isTrial: boolean, stage: string | null, now: Date): { kind: RenewalKind; stage: string } | null {
   const today = day(now);

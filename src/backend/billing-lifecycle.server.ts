@@ -2,13 +2,16 @@
 //
 // Server-only (it sends email).
 
-import { sql } from "./db";
+import { sql, sqlQuery } from "./db";
 import { ensureSchema } from "./schema.server";
 import { sendRenewalEmail } from "./email";
 import { getPlan } from "./plans";
-import { SEND_FROM_HOUR_UTC, day, emailDue, lifecycleOf, pretty } from "./billing-lifecycle";
+import { SEND_FROM_HOUR_UTC, day, emailDue, lifecycleOf, pretty, renewalNotice } from "./billing-lifecycle";
 
-const BATCH = 10;
+// Each workspace costs a handful of database and email requests, and one scheduled
+// run may make about 50 in total, so a run takes only a few.
+const BATCH = 6;
+const MAX_OWNERS = 5;
 
 interface Row {
   id: string;
@@ -19,12 +22,13 @@ interface Row {
   renewal_stage: string | null;
 }
 
-async function ownerEmails(tenantId: string): Promise<string[]> {
+async function owners(tenantId: string): Promise<{ id: string; email: string }[]> {
   const rows = await sql`
-    select email from users
+    select id, email from users
     where tenant_id = ${tenantId} and role = 'tenant_owner' and coalesce(status, 'active') <> 'disabled'
+    order by created_at asc limit ${MAX_OWNERS}
   `;
-  return rows.map((r) => String(r["email"]));
+  return rows.map((r) => ({ id: String(r["id"]), email: String(r["email"]) }));
 }
 
 /**
@@ -66,17 +70,26 @@ export async function runRenewalSweep(options: { now?: Date; limit?: number } = 
       const todo = emailDue(l, isTrial, r.renewal_stage, now);
 
       if (todo && l.state !== "none" && l.state !== "ok") {
-        const owners = await ownerEmails(r.id);
-        for (const to of owners) {
-          await sendRenewalEmail(to, {
-            workspaceName: r.name,
-            planName: isTrial ? "free trial" : getPlan(r.plan).name,
-            kind: todo.kind,
-            daysLeft: l.state === "upcoming" ? l.daysLeft : 0,
-            endsOn: pretty(l.endsAt),
-            holdOn: l.state === "grace" ? pretty(l.holdAt) : null,
-            daysToHold: l.state === "grace" ? l.daysToHold : 0,
-          });
+        const who = await owners(r.id);
+        const detail = {
+          planName: isTrial ? "free trial" : getPlan(r.plan).name,
+          daysLeft: l.state === "upcoming" ? l.daysLeft : 0,
+          endsOn: pretty(l.endsAt),
+          holdOn: l.state === "grace" ? pretty(l.holdAt) : null,
+          daysToHold: l.state === "grace" ? l.daysToHold : 0,
+        };
+        for (const o of who) await sendRenewalEmail(o.email, { workspaceName: r.name, kind: todo.kind, ...detail });
+
+        // The same news, in the app: the bell, and the pop-up in the Windows app. One
+        // statement for every owner. It follows the emails, so a failed email is retried
+        // without the notice having been posted twice.
+        if (who.length > 0) {
+          const notice = renewalNotice(todo.kind, detail);
+          await sqlQuery(
+            `insert into notifications (user_id, tenant_id, kind, title, body, link)
+             select unnest($1::uuid[]), $2::uuid, 'system', $3, $4, '/billing'`,
+            [who.map((o) => o.id), r.id, notice.title, notice.body],
+          );
         }
         await sql`update tenants set renewal_stage = ${todo.stage}, renewal_checked_on = ${today}::date where id = ${r.id}`;
         result.emailed++;
