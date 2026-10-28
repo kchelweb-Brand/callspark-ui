@@ -275,6 +275,15 @@ async function apply(): Promise<void> {
     )
   `;
 
+  // ---------- how crypto and gift-card payments are received (wallets, instructions) ----------
+  await sql`
+    create table if not exists payment_settings (
+      key text primary key,
+      value jsonb not null default '{}'::jsonb,
+      updated_at timestamptz not null default now()
+    )
+  `;
+
   // One request for everything. The advisory lock makes two workers that start
   // at once take turns instead of racing to create the same table.
   await sqlQuery(

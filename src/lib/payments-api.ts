@@ -3,8 +3,10 @@ import {
   deletePaymentLinkFn,
   listPaymentLinksFn,
   savePaymentLinkFn,
+  savePaymentSettingsFn,
   type PaymentLinkRow,
   type SavePaymentLinkInput,
+  type SavePaymentSettingsInput,
 } from "@/backend/payments.server";
 import { getSessionToken } from "./auth-api";
 
@@ -22,6 +24,10 @@ export function listPaymentLinks() {
 
 export function savePaymentLink(input: Omit<SavePaymentLinkInput, "token">) {
   return savePaymentLinkFn({ data: { token: requireToken(), ...input } });
+}
+
+export function savePaymentSettings(input: Omit<SavePaymentSettingsInput, "token">) {
+  return savePaymentSettingsFn({ data: { token: requireToken(), ...input } });
 }
 
 export function deletePaymentLink(id: string) {

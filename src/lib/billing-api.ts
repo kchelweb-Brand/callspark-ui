@@ -28,7 +28,7 @@ export function listPlans() {
   return listPlansFn({ data: { ...(getSessionToken() ? { token: getSessionToken() as string } : {}) } });
 }
 
-export function claimPayment(input: { planId: string; seats: number; interval: string; method: string; reference: string }) {
+export function claimPayment(input: { planId: string; seats: number; interval: string; method: string; reference: string; amountUsd?: number }) {
   return claimPaymentFn({ data: { token: requireToken(), ...input } });
 }
 

@@ -490,8 +490,11 @@ export async function handleNativeApi(request: Request, pathname: string): Promi
       case "power/stop":
         return jsonOk(await powerStop(await readJson(request)));
 
-      case "billing/plans":
-        return jsonOk(await listPlans(await readJson(request)));
+      case "billing/plans": {
+        const plans = await listPlans(await readJson(request));
+        // The installed Windows app can only open a link, so it is offered the options that are one.
+        return jsonOk({ ...plans, checkout: plans.checkout.filter((o) => o.url) });
+      }
       case "billing/usage":
         return jsonOk(await getPlanUsage(await readJson(request)));
       case "billing/addons":

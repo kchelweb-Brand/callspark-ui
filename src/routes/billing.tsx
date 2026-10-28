@@ -79,6 +79,7 @@ function BillingPage() {
   const [checkout, setCheckout] = useState<Checkout>([]);
   const [region, setRegion] = useState<string>("default");
   const [claimFor, setClaimFor] = useState<Checkout[number] | null>(null);
+  const [cryptoFor, setCryptoFor] = useState<Checkout[number] | null>(null);
   const [claimRef, setClaimRef] = useState("");
   const [claimBusy, setClaimBusy] = useState(false);
   // Named to avoid shadowing the global setInterval in this scope.
@@ -553,7 +554,7 @@ function BillingPage() {
                 const planName = catalog.find((p) => p.id === o.planId)?.name ?? o.planId;
                 return (
                   <div
-                    key={o.url}
+                    key={`${o.planId}|${o.seats}|${o.interval}|${o.method}`}
                     className="flex items-center justify-between gap-3 rounded-lg border border-border p-3"
                   >
                     <div className="min-w-0">
@@ -562,16 +563,32 @@ function BillingPage() {
                       </p>
                       <p className="text-xs text-muted-foreground">
                         ${o.amountUsd} {o.interval === "annual" ? "per year" : "per month"}
+                        {o.method === "crypto" && o.baseUsd !== undefined
+                          ? ` (${o.baseUsd} plan + ${o.vatUsd ?? 0} VAT)`
+                          : ""}
                       </p>
+                      {o.method === "giftcard" && o.note ? (
+                        <p className="mt-0.5 max-w-md text-xs text-muted-foreground">{o.note}</p>
+                      ) : null}
                     </div>
                     {/* noreferrer as well as noopener: the payment page should
                         not receive this workspace's URL as a referrer. */}
                     <div className="flex shrink-0 flex-col items-end gap-1">
-                      <Button size="sm" asChild>
-                        <a href={o.url} target="_blank" rel="noopener noreferrer">
-                          Pay ${o.amountUsd} · {o.label}
-                        </a>
-                      </Button>
+                      {o.method === "crypto" ? (
+                        <Button size="sm" onClick={() => setCryptoFor(o)}>
+                          Pay ${o.amountUsd} · Crypto
+                        </Button>
+                      ) : o.url ? (
+                        <Button size="sm" asChild>
+                          <a href={o.url} target="_blank" rel="noopener noreferrer">
+                            Pay ${o.amountUsd} · {o.label}
+                          </a>
+                        </Button>
+                      ) : (
+                        <span className="text-xs font-semibold">
+                          {o.label} · ${o.amountUsd}
+                        </span>
+                      )}
                       <button
                         type="button"
                         className="text-xs text-muted-foreground hover:underline"
@@ -616,6 +633,57 @@ function BillingPage() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={!!cryptoFor} onOpenChange={(open) => !open && setCryptoFor(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Pay with crypto</DialogTitle>
+            <DialogDescription>
+              Send exactly ${cryptoFor?.amountUsd} in value ({cryptoFor?.baseUsd} plan + {cryptoFor?.vatUsd} VAT) to one of
+              these wallets. Use the network shown: money sent on a different network is lost and we cannot get it back.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-3">
+            {(cryptoFor?.wallets ?? []).map((w) => (
+              <div key={`${w.coin}|${w.network}|${w.address}`} className="rounded-lg border border-border p-3">
+                <p className="text-sm font-semibold">
+                  {w.coin} <span className="font-normal text-muted-foreground">· Network: {w.network}</span>
+                </p>
+                <p className="mt-1 break-all font-mono text-xs">{w.address}</p>
+                <button
+                  type="button"
+                  className="mt-2 text-xs font-semibold text-leaf hover:underline"
+                  onClick={() => {
+                    void navigator.clipboard
+                      ?.writeText(w.address)
+                      .then(() => toast.success("Address copied"))
+                      .catch(() => toast.error("Couldn't copy. Select the address and copy it."));
+                  }}
+                >
+                  Copy address
+                </button>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            After you send it, press I&apos;ve paid and add the transaction ID. We confirm it and switch your plan on.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCryptoFor(null)}>
+              Close
+            </Button>
+            <Button
+              onClick={() => {
+                setClaimRef("");
+                setClaimFor(cryptoFor);
+                setCryptoFor(null);
+              }}
+            >
+              I&apos;ve paid
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={!!claimFor} onOpenChange={(open) => !open && setClaimFor(null)}>
         <DialogContent>
           <DialogHeader>
@@ -645,6 +713,7 @@ function BillingPage() {
                     interval: claimFor.interval,
                     method: claimFor.method,
                     reference: claimRef,
+                    amountUsd: claimFor.amountUsd,
                   });
                   toast.success("Thanks. We'll confirm it and activate your plan.", {
                     description: "You can follow this in Support.",

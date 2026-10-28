@@ -29,15 +29,54 @@ export const PAY_METHODS: { id: PayMethod; label: string }[] = [
   { id: "other", label: "Other" },
 ];
 
+/** Crypto adds this to every plan price, shown to the customer as VAT. */
+export const CRYPTO_VAT_USD = 10;
+
+/** What an Apple gift card (USA) must be worth for each plan, per month. Cards resell below face value. */
+export const GIFTCARD_PRICES: Partial<Record<PlanId, number>> = {
+  starter: 100,
+  professional: 200,
+  business: 1500,
+  managed: 5000,
+};
+
+export const GIFTCARD_LABEL = "Apple gift card (USA only)";
+
+/** A place the owner receives crypto: the coin, the network it must be sent on, and the address. */
+export interface CryptoWallet {
+  coin: string;
+  network: string;
+  address: string;
+}
+
+export interface GiftCardSettings {
+  /** Where the customer sends or redeems the card, if the owner uses a page for it. */
+  url: string;
+  /** Instructions shown to the customer. */
+  note: string;
+}
+
+export interface PaymentSettings {
+  wallets: CryptoWallet[];
+  giftcard: GiftCardSettings;
+}
+
 export interface CheckoutLink {
   planId: PlanId;
   seats: number;
   interval: BillingInterval;
   amountUsd: number;
+  /** Empty for crypto and for a gift card paid by instructions alone. */
   url: string;
   method: PayMethod;
   label: string;
   region: PriceRegion;
+  /** Crypto only: the plan price before the VAT line, and where to send the money. */
+  baseUsd?: number;
+  vatUsd?: number;
+  wallets?: CryptoWallet[];
+  /** Gift card only: what the customer is told to do. */
+  note?: string;
 }
 
 export interface PaymentLinkRow {
@@ -51,6 +90,32 @@ export interface PaymentLinkRow {
   amount_usd: number;
   url: string;
   active: boolean;
+}
+
+const cleanText = (v: unknown, max: number) => String(v ?? "").replace(/\s+/g, " ").trim().slice(0, max);
+
+/** The owner's crypto wallets and gift-card instructions. Never throws: nothing set means nothing offered. */
+export async function getPaymentSettings(): Promise<PaymentSettings> {
+  const result: PaymentSettings = { wallets: [], giftcard: { url: "", note: "" } };
+  try {
+    await ensureSchema();
+    const rows = await sql`select key, value from payment_settings where key in ('crypto_wallets', 'giftcard')`;
+    for (const r of rows) {
+      const value = r["value"] as Record<string, unknown> | unknown[] | null;
+      if (r["key"] === "crypto_wallets" && Array.isArray(value)) {
+        result.wallets = value
+          .map((w) => w as Record<string, unknown>)
+          .map((w) => ({ coin: cleanText(w["coin"], 40), network: cleanText(w["network"], 60), address: cleanText(w["address"], 200) }))
+          .filter((w) => w.coin && w.address);
+      }
+      if (r["key"] === "giftcard" && value && !Array.isArray(value)) {
+        result.giftcard = { url: cleanText(value["url"], 500), note: cleanText(value["note"], 600) };
+      }
+    }
+  } catch (err) {
+    console.warn("[payments] could not read the payment settings", err);
+  }
+  return result;
 }
 
 /** Where this workspace is, for prices: the country asked at signup, else what its phone number says. */
@@ -72,6 +137,7 @@ export async function checkoutFor(tenantId: string | null): Promise<{ region: Pr
   const builtIn = CHECKOUT_OPTIONS.map(
     (o): CheckoutLink => ({ ...o, method: "card", label: "Card or bank (Flutterwave)", region: "default" }),
   );
+  const extras = extraMethodOptions(await getPaymentSettings());
 
   // The owner's extra links and regional prices live in the database. The public
   // pricing must never depend on it: if it can't be read, the standard prices show.
@@ -82,12 +148,12 @@ export async function checkoutFor(tenantId: string | null): Promise<{ region: Pr
     region = tenantId ? await regionForTenant(tenantId) : "default";
     rows = await sql`
       select region, plan_id, seats, interval, method, label, amount_usd, url from payment_links
-      where active = true and (region = 'default' or region = ${region})
+      where active = true and method not in ('crypto', 'giftcard') and (region = 'default' or region = ${region})
       order by created_at asc
     `;
   } catch (err) {
     console.warn("[payments] using the standard payment links only", err);
-    return { region: "default", options: builtIn };
+    return { region: "default", options: [...builtIn, ...extras] };
   }
 
   const all: CheckoutLink[] = [
@@ -115,13 +181,68 @@ export async function checkoutFor(tenantId: string | null): Promise<{ region: Pr
     const held = best.get(key);
     if (!held || (o.region !== "default" && held.region === "default")) best.set(key, o);
   }
-  return { region, options: [...best.values()] };
+  return { region, options: [...best.values(), ...extras] };
+}
+
+/**
+ * Crypto and gift-card prices are rules, not links the owner pastes: crypto is the
+ * standard plan price plus a VAT line, and a gift card has one fixed amount per plan.
+ * Each is offered only once the owner has said where the money goes.
+ */
+export function extraMethodOptions(settings: PaymentSettings): CheckoutLink[] {
+  const out: CheckoutLink[] = [];
+
+  if (settings.wallets.length > 0) {
+    const tiers = new Map<string, { planId: PlanId; seats: number; interval: BillingInterval; amountUsd: number }>();
+    for (const o of CHECKOUT_OPTIONS) tiers.set(`${o.planId}|${o.seats}|${o.interval}`, o);
+    // Managed Enterprise is quoted rather than sold by card, but it is a plan like the others for crypto.
+    const managed = getPlan("managed");
+    if (managed.priceFlatMonthly !== undefined) {
+      const seats = managed.limits.agents ?? 1;
+      tiers.set(`managed|${seats}|monthly`, { planId: "managed", seats, interval: "monthly", amountUsd: managed.priceFlatMonthly });
+    }
+    for (const t of tiers.values()) {
+      out.push({
+        planId: t.planId,
+        seats: t.seats,
+        interval: t.interval,
+        amountUsd: t.amountUsd + CRYPTO_VAT_USD,
+        baseUsd: t.amountUsd,
+        vatUsd: CRYPTO_VAT_USD,
+        url: "",
+        method: "crypto",
+        label: "Crypto",
+        region: "default",
+        wallets: settings.wallets,
+      });
+    }
+  }
+
+  if (settings.giftcard.url || settings.giftcard.note) {
+    for (const [planId, amountUsd] of Object.entries(GIFTCARD_PRICES) as [PlanId, number][]) {
+      const plan = getPlan(planId);
+      out.push({
+        planId,
+        // The seat count the plan's normal price covers: one agent, or the whole team on a flat plan.
+        seats: plan.priceFlatMonthly !== undefined ? (plan.limits.agents ?? 1) : 1,
+        interval: "monthly",
+        amountUsd,
+        url: settings.giftcard.url,
+        method: "giftcard",
+        label: GIFTCARD_LABEL,
+        region: "default",
+        note: settings.giftcard.note,
+      });
+    }
+  }
+  return out;
 }
 
 /** Every price a customer could have paid, in every region, for matching a payment to a plan. */
 export async function knownPaidOptions(): Promise<{ planId: PlanId; seats: number; interval: BillingInterval; amountUsd: number }[]> {
   await ensureSchema();
-  const rows = await sql`select plan_id, seats, interval, amount_usd::float as amount_usd from payment_links where active = true`;
+  // Only links paid through Flutterwave can arrive as a webhook; a crypto or gift-card amount must never match one.
+  const rows = await sql`select plan_id, seats, interval, amount_usd::float as amount_usd from payment_links where active = true and method not in ('crypto', 'giftcard')`;
   return [
     ...CHECKOUT_OPTIONS.map((o) => ({ planId: o.planId, seats: o.seats, interval: o.interval, amountUsd: o.amountUsd })),
     ...rows
@@ -156,7 +277,10 @@ export async function listPaymentLinks(data: { token: string }) {
     ok: true as const,
     links: rows as unknown as PaymentLinkRow[],
     regions: PRICE_REGIONS,
-    methods: PAY_METHODS,
+    // Crypto and gift cards have their own sections, so they are not offered as a link type.
+    methods: PAY_METHODS.filter((m) => m.id !== "crypto" && m.id !== "giftcard"),
+    settings: await getPaymentSettings(),
+    rules: { cryptoVatUsd: CRYPTO_VAT_USD, giftcard: GIFTCARD_PRICES, giftcardLabel: GIFTCARD_LABEL },
   };
 }
 
@@ -185,6 +309,9 @@ export async function savePaymentLink(data: SavePaymentLinkInput) {
   if (!isPlanId(data.planId) || data.planId === "trial") throw new Error("Choose a plan.");
   if (!PRICE_REGIONS.some((r) => r.id === data.region)) throw new Error("Choose a region.");
   if (!PAY_METHODS.some((m) => m.id === data.method)) throw new Error("Choose how it is paid.");
+  if (data.method === "crypto" || data.method === "giftcard") {
+    throw new Error("Crypto and gift cards are set up in their own sections above, not as links.");
+  }
   if (data.interval !== "monthly" && data.interval !== "annual") throw new Error("Choose monthly or annual.");
   const seats = Math.round(Number(data.seats));
   if (!Number.isFinite(seats) || seats < 1 || seats > 500) throw new Error("Seats must be between 1 and 500.");
@@ -225,6 +352,60 @@ export const savePaymentLinkFn = createServerFn({ method: "POST" })
   .validator((data: SavePaymentLinkInput) => data)
   .handler(async ({ data }) => savePaymentLink(data));
 
+export interface SavePaymentSettingsInput {
+  token: string;
+  wallets: { coin: string; network: string; address: string }[];
+  giftcardUrl: string;
+  giftcardNote: string;
+}
+
+/** Platform owner only: where crypto should be sent, and what a gift-card payer is told. */
+export async function savePaymentSettings(data: SavePaymentSettingsInput) {
+  await requireSuperAdmin(data.token);
+  await ensureSchema();
+
+  const wallets: CryptoWallet[] = [];
+  for (const w of Array.isArray(data.wallets) ? data.wallets : []) {
+    const coin = cleanText(w.coin, 40);
+    const network = cleanText(w.network, 60);
+    const address = cleanText(w.address, 200);
+    if (!coin && !network && !address) continue;
+    if (!coin) throw new Error("Each wallet needs the coin's name, such as USDT.");
+    if (!network) throw new Error(`Say which network ${coin} is on (for example TRC20), so customers don't send it the wrong way.`);
+    if (address.length < 10 || /\s/.test(String(w.address).trim())) {
+      throw new Error(`The ${coin} address doesn't look right. Paste it exactly, with no spaces.`);
+    }
+    wallets.push({ coin, network, address });
+  }
+  if (wallets.length > 10) throw new Error("Keep it to ten wallets or fewer.");
+
+  let giftUrl = cleanText(data.giftcardUrl, 500);
+  if (giftUrl) {
+    try {
+      const u = new URL(giftUrl);
+      if (u.protocol !== "https:") throw new Error("not https");
+      giftUrl = u.toString();
+    } catch {
+      throw new Error("The gift card link must be a full address starting with https://");
+    }
+  }
+  const giftcard: GiftCardSettings = { url: giftUrl, note: cleanText(data.giftcardNote, 600) };
+
+  await sql`
+    insert into payment_settings (key, value) values ('crypto_wallets', ${JSON.stringify(wallets)}::jsonb)
+    on conflict (key) do update set value = excluded.value, updated_at = now()
+  `;
+  await sql`
+    insert into payment_settings (key, value) values ('giftcard', ${JSON.stringify(giftcard)}::jsonb)
+    on conflict (key) do update set value = excluded.value, updated_at = now()
+  `;
+  return { ok: true as const, settings: { wallets, giftcard } };
+}
+
+export const savePaymentSettingsFn = createServerFn({ method: "POST" })
+  .validator((data: SavePaymentSettingsInput) => data)
+  .handler(async ({ data }) => savePaymentSettings(data));
+
 export async function deletePaymentLink(data: { token: string; id: string }) {
   await requireSuperAdmin(data.token);
   await ensureSchema();
@@ -253,6 +434,7 @@ export async function claimPayment(data: {
   interval: string;
   method: string;
   reference: string;
+  amountUsd?: number;
 }) {
   const payload = await verifyToken(data.token);
   if (!payload || !payload.tenantId) throw new Error("Not signed in.");
@@ -270,6 +452,7 @@ export async function claimPayment(data: {
     priority: "High",
     body:
       `We've paid for the ${plan.name} plan (${data.seats} seat${data.seats === 1 ? "" : "s"}, ${data.interval}) by ${method}.\n` +
+      (Number.isFinite(data.amountUsd) && Number(data.amountUsd) > 0 ? `Amount shown at checkout: $${Number(data.amountUsd)}\n` : "") +
       `Reference: ${reference}\n\nPlease confirm the payment and activate the plan.`,
   });
   return { ok: true as const, ticketRef: result.ticket.ticket_ref };
