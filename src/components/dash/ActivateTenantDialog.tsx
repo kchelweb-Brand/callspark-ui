@@ -45,6 +45,10 @@ export function ActivateTenantDialog({
   const [plan, setPlan] = useState<string>("starter");
   const [notify, setNotify] = useState(true);
   const [months, setMonths] = useState(1);
+  // How it was paid. Left on "no receipt" it just activates, as before.
+  const [method, setMethod] = useState<string>("");
+  const [amount, setAmount] = useState("");
+  const [reference, setReference] = useState("");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -64,9 +68,21 @@ export function ActivateTenantDialog({
 
   async function activate() {
     if (!tenant) return;
+    if (method && !(Number(amount) > 0)) {
+      toast.error("Enter the amount they paid, in US dollars, so the receipt is right.");
+      return;
+    }
     setBusy(true);
     try {
-      const result = await activateTenant(tenant.id, plan, notify, months);
+      const result = await activateTenant(
+        tenant.id,
+        plan,
+        notify,
+        months,
+        method
+          ? { method, amountUsd: Number(amount), ...(reference.trim() ? { reference: reference.trim() } : {}) }
+          : undefined,
+      );
       const planName = catalog.find((p) => p.id === plan)?.name ?? plan;
       toast.success(`${tenant.name} activated on ${planName}`, {
         description: result.notified
@@ -120,6 +136,45 @@ export function ActivateTenantDialog({
                   : selected.limits.contacts.toLocaleString()}{" "}
                 contacts
               </p>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-2 rounded-lg border border-border bg-muted/40 p-3">
+            <Label className="text-sm font-medium">How they paid (sends a receipt)</Label>
+            <select
+              value={method}
+              onChange={(e) => setMethod(e.target.value)}
+              className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+              aria-label="How they paid"
+            >
+              <option value="">No receipt, just activate</option>
+              <option value="crypto">Crypto</option>
+              <option value="giftcard">Apple gift card (USA)</option>
+              <option value="bank">Bank transfer</option>
+              <option value="card">Card or bank (Flutterwave)</option>
+              <option value="other">Other</option>
+            </select>
+            {method && (
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  type="number"
+                  min={1}
+                  step="0.01"
+                  placeholder="Amount paid, USD"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+                  aria-label="Amount paid in US dollars"
+                />
+                <input
+                  type="text"
+                  placeholder="Transaction ID or reference"
+                  value={reference}
+                  onChange={(e) => setReference(e.target.value)}
+                  className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+                  aria-label="Transaction ID or reference"
+                />
+              </div>
             )}
           </div>
 

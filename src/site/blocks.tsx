@@ -8,11 +8,14 @@ import { Visual } from "./mocks";
 /** A link that takes plain path strings, so page content can name routes as data. */
 export function SLink({
   to,
+  search,
   className,
   children,
   ...rest
 }: {
   to: string;
+  /** Query parameters for an internal page, such as the plan chosen. */
+  search?: Record<string, string>;
   className?: string;
   children: ReactNode;
 } & Omit<React.AnchorHTMLAttributes<HTMLAnchorElement>, "href">) {
@@ -24,7 +27,7 @@ export function SLink({
     );
   }
   return (
-    <Link to={to as never} className={className} {...(rest as object)}>
+    <Link to={to as never} {...(search ? { search: search as never } : {})} className={className} {...(rest as object)}>
       {children}
     </Link>
   );
@@ -102,11 +105,13 @@ const BUTTON: Record<ButtonKind, string> = {
 
 export function CtaLink({
   to,
+  search,
   kind = "primary",
   children,
   className = "",
 }: {
   to: string;
+  search?: Record<string, string>;
   kind?: ButtonKind;
   children: ReactNode;
   className?: string;
@@ -114,6 +119,7 @@ export function CtaLink({
   return (
     <SLink
       to={to}
+      {...(search ? { search } : {})}
       className={`inline-flex h-12 items-center justify-center rounded-md px-6 text-[15px] font-bold transition-colors ${BUTTON[kind]} ${className}`}
     >
       {children}

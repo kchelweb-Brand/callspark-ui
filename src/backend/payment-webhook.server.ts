@@ -15,7 +15,8 @@
 
 import { sql } from "./db";
 import { ensureSchema } from "./schema.server";
-import { sendAccountActivatedEmail, sendTeamAlertEmail } from "./email";
+import { sendTeamAlertEmail } from "./email";
+import { sendReceiptFor } from "./payment-receipt.server";
 import { PLANS, getPlan, type BillingInterval, type PlanId } from "./plans";
 import { knownPaidOptions } from "./payments.server";
 import { extendPaidPeriod } from "./billing-lifecycle.server";
@@ -172,8 +173,6 @@ export async function handleFlutterwaveWebhook(request: Request): Promise<Respon
   let tenantName = "";
   let tenantSlug = "";
   if (decision.status === "activated" && decision.tenantId && decision.planId) {
-    const before = await sql`select plan from tenants where id = ${decision.tenantId}`;
-    const wasPlan = String((before[0] as { plan: string | null } | undefined)?.plan ?? "trial");
     const updated = await sql`
       update tenants set plan = ${decision.planId}, status = 'active', trial_ends_at = null
       where id = ${decision.tenantId} returning name, workspace_slug
@@ -184,21 +183,6 @@ export async function handleFlutterwaveWebhook(request: Request): Promise<Respon
     // Paid for another month (or year): the clock restarts and the reminders reset.
     await extendPaidPeriod(decision.tenantId, decision.interval ?? "monthly");
 
-    // The customer is told once, when their plan actually changes.
-    if (wasPlan !== decision.planId && email) {
-      try {
-        const plan = getPlan(decision.planId);
-        await sendAccountActivatedEmail(email, {
-          workspaceName: tenantName,
-          workspaceSlug: tenantSlug,
-          planName: plan.name,
-          agentLimit: plan.limits.agents,
-          signInUrl: "/login",
-        });
-      } catch (err) {
-        console.error("[payments] could not email the customer", err);
-      }
-    }
   }
 
   await sql`
@@ -206,6 +190,11 @@ export async function handleFlutterwaveWebhook(request: Request): Promise<Respon
       plan_id = ${decision.planId ?? null}, seats = ${decision.seats ?? null}, interval = ${decision.interval ?? null}
     where id = ${paymentId}
   `;
+
+  // The customer gets a receipt for every confirmed payment, a renewal as much as a first one.
+  if (decision.status === "activated" && email) {
+    await sendReceiptFor(paymentId, { to: email, signInUrl: "/login" });
+  }
 
   const lines = [
     `Payer: ${String(d.customer?.name ?? "")} <${email || "no email"}>`,

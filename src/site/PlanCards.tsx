@@ -82,7 +82,7 @@ export function PlanCards() {
               <p className="mt-1.5 text-sm text-slate">{price.unit}</p>
             </div>
 
-            <CtaLink to={id === "managed" ? "/contact" : "/signup"} kind={featured ? "primary" : "secondary"} className="mt-6 w-full">
+            <CtaLink to={id === "managed" ? "/contact" : "/signup"} {...(id === "managed" ? {} : { search: { plan: id } })} kind={featured ? "primary" : "secondary"} className="mt-6 w-full">
               {who(p)}
             </CtaLink>
 

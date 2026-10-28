@@ -510,10 +510,12 @@ export async function verifySignup(data: { email: string; code: string; phoneCod
   `;
   const tenant = tenants[0] as { id: string };
 
-  await sql`
+  const createdUsers = await sql`
     insert into users (tenant_id, email, role, is_super_admin)
     values (${tenant.id}, ${email}, 'tenant_owner', false)
+    returning id, tenant_id, email, role, is_super_admin
   `;
+  const owner = createdUsers[0] as unknown as UserRow;
 
   // Prefill from what signup already collected, so Settings and Phone
   // System open with real information instead of blanks the owner has to
@@ -551,11 +553,24 @@ export async function verifySignup(data: { email: string; code: string; phoneCod
     `;
   }
 
+  // They have just proved they own this email (and phone), which is what a sign-in code proves
+  // too, so they are signed in now. That lets payment follow in the same sitting.
+  const token = await signToken({
+    sub: owner.id,
+    email: owner.email,
+    role: owner.role,
+    tenantId: owner.tenant_id,
+    isSuperAdmin: false,
+    workspaceSlug: signup.workspace_slug,
+  });
+
   return {
     ok: true as const,
     status: "active",
     message: `Your workspace is live. Your ${trialDays}-day trial starts now.`,
     workspaceSlug: signup.workspace_slug,
+    token,
+    user: toAuthUser(owner, signup.workspace_slug),
   };
 }
 

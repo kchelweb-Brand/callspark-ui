@@ -8,6 +8,7 @@ import { checkoutFor } from "./payments.server";
 import { extendPaidPeriod, holdExpiredBatch, setTenantHold } from "./billing-lifecycle.server";
 import type { Lifecycle } from "./billing-lifecycle";
 import { sendAccountActivatedEmail } from "./email";
+import { recordManualPayment, sendReceiptFor } from "./payment-receipt.server";
 import { createMyTicket } from "./workspace.server";
 
 async function requireTenant(token: string): Promise<string> {
@@ -198,12 +199,16 @@ export const setTenantPlanFn = createServerFn({ method: "POST" })
  * best-effort — a mail failure must not leave the account unactivated, since
  * the customer has already paid.
  */
-export const activateTenantFn = createServerFn({ method: "POST" })
-  .validator(
-    (data: { token: string; tenantId: string; plan: string; notify?: boolean; origin?: string; months?: number }) =>
-      data,
-  )
-  .handler(async ({ data }) => {
+export async function activateTenant(data: {
+  token: string;
+  tenantId: string;
+  plan: string;
+  notify?: boolean;
+  origin?: string;
+  months?: number;
+  /** What was paid and how. When given, the customer gets a receipt. */
+  payment?: { method: string; amountUsd: number; reference?: string };
+}) {
     await requireSuperAdmin(data.token);
 
     if (!isPlanId(data.plan)) throw new Error(`"${data.plan}" is not a known plan.`);
@@ -250,8 +255,26 @@ export const activateTenantFn = createServerFn({ method: "POST" })
     `;
     const ownerEmail = (ownerRows[0] as { email: string } | undefined)?.email ?? null;
 
+    // A payment the owner confirmed by hand (crypto, gift card, bank) is written down, and the
+    // customer is sent a receipt. The receipt also says the plan is on, so it replaces the plain
+    // activation email rather than arriving beside it.
     let notified = false;
-    if (data.notify !== false && ownerEmail) {
+    let receiptSent = false;
+    if (data.payment && plan.id !== "trial") {
+      const paymentId = await recordManualPayment({
+        tenantId: data.tenantId,
+        planId: plan.id,
+        method: data.payment.method,
+        amountUsd: data.payment.amountUsd,
+        reference: data.payment.reference,
+        interval: (data.months ?? 1) >= 12 ? "annual" : "monthly",
+      });
+      if (data.notify !== false && ownerEmail) {
+        receiptSent = await sendReceiptFor(paymentId, { to: ownerEmail, signInUrl: `${data.origin ?? ""}/login` });
+        notified = receiptSent;
+      }
+    }
+    if (!receiptSent && data.notify !== false && ownerEmail) {
       try {
         await sendAccountActivatedEmail(ownerEmail, {
           workspaceName: tenant.name,
@@ -266,5 +289,9 @@ export const activateTenantFn = createServerFn({ method: "POST" })
       }
     }
 
-    return { ok: true as const, plan: plan.id as PlanId, ownerEmail, notified };
-  });
+    return { ok: true as const, plan: plan.id as PlanId, ownerEmail, notified, receiptSent };
+}
+
+export const activateTenantFn = createServerFn({ method: "POST" })
+  .validator((data: Parameters<typeof activateTenant>[0]) => data)
+  .handler(async ({ data }) => activateTenant(data));

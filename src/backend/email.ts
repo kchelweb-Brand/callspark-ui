@@ -522,6 +522,56 @@ export async function sendAccountActivatedEmail(
   await send(to, `Your Kchel Dialer account is active — ${data.planName}`, html, "activation");
 }
 
+export interface PaymentReceiptData {
+  receiptNo: string;
+  paidOn: string;
+  workspaceName: string;
+  workspaceSlug: string;
+  planName: string;
+  methodLabel: string;
+  amountUsd: number;
+  reference: string | null;
+  /** When the paid period now ends, if it has an end. */
+  paidUntil: string | null;
+  signInUrl: string;
+}
+
+/** Sent once a payment is confirmed: a card payment by the webhook, anything else when the owner marks it paid. */
+export async function sendPaymentReceiptEmail(to: string, data: PaymentReceiptData): Promise<void> {
+  const rows = [
+    detailRow("Receipt no.", data.receiptNo),
+    detailRow("Date", data.paidOn),
+    detailRow("Workspace", data.workspaceName),
+    detailRow("Plan", data.planName),
+    detailRow("Paid by", data.methodLabel),
+    detailRow("Amount", `$${data.amountUsd.toFixed(2)} USD`),
+    ...(data.reference ? [detailRow("Reference", data.reference)] : []),
+    ...(data.paidUntil ? [detailRow("Paid until", data.paidUntil)] : []),
+  ].join("");
+
+  const html = shell(
+    "Payment received — thank you",
+    `
+      <p style="font-size:14px;line-height:1.6;color:#334155">
+        We've confirmed your payment and your ${escapeHtml(data.planName)} plan is active. Keep this email as your receipt.
+      </p>
+      <table style="width:100%;border-collapse:collapse;margin:16px 0">${rows}</table>
+      <p style="margin:24px 0">
+        <a href="${escapeHtml(data.signInUrl)}"
+           style="display:inline-block;background:#0f766e;color:#fff;text-decoration:none;
+                  padding:11px 20px;border-radius:8px;font-size:14px;font-weight:600">
+          Sign in to your workspace
+        </a>
+      </p>
+      <p style="font-size:13px;line-height:1.6;color:#64748b">
+        Quote the receipt number if you ever contact support about this payment.
+      </p>
+    `,
+  );
+
+  await send(to, `Receipt ${data.receiptNo} — Kchel Dialer ${data.planName}`, html, "receipt");
+}
+
 // ---------- Paid add-ons (Desktop Dialer, Managed SIP — no processor wired up,
 // so approval is manual: tenant requests, pays the founder directly, a super
 // admin flips it on from the admin console once payment is confirmed) ----------

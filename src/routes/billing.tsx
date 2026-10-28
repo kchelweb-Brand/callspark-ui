@@ -65,6 +65,15 @@ export const Route = createFileRoute("/billing")({
       },
     ],
   }),
+  // Sent here from sign-up: the plan they chose, and whether to open payment at once.
+  // Anything else in the address is dropped (the router would otherwise keep the raw text).
+  validateSearch: (search: Record<string, unknown>): { plan?: string | undefined; pay?: string | undefined } => {
+    const plan = search["plan"];
+    return {
+      plan: plan === "starter" || plan === "professional" || plan === "business" ? plan : undefined,
+      pay: search["pay"] === "1" || search["pay"] === 1 ? "1" : undefined,
+    };
+  },
   component: BillingPage,
 });
 
@@ -111,7 +120,10 @@ function BillingPage() {
   // How the customer pays comes first: the price or the payment link follows from it.
   const [payMethod, setPayMethod] = useState<string>("card");
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
-  const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const search = Route.useSearch();
+  // Showing one plan's options (from sign-up) until the customer asks to see them all.
+  const [focusPlan, setFocusPlan] = useState<string | null>(search.plan ?? null);
+  const [upgradeOpen, setUpgradeOpen] = useState(search.pay === "1");
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [billingEmail, setBillingEmail] = useState("");
   const [trunkOpen, setTrunkOpen] = useState(false);
@@ -575,6 +587,16 @@ function BillingPage() {
           </div>
 
           <p className="text-sm font-semibold">2. Pick your plan</p>
+          {focusPlan && (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-leaf/40 bg-leaf/5 px-3 py-2 text-sm">
+              <span>
+                You chose <strong>{catalog.find((p) => p.id === focusPlan)?.name ?? focusPlan}</strong>. Your free trial is running, so you can pay now or later.
+              </span>
+              <button type="button" className="font-semibold text-leaf hover:underline" onClick={() => setFocusPlan(null)}>
+                Show all plans
+              </button>
+            </div>
+          )}
           <div className="flex items-center gap-2">
             <Button
               size="sm"
@@ -594,7 +616,7 @@ function BillingPage() {
 
           <div className="flex flex-col gap-2">
             {checkout
-              .filter((o) => o.interval === billingInterval && o.method === activeMethod(checkout, payMethod))
+              .filter((o) => o.interval === billingInterval && o.method === activeMethod(checkout, payMethod) && (!focusPlan || o.planId === focusPlan))
               .map((o) => {
                 const planName = catalog.find((p) => p.id === o.planId)?.name ?? o.planId;
                 return (
@@ -648,7 +670,7 @@ function BillingPage() {
                   </div>
                 );
               })}
-            {checkout.filter((o) => o.interval === billingInterval && o.method === activeMethod(checkout, payMethod)).length === 0 && (
+            {checkout.filter((o) => o.interval === billingInterval && o.method === activeMethod(checkout, payMethod) && (!focusPlan || o.planId === focusPlan)).length === 0 && (
               <p className="py-4 text-center text-sm text-muted-foreground">
                 No {billingInterval} options for this way of paying. Try {billingInterval === "annual" ? "Monthly" : "another way to pay"}.
               </p>

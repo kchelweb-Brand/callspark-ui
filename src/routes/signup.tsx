@@ -1,4 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { PLANS } from "@/backend/plans";
 import { Loader2, Check, X, CircleCheck, TriangleAlert } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -9,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import {
   checkSlugAvailability,
   resendPhoneCode,
+  saveSession,
   submitSignup,
   verifySignup,
   type AccountType,
@@ -27,6 +29,13 @@ export const Route = createFileRoute("/signup")({
       },
     ],
   }),
+  // The plan picked on the pricing page rides along, so payment can be offered for it afterwards.
+  // The router lays what this returns over the raw address, so an unknown plan has to be
+  // overwritten with undefined; returning nothing would let the typed text through.
+  validateSearch: (search: Record<string, unknown>): { plan?: "starter" | "professional" | "business" | undefined } => {
+    const plan = search["plan"];
+    return { plan: plan === "starter" || plan === "professional" || plan === "business" ? plan : undefined };
+  },
   component: SignupPage,
 });
 
@@ -34,6 +43,8 @@ type Step = "details" | "code" | "done";
 
 function SignupPage() {
   const navigate = useNavigate();
+  const { plan: chosenPlan } = Route.useSearch();
+  const chosenName = chosenPlan ? PLANS[chosenPlan].name : null;
   const [step, setStep] = useState<Step>("details");
   const [busy, setBusy] = useState(false);
   // A delivery failure needs to stay on screen — a toast disappears before
@@ -143,7 +154,13 @@ function SignupPage() {
     }
     setBusy(true);
     try {
-      await verifySignup(email, code, phoneCodeSent ? phoneCode : undefined);
+      const result = await verifySignup(email, code, phoneCodeSent ? phoneCode : undefined);
+      // Verified means signed in, so the next page can take payment for the plan they chose.
+      saveSession(result.token, result.user);
+      if (chosenPlan) {
+        void navigate({ to: "/billing", search: { plan: chosenPlan, pay: "1" } as never });
+        return;
+      }
       setStep("done");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Invalid or expired code.");
@@ -159,13 +176,21 @@ function SignupPage() {
       body="Calling, campaigns, AI voice agents and a team workspace, for solo operators and full call floors alike."
       points={["Set up your workspace in about a minute", "Bring your own SIP line, or let us supply one", "No password to remember"]}
       visual="aicall"
-      footnote="Free for 7 days. No card needed. We sign you in with a one-time code."
+      footnote={chosenName ? `You chose ${chosenName}. Verify your email, then pay for it. Your 7-day free trial runs meanwhile.` : "Free for 7 days. No card needed. We sign you in with a one-time code."}
     >
       <div className="[&_button[type=submit]]:h-12 [&_button[type=submit]]:text-[15px] [&_button[type=submit]]:font-bold [&_input]:text-[16px] [&_input:not([type=checkbox])]:h-12 [&_label]:text-[15px] [&_label]:font-bold [&_select]:h-12">
         {step === "details" && (
           <form className="w-full" onSubmit={handleSubmitDetails}>
             <h1 className="text-[2rem] leading-[1.1] font-extrabold tracking-tight">Create your account</h1>
             <p className="mt-3 text-[16px] leading-relaxed text-slate">Set up your workspace. It takes about a minute.</p>
+            {chosenName && (
+              <div className="mt-5 rounded-lg border border-leaf/40 bg-leaf/5 px-4 py-3 text-[14.5px] leading-relaxed">
+                <p className="font-bold">You chose the {chosenName} plan</p>
+                <p className="text-slate">
+                  1. Create your account &nbsp;·&nbsp; 2. Verify your email &nbsp;·&nbsp; 3. Pay for {chosenName}. Your 7-day free trial runs while you do.
+                </p>
+              </div>
+            )}
 
             <div className="mt-7 flex flex-col gap-4">
               <div className="flex flex-col gap-2">
@@ -443,8 +468,8 @@ function SignupPage() {
               ready right now — no approval to wait on. Your 7-day trial started the moment you
               verified, so it's worth signing in and getting your first call routed today.
             </p>
-            <Button className="mt-7 w-full" onClick={() => navigate({ to: "/login" })}>
-              Sign in and get started
+            <Button className="mt-7 w-full" onClick={() => navigate({ to: "/dashboard" })}>
+              Open my workspace
             </Button>
           </div>
         )}
