@@ -35,6 +35,7 @@ import { Route as SmsRouteImport } from './routes/sms'
 import { Route as SupportRouteImport } from './routes/support'
 import { Route as TeamRouteImport } from './routes/team'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
+import { Route as AdminAppRouteImport } from './routes/admin.app'
 import { Route as AdminLoginRouteImport } from './routes/admin.login'
 import { Route as AdminOutreachRouteImport } from './routes/admin.outreach'
 import { Route as AdminPaymentsRouteImport } from './routes/admin.payments'
@@ -181,6 +182,11 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
   path: '/admin/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminAppRoute = AdminAppRouteImport.update({
+  id: '/admin/app',
+  path: '/admin/app',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminLoginRoute = AdminLoginRouteImport.update({
   id: '/admin/login',
   path: '/admin/login',
@@ -283,6 +289,7 @@ export interface FileRoutesByFullPath {
   '/sms': typeof SmsRoute
   '/support': typeof SupportRoute
   '/team': typeof TeamRoute
+  '/admin/app': typeof AdminAppRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/outreach': typeof AdminOutreachRoute
   '/admin/payments': typeof AdminPaymentsRoute
@@ -326,6 +333,7 @@ export interface FileRoutesByTo {
   '/sms': typeof SmsRoute
   '/support': typeof SupportRoute
   '/team': typeof TeamRoute
+  '/admin/app': typeof AdminAppRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/outreach': typeof AdminOutreachRoute
   '/admin/payments': typeof AdminPaymentsRoute
@@ -370,6 +378,7 @@ export interface FileRoutesById {
   '/sms': typeof SmsRoute
   '/support': typeof SupportRoute
   '/team': typeof TeamRoute
+  '/admin/app': typeof AdminAppRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/outreach': typeof AdminOutreachRoute
   '/admin/payments': typeof AdminPaymentsRoute
@@ -415,6 +424,7 @@ export interface FileRouteTypes {
     | '/sms'
     | '/support'
     | '/team'
+    | '/admin/app'
     | '/admin/login'
     | '/admin/outreach'
     | '/admin/payments'
@@ -458,6 +468,7 @@ export interface FileRouteTypes {
     | '/sms'
     | '/support'
     | '/team'
+    | '/admin/app'
     | '/admin/login'
     | '/admin/outreach'
     | '/admin/payments'
@@ -501,6 +512,7 @@ export interface FileRouteTypes {
     | '/sms'
     | '/support'
     | '/team'
+    | '/admin/app'
     | '/admin/login'
     | '/admin/outreach'
     | '/admin/payments'
@@ -545,6 +557,7 @@ export interface RootRouteChildren {
   SmsRoute: typeof SmsRoute
   SupportRoute: typeof SupportRoute
   TeamRoute: typeof TeamRoute
+  AdminAppRoute: typeof AdminAppRoute
   AdminLoginRoute: typeof AdminLoginRoute
   AdminOutreachRoute: typeof AdminOutreachRoute
   AdminPaymentsRoute: typeof AdminPaymentsRoute
@@ -747,6 +760,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/app': {
+      id: '/admin/app'
+      path: '/admin/app'
+      fullPath: '/admin/app'
+      preLoaderRoute: typeof AdminAppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/login': {
       id: '/admin/login'
       path: '/admin/login'
@@ -881,6 +901,7 @@ const rootRouteChildren: RootRouteChildren = {
   SmsRoute: SmsRoute,
   SupportRoute: SupportRoute,
   TeamRoute: TeamRoute,
+  AdminAppRoute: AdminAppRoute,
   AdminLoginRoute: AdminLoginRoute,
   AdminOutreachRoute: AdminOutreachRoute,
   AdminPaymentsRoute: AdminPaymentsRoute,

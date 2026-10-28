@@ -26,6 +26,8 @@ export interface VerifyCodeParams {
   code: string;
   purpose: AuthPurpose;
   workspaceSlug?: string;
+  /** Platform owners on their phone: stay signed in for two weeks. */
+  remember?: boolean;
 }
 
 export interface AuthUser {

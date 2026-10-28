@@ -34,8 +34,11 @@ async function hmacKey() {
 const TOKEN_TTL_SECONDS = 60 * 60 * 24; // 24h ceiling — the frontend already
 // signs users out after 10 minutes idle; this is just an outer bound.
 
-export async function signToken(payload: Omit<TokenPayload, "exp" | "permissions">): Promise<string> {
-  const full: TokenPayload = { ...payload, exp: Math.floor(Date.now() / 1000) + TOKEN_TTL_SECONDS };
+export async function signToken(
+  payload: Omit<TokenPayload, "exp" | "permissions">,
+  ttlSeconds: number = TOKEN_TTL_SECONDS,
+): Promise<string> {
+  const full: TokenPayload = { ...payload, exp: Math.floor(Date.now() / 1000) + ttlSeconds };
   const body = bytesToBase64url(new TextEncoder().encode(JSON.stringify(full)));
   const key = await hmacKey();
   const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(body));

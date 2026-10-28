@@ -34,12 +34,11 @@ interface Invoice {
 }
 const invoices: Invoice[] = [];
 import { getTenantSettings, saveTenantSettings } from "@/lib/workspace-api";
-import { prepareReceipt } from "@/lib/receipt-file";
+import { ClaimDialog } from "@/components/billing/ClaimDialog";
 import {
   USAGE_LABELS,
   formatUsage,
   getAddonStatus,
-  claimPayment,
   getPlanUsage,
   listPlans,
   requestDialerAddon,
@@ -113,13 +112,10 @@ function BillingPage() {
   const [region, setRegion] = useState<string>("default");
   const [claimFor, setClaimFor] = useState<Checkout[number] | null>(null);
   const [cryptoFor, setCryptoFor] = useState<Checkout[number] | null>(null);
-  const [claimRef, setClaimRef] = useState("");
-  const [claimBusy, setClaimBusy] = useState(false);
   // Named to avoid shadowing the global setInterval in this scope.
   const [billingInterval, setBillingInterval] = useState<"monthly" | "annual">("monthly");
   // How the customer pays comes first: the price or the payment link follows from it.
   const [payMethod, setPayMethod] = useState<string>("card");
-  const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const search = Route.useSearch();
   // Showing one plan's options (from sign-up) until the customer asks to see them all.
   const [focusPlan, setFocusPlan] = useState<string | null>(search.plan ?? null);
@@ -660,8 +656,7 @@ function BillingPage() {
                         type="button"
                         className="text-xs text-muted-foreground hover:underline"
                         onClick={() => {
-                          setClaimRef("");
-                          setClaimFor(o);
+                                    setClaimFor(o);
                         }}
                       >
                         I've paid
@@ -740,7 +735,6 @@ function BillingPage() {
             </Button>
             <Button
               onClick={() => {
-                setClaimRef("");
                 setClaimFor(cryptoFor);
                 setCryptoFor(null);
               }}
@@ -751,68 +745,7 @@ function BillingPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!claimFor} onOpenChange={(open) => !open && setClaimFor(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Tell us you've paid</DialogTitle>
-            <DialogDescription>
-              We'll confirm the payment and activate your plan. Add something we can find: a transaction ID, a
-              receipt number, or the name you paid with. Never type a gift card code or card number here.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="claim-ref">Reference (transaction ID or receipt number)</Label>
-            <Input id="claim-ref" value={claimRef} onChange={(e) => setClaimRef(e.target.value)} />
-            <Label htmlFor="claim-receipt" className="mt-2">
-              Receipt (screenshot or PDF) — helps us verify faster
-            </Label>
-            <input
-              id="claim-receipt"
-              type="file"
-              accept="image/png,image/jpeg,image/webp,application/pdf"
-              className="text-sm file:mr-3 file:rounded-md file:border file:border-border file:bg-muted file:px-3 file:py-1.5 file:text-sm"
-              onChange={(e) => setReceiptFile(e.target.files?.[0] ?? null)}
-            />
-            <p className="text-xs text-muted-foreground">
-              A reference or a receipt is enough; both is best. Cover any card number or gift card code first.
-            </p>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setClaimFor(null)}>
-              Cancel
-            </Button>
-            <Button
-              disabled={claimBusy}
-              onClick={async () => {
-                if (!claimFor) return;
-                setClaimBusy(true);
-                try {
-                  await claimPayment({
-                    planId: claimFor.planId,
-                    seats: claimFor.seats,
-                    interval: claimFor.interval,
-                    method: claimFor.method,
-                    reference: claimRef,
-                    amountUsd: claimFor.amountUsd,
-                    ...(receiptFile ? { receipt: await prepareReceipt(receiptFile) } : {}),
-                  });
-                  toast.success("Thanks. We'll confirm it and activate your plan.", {
-                    description: "You can follow this in Support.",
-                  });
-                  setClaimFor(null);
-                  setReceiptFile(null);
-                } catch (err) {
-                  toast.error(err instanceof Error ? err.message : "Couldn't send that.");
-                } finally {
-                  setClaimBusy(false);
-                }
-              }}
-            >
-              Send
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ClaimDialog claim={claimFor} onClose={() => setClaimFor(null)} />
 
       <Dialog open={paymentOpen} onOpenChange={setPaymentOpen}>
         <DialogContent>

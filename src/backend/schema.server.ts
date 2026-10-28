@@ -297,6 +297,42 @@ async function apply(): Promise<void> {
     )
   `;
 
+  // ---------- "I've paid" claims the owner verifies, and the phones that get told about them ----------
+  await sql`
+    create table if not exists payment_claims (
+      id uuid primary key default gen_random_uuid(),
+      tenant_id uuid not null references tenants(id) on delete cascade,
+      user_email text,
+      plan_id text not null,
+      seats int not null default 1,
+      interval text not null default 'monthly',
+      method text not null,
+      expected_usd numeric(12,2),
+      declared_usd numeric(12,2),
+      reference text,
+      status text not null default 'pending' check (status in ('pending','approved','rejected')),
+      ticket_ref text,
+      note text,
+      created_at timestamptz not null default now(),
+      handled_at timestamptz,
+      handled_by text
+    )
+  `;
+  await sql`create index if not exists idx_payment_claims_status on payment_claims (status, created_at desc)`;
+  await sql`alter table payment_receipts add column if not exists claim_id uuid references payment_claims(id) on delete cascade`;
+  await sql`alter table payment_receipts add column if not exists amount_usd numeric(12,2)`;
+  await sql`
+    create table if not exists push_subscriptions (
+      id uuid primary key default gen_random_uuid(),
+      user_id uuid not null references users(id) on delete cascade,
+      endpoint text not null unique,
+      p256dh text not null,
+      auth text not null,
+      label text,
+      created_at timestamptz not null default now()
+    )
+  `;
+
   // One request for everything. The advisory lock makes two workers that start
   // at once take turns instead of racing to create the same table.
   await sqlQuery(

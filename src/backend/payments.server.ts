@@ -19,6 +19,7 @@ import { PRICE_REGIONS, countryByCode, countryByDial, regionForCountry, type Pri
 import { callingCodeFromE164 } from "./phone-numbers";
 import { createMyTicket } from "./workspace.server";
 import { saveReceipt, type ReceiptUpload } from "./receipts.server";
+import { announceClaim, tellCustomerReceived } from "./claim-notify.server";
 
 export type PayMethod = "card" | "bank" | "crypto" | "giftcard" | "other";
 
@@ -426,11 +427,21 @@ export const deletePaymentLinkFn = createServerFn({ method: "POST" })
 // The customer's side: "I've paid"
 // ---------------------------------------------------------------------------
 
+/** A gift card the customer photographed, with what it is worth. */
+export interface CardUpload extends ReceiptUpload {
+  amountUsd: number;
+}
+
+const MAX_CARDS = 6;
+
 /**
- * Tells the owner a payment was sent, with the reference needed to find it. It
- * lands in the support inbox as a high-priority thread, next to the customer's
- * plan and details. Crypto and gift cards cannot be checked automatically, so
- * this is how the owner knows which payment to look for.
+ * Tells the owner a payment was sent, with what is needed to check it. The claim is
+ * kept as its own record the owner's phone app works from, a high-priority support
+ * thread is opened beside it, the owner is emailed and alerted, and the customer is
+ * told by email that a person will verify it before the plan is switched on.
+ *
+ * A gift card can come as several cards (a customer who cannot buy one big card sends
+ * three of $100): each has its own picture and amount.
  */
 export async function claimPayment(data: {
   token: string;
@@ -442,31 +453,79 @@ export async function claimPayment(data: {
   amountUsd?: number;
   /** A screenshot or PDF of the receipt, for the owner to check the payment against. */
   receipt?: ReceiptUpload | undefined;
+  /** Gift cards: one entry per card. */
+  cards?: CardUpload[] | undefined;
 }) {
   const payload = await verifyToken(data.token);
   if (!payload || !payload.tenantId) throw new Error("Not signed in.");
   if (!isPlanId(data.planId) || data.planId === "trial") throw new Error("Choose a plan.");
   if (!PAY_METHODS.some((m) => m.id === data.method)) throw new Error("Choose how you paid.");
-  const reference = data.reference.trim().slice(0, 300);
-  if (reference.length < 4 && !data.receipt) {
+  const interval = data.interval === "annual" ? "annual" : "monthly";
+  const seats = Math.max(1, Math.min(500, Math.round(Number(data.seats) || 1)));
+  const reference = String(data.reference ?? "").trim().slice(0, 300);
+
+  const cards = Array.isArray(data.cards) ? data.cards : [];
+  if (data.method === "giftcard") {
+    if (cards.length === 0) throw new Error("Add a picture of each gift card, with the amount on it.");
+    if (cards.length > MAX_CARDS) throw new Error(`Send at most ${MAX_CARDS} cards at a time.`);
+    for (const c of cards) {
+      const v = Number(c.amountUsd);
+      if (!Number.isFinite(v) || v <= 0 || v > 5000) throw new Error("Enter the amount for every card, in US dollars.");
+    }
+  } else if (reference.length < 4 && !data.receipt) {
     throw new Error("Add a reference we can find (a transaction ID, receipt number, or the name you paid with), or attach your receipt.");
   }
-  // Kept before the ticket is written, so the ticket can carry the address that opens it.
-  const receiptPath = data.receipt ? await saveReceipt(payload.tenantId, data.receipt) : null;
+
   const plan = getPlan(data.planId);
   const method = PAY_METHODS.find((m) => m.id === data.method)?.label ?? data.method;
+
+  // The price the customer was shown, from our own list rather than from the browser.
+  const shown = (await checkoutFor(payload.tenantId)).options.find(
+    (o) => o.planId === data.planId && o.method === data.method && o.interval === interval && o.seats === seats,
+  );
+  const expected = shown?.amountUsd ?? (Number(data.amountUsd) > 0 ? Number(data.amountUsd) : null);
+  const declared = cards.length > 0 ? Math.round(cards.reduce((n, c) => n + Number(c.amountUsd), 0) * 100) / 100 : null;
+
+  const tenant = await sql`select name from tenants where id = ${payload.tenantId}`;
+  const tenantName = String((tenant[0] as { name: string } | undefined)?.name ?? "Workspace");
+
+  const claim = await sql`
+    insert into payment_claims (tenant_id, user_email, plan_id, seats, interval, method, expected_usd, declared_usd, reference)
+    values (${payload.tenantId}, ${payload.email}, ${data.planId}, ${seats}, ${interval}, ${data.method}, ${expected}, ${declared}, ${reference || null})
+    returning id
+  `;
+  const claimId = String((claim[0] as { id: string }).id);
+
+  // Kept before the ticket is written, so the ticket can carry the addresses that open them.
+  const paths: string[] = [];
+  try {
+    if (data.receipt) paths.push(await saveReceipt(payload.tenantId, data.receipt, { claimId }));
+    for (const c of cards) paths.push(await saveReceipt(payload.tenantId, c, { claimId, amountUsd: Number(c.amountUsd) }));
+  } catch (err) {
+    await sql`delete from payment_claims where id = ${claimId}`;
+    throw err;
+  }
+
   const result = await createMyTicket({
     token: data.token,
     subject: `Payment sent: ${plan.name} (${method})`,
     priority: "High",
     body:
-      `We've paid for the ${plan.name} plan (${data.seats} seat${data.seats === 1 ? "" : "s"}, ${data.interval}) by ${method}.\n` +
-      (Number.isFinite(data.amountUsd) && Number(data.amountUsd) > 0 ? `Amount shown at checkout: $${Number(data.amountUsd)}\n` : "") +
+      `We've paid for the ${plan.name} plan (${seats} seat${seats === 1 ? "" : "s"}, ${interval}) by ${method}.\n` +
+      (expected ? `Price shown at checkout: $${expected}\n` : "") +
+      (declared !== null ? `Gift cards sent: ${cards.length}, totalling $${declared}\n` : "") +
       (reference ? `Reference: ${reference}\n` : "") +
-      (receiptPath ? `Receipt: ${receiptPath}\n` : "") +
-      `\nPlease confirm the payment and activate the plan.`,
+      paths.map((p, i) => `Receipt ${i + 1}${cards[i - (data.receipt ? 1 : 0)] ? ` ($${cards[i - (data.receipt ? 1 : 0)]!.amountUsd})` : ""}: ${p}\n`).join("") +
+      `\nPlease verify the payment and activate the plan.`,
   });
-  return { ok: true as const, ticketRef: result.ticket.ticket_ref };
+  const ticketRef = result.ticket.ticket_ref;
+  await sql`update payment_claims set ticket_ref = ${ticketRef} where id = ${claimId}`;
+
+  const summary = { claimId, tenantName, planName: plan.name, methodLabel: method, expectedUsd: expected, declaredUsd: declared, cardCount: cards.length, ticketRef };
+  await announceClaim(summary);
+  await tellCustomerReceived(payload.email, summary);
+
+  return { ok: true as const, ticketRef, claimId, expectedUsd: expected, declaredUsd: declared };
 }
 
 export const claimPaymentFn = createServerFn({ method: "POST" })

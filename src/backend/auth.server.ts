@@ -158,6 +158,8 @@ export async function verifyLoginCode(data: {
   purpose: "login" | "admin_login";
   /** Which workspace they are signing in to. Matters when one email belongs to several. */
   workspaceSlug?: string;
+  /** The owner's phone app: stay signed in for two weeks instead of a day. Platform owners only. */
+  remember?: boolean;
 }) {
     await ensureSchema();
     const email = data.email.trim().toLowerCase();
@@ -230,15 +232,18 @@ export async function verifyLoginCode(data: {
       await sql`update users set status = 'active', accepted_at = coalesce(accepted_at, now()) where id = ${user.id}`;
     }
 
-    const token = await signToken({
-      sub: user.id,
-      email: user.email,
-      role: user.role,
-      tenantId: user.tenant_id,
-      isSuperAdmin: user.is_super_admin,
-      workspaceSlug,
-      ...(user.role === "agent" && !user.is_super_admin ? { agent: true } : {}),
-    });
+    const token = await signToken(
+      {
+        sub: user.id,
+        email: user.email,
+        role: user.role,
+        tenantId: user.tenant_id,
+        isSuperAdmin: user.is_super_admin,
+        workspaceSlug,
+        ...(user.role === "agent" && !user.is_super_admin ? { agent: true } : {}),
+      },
+      data.remember && user.is_super_admin ? 14 * 24 * 60 * 60 : undefined,
+    );
 
     return { ok: true as const, token, user: toAuthUser(user, workspaceSlug) };
 }

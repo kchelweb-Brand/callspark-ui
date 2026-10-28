@@ -55,7 +55,11 @@ function fromBase64(b64: string): Uint8Array {
 }
 
 /** Checks the file is what it says it is, then keeps it. Returns the path to open it. */
-export async function saveReceipt(tenantId: string, upload: ReceiptUpload): Promise<string> {
+export async function saveReceipt(
+  tenantId: string,
+  upload: ReceiptUpload,
+  extra: { claimId?: string; amountUsd?: number } = {},
+): Promise<string> {
   const kind = KINDS.find((k) => k.type === upload.type);
   if (!kind) throw new Error("Attach the receipt as a picture (JPG, PNG, WebP) or a PDF.");
   // Rough size first, so a huge upload is never decoded.
@@ -77,8 +81,8 @@ export async function saveReceipt(tenantId: string, upload: ReceiptUpload): Prom
   await ensureSchema();
   const filename = String(upload.name ?? "receipt").replace(/[^\w.\- ]+/g, "").slice(0, 80) || "receipt";
   const rows = await sql`
-    insert into payment_receipts (tenant_id, filename, content_type, size, data)
-    values (${tenantId}, ${filename}, ${upload.type}, ${bytes.length}, decode(${upload.data}, 'base64'))
+    insert into payment_receipts (tenant_id, filename, content_type, size, data, claim_id, amount_usd)
+    values (${tenantId}, ${filename}, ${upload.type}, ${bytes.length}, decode(${upload.data}, 'base64'), ${extra.claimId ?? null}, ${extra.amountUsd ?? null})
     returning id
   `;
   return receiptPath(String((rows[0] as { id: string }).id));

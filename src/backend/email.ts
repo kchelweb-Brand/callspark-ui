@@ -572,6 +572,63 @@ export async function sendPaymentReceiptEmail(to: string, data: PaymentReceiptDa
   await send(to, `Receipt ${data.receiptNo} — Kchel Dialer ${data.planName}`, html, "receipt");
 }
 
+export interface PaymentReceivedData {
+  workspaceName: string;
+  planName: string;
+  methodLabel: string;
+  amountText: string;
+  /** Gift cards sent; 0 for anything else. */
+  cardCount: number;
+}
+
+/** To the customer straight after "I've paid": it arrived, and a person will check it before the plan is switched on. */
+export async function sendPaymentReceivedEmail(to: string, data: PaymentReceivedData): Promise<void> {
+  const rows = [
+    detailRow("Workspace", data.workspaceName),
+    detailRow("Plan", data.planName),
+    detailRow("Paid by", data.methodLabel),
+    detailRow(data.cardCount > 0 ? "Cards sent" : "Amount", data.cardCount > 0 ? `${data.cardCount} card${data.cardCount === 1 ? "" : "s"}, ${data.amountText} in total` : data.amountText),
+  ].join("");
+  const html = shell(
+    "We've received your payment details",
+    `
+      <p style="font-size:14px;line-height:1.6;color:#334155">
+        Thank you. Our team will now check your payment. <strong>Your plan is switched on only after we have verified it</strong>,
+        and we will email you again as soon as that is done, with your receipt.
+      </p>
+      <table style="width:100%;border-collapse:collapse;margin:16px 0">${rows}</table>
+      <p style="font-size:13px;line-height:1.6;color:#64748b">
+        Your free trial keeps running meanwhile. If something is missing we will email you what to send. You can follow this under Support in your workspace.
+      </p>
+    `,
+  );
+  await send(to, `We've received your payment for ${data.planName}`, html, "payment-received");
+}
+
+export interface ClaimRejectedData {
+  workspaceName: string;
+  planName: string;
+  methodLabel: string;
+  reason: string;
+}
+
+/** To the customer when a payment could not be verified: what was wrong, so they can fix it. */
+export async function sendClaimRejectedEmail(to: string, data: ClaimRejectedData): Promise<void> {
+  const html = shell(
+    "We couldn't verify your payment yet",
+    `
+      <p style="font-size:14px;line-height:1.6;color:#334155">
+        We checked the ${escapeHtml(data.methodLabel)} payment you sent for the ${escapeHtml(data.planName)} plan on ${escapeHtml(data.workspaceName)}, and we could not confirm it.
+      </p>
+      <p style="font-size:14px;color:#0f172a;white-space:pre-wrap;background:#f1f5f9;padding:14px 16px;border-radius:10px;margin:16px 0">${escapeHtml(data.reason)}</p>
+      <p style="font-size:13px;line-height:1.6;color:#64748b">
+        Open Billing in your workspace and press "I've paid" again with the missing details, or reply to our support thread. Your plan has not been charged for anything we could not verify.
+      </p>
+    `,
+  );
+  await send(to, "We couldn't verify your payment yet", html, "claim-rejected");
+}
+
 // ---------- Paid add-ons (Desktop Dialer, Managed SIP — no processor wired up,
 // so approval is manual: tenant requests, pays the founder directly, a super
 // admin flips it on from the admin console once payment is confirmed) ----------

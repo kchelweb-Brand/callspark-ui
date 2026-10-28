@@ -17,6 +17,7 @@ import { sql } from "./db";
 import { ensureSchema } from "./schema.server";
 import { sendTeamAlertEmail } from "./email";
 import { sendReceiptFor } from "./payment-receipt.server";
+import { pushToOwners } from "./push.server";
 import { PLANS, getPlan, type BillingInterval, type PlanId } from "./plans";
 import { knownPaidOptions } from "./payments.server";
 import { extendPaidPeriod } from "./billing-lifecycle.server";
@@ -212,5 +213,20 @@ export async function handleFlutterwaveWebhook(request: Request): Promise<Respon
       [`The plan was NOT switched on.`, `Why: ${decision.note}`, ...lines, "", "Match it to a workspace in Admin → Tenants and activate the plan by hand."].join("\n"),
     );
   }
+  await pushToOwners(
+    decision.status === "activated"
+      ? {
+          title: `Payment received · $${proof.ok ? proof.amount : claimed}`,
+          body: `${tenantName || email} is now on ${PLANS[decision.planId!].name}.`,
+          url: "/admin/app",
+          tag: `payment-${paymentId}`,
+        }
+      : {
+          title: "Payment needs your attention",
+          body: `${email || "Unknown payer"} paid $${proof.ok ? proof.amount : claimed}. ${decision.note}`,
+          url: "/admin/app",
+          tag: `payment-${paymentId}`,
+        },
+  );
   return new Response("OK", { status: 200 });
 }

@@ -1,0 +1,26 @@
+{
+  "name": "Kchel Admin",
+  "short_name": "Kchel Admin",
+  "description": "Watch payments arrive and grant plans from your phone.",
+  "id": "/admin/app",
+  "start_url": "/admin/app",
+  "scope": "/admin/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0a2540",
+  "theme_color": "#0a2540",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
