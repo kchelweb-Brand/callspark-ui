@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.kchel.admin",
+      "sha256_cert_fingerprints": [
+        "ED:67:BD:D2:91:1B:24:8E:56:8C:08:FA:B9:DC:CD:2E:3D:94:5C:41:CB:BE:FE:F5:4A:27:BE:B3:A1:0D:8D:7A"
+      ]
+    }
+  }
+]
