@@ -42,7 +42,9 @@ export async function originateAiCall(input: {
   });
   if (input.machineDetection) {
     body.set("MachineDetection", input.machineDetection);
-    body.set("MachineDetectionTimeout", input.machineDetection === "DetectMessageEnd" ? "30" : "12");
+    // The person hears nothing while the carrier decides, so the quick check gives up sooner.
+    body.set("MachineDetectionTimeout", input.machineDetection === "DetectMessageEnd" ? "30" : "7");
+    if (input.machineDetection === "Enable") body.set("MachineDetectionSilenceTimeout", "3000");
   }
 
   return signalwireFetch(url, body, projectId, apiToken);

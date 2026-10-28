@@ -57,6 +57,21 @@ export const Route = createFileRoute("/contacts")({
 
 const PAGE_SIZE = 50;
 
+/** The name as first and last, falling back to the single name column of older contacts. */
+function fullName(c: { first_name: string | null; last_name: string | null; person: string | null }) {
+  return [c.first_name, c.last_name].filter(Boolean).join(" ") || c.person || "—";
+}
+
+/** Where the person is: the city or address, then the country. */
+function placeOf(c: { location: string | null; country: string | null }) {
+  return [c.location, c.country].filter(Boolean).join(", ");
+}
+
+/** WhatsApp can't be checked for a number, so contacts that have it are tagged "whatsapp" and only they get the chat button. */
+function hasWhatsApp(tags: string[] | null | undefined) {
+  return (tags ?? []).some((t) => t.trim().toLowerCase() === "whatsapp");
+}
+
 /** A WhatsApp chat with this number. WhatsApp's own app handles the call button from there. */
 function whatsappLink(e164: string) {
   return `https://wa.me/${e164.replace(/\D/g, "")}`;
@@ -450,6 +465,7 @@ function ContactsPage() {
                     </TableHead>
                     <TableHead>Company</TableHead>
                     <TableHead>Contact</TableHead>
+                    <TableHead>Location</TableHead>
                     <TableHead>Number</TableHead>
                     <TableHead>Tags</TableHead>
                     <TableHead>List</TableHead>
@@ -468,7 +484,8 @@ function ContactsPage() {
                         />
                       </TableCell>
                       <TableCell className="font-semibold">{c.company || "—"}</TableCell>
-                      <TableCell>{c.person || "—"}</TableCell>
+                      <TableCell>{fullName(c)}</TableCell>
+                      <TableCell className="text-muted-foreground">{placeOf(c) || "—"}</TableCell>
                       <TableCell className="font-mono text-sm">{formatPhone(c.phone)}</TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-1">
@@ -509,16 +526,18 @@ function ContactsPage() {
                         >
                           <Phone className="size-3.5" />
                         </ActionButton>
-                        <a
-                          href={whatsappLink(c.phone)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          title="Open a WhatsApp chat"
-                          aria-label={`WhatsApp ${formatPhone(c.phone)}`}
-                          className="ml-1 inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
-                        >
-                          <MessageCircle className="size-3.5" />
-                        </a>
+                        {hasWhatsApp(c.tags) && (
+                          <a
+                            href={whatsappLink(c.phone)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title="This contact is on WhatsApp. Open a chat."
+                            aria-label={`WhatsApp ${formatPhone(c.phone)}`}
+                            className="ml-1 inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+                          >
+                            <MessageCircle className="size-3.5" />
+                          </a>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -561,6 +580,8 @@ function ContactsPage() {
                       </div>
                     )}
 
+                    {placeOf(c) && <p className="truncate text-xs text-muted-foreground">{placeOf(c)}</p>}
+
                     {c.list_name && (
                       <p className="truncate text-xs text-muted-foreground">{c.list_name}</p>
                     )}
@@ -584,16 +605,18 @@ function ContactsPage() {
                   >
                     <Phone className="size-3.5" />
                   </ActionButton>
-                  <a
-                          href={whatsappLink(c.phone)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          title="Open a WhatsApp chat"
-                          aria-label={`WhatsApp ${formatPhone(c.phone)}`}
-                          className="inline-flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
-                        >
-                          <MessageCircle className="size-3.5" />
-                        </a>
+                  {hasWhatsApp(c.tags) && (
+                    <a
+                      href={whatsappLink(c.phone)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="This contact is on WhatsApp. Open a chat."
+                      aria-label={`WhatsApp ${formatPhone(c.phone)}`}
+                      className="inline-flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+                    >
+                      <MessageCircle className="size-3.5" />
+                    </a>
+                  )}
                 </li>
               ))}
             </ul>

@@ -333,6 +333,12 @@ async function apply(): Promise<void> {
     )
   `;
 
+  // ---------- contacts: first and last name, where they are ----------
+  await sql`alter table contacts add column if not exists first_name text`;
+  await sql`alter table contacts add column if not exists last_name text`;
+  await sql`alter table contacts add column if not exists location text`;
+  await sql`alter table contacts add column if not exists country text`;
+
   // One request for everything. The advisory lock makes two workers that start
   // at once take turns instead of racing to create the same table.
   await sqlQuery(

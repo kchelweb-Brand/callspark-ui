@@ -91,9 +91,19 @@ const HONESTY =
 
 /** Outbound agents only talk first when told to; with just a role they sit silent until the person says hello. */
 export const OPENING_INSTRUCTION =
-  "IMPORTANT: You placed this call and the person has just picked up. Do not wait for them to speak. " +
-  "Speak first, right away: say a short greeting, who you are and why you are calling, in one or two sentences, " +
-  "then pause and let them answer. If they say hello first, still introduce yourself straight away.";
+  "IMPORTANT: You placed this call and the person has just picked up, and a short hello has already been said out loud for you. " +
+  "Do not wait for them to speak. Speak first, right away: now say who you are and why you are calling, " +
+  "in one or two sentences, then pause and let them answer. Do not say hello again. " +
+  "If they say hello first, still introduce yourself straight away.";
+
+/**
+ * The first words of a campaign call, spoken by the carrier itself the moment the person picks up,
+ * so a call is never silent even if the model is slow to start. The model carries on from there.
+ */
+export function campaignGreeting(person: string | null | undefined): string {
+  const first = String(person ?? "").trim().split(/\s+/)[0] ?? "";
+  return first ? `Hi ${first}, thanks for picking up. I'll be quick.` : "Hi there, thanks for picking up. I'll be quick.";
+}
 
 function actionGuide(s: AiAgentSettings): string {
   const lines: string[] = [];
@@ -271,11 +281,14 @@ async function actionFunctions(s: AiAgentSettings, callId: string, origin: strin
 export async function contactBrief(tenantId: string, contactId: string | null | undefined): Promise<string> {
   if (!contactId) return "";
   const [c] = await sql`
-    select person, company, email, tags from contacts where id = ${contactId} and tenant_id = ${tenantId} limit 1
+    select person, first_name, last_name, location, country, company, email, tags from contacts where id = ${contactId} and tenant_id = ${tenantId} limit 1
   `;
   if (!c) return "";
   const lines: string[] = [];
-  if (c["person"]) lines.push(`Name: ${c["person"]}`);
+  const fullName = [c["first_name"], c["last_name"]].filter(Boolean).join(" ") || (c["person"] as string | null);
+  if (fullName) lines.push(`Name: ${fullName}`);
+  const place = [c["location"], c["country"]].filter(Boolean).join(", ");
+  if (place) lines.push(`Location: ${place}`);
   if (c["company"]) lines.push(`Company: ${c["company"]}`);
   if (c["email"]) lines.push(`Email: ${c["email"]}`);
   const tags = c["tags"] as string[] | null;

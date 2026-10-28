@@ -19,7 +19,7 @@ import { sqlQuery } from "./db";
 import { ensureSchema } from "./schema.server";
 import { parsePhone } from "./contact-import";
 import { workspaceDialCode } from "./contacts.server";
-import { buildAiVerb, contactBrief, summaryPrompt, tagCall } from "./ai-agent.server";
+import { buildAiVerb, campaignGreeting, contactBrief, summaryPrompt, tagCall } from "./ai-agent.server";
 import {
   AI_OUTCOMES,
   aiOutcomeLabel,
@@ -40,13 +40,21 @@ async function requireTenant(token: string): Promise<string> {
 }
 
 /** "Hi {{first_name}}" -> "Hi Jordan". Falls back to "there"/"" for missing fields rather than leaving the literal placeholder. */
-function interpolate(template: string, contact: { person: string | null; company: string | null }): string {
-  const name = contact.person?.trim() || "";
-  const firstName = name.split(/\s+/)[0] || "there";
+function interpolate(
+  template: string,
+  contact: { person: string | null; company: string | null; firstName?: string | null; lastName?: string | null; location?: string | null; country?: string | null },
+): string {
+  const name = contact.person?.trim() || [contact.firstName, contact.lastName].filter(Boolean).join(" ").trim() || "";
+  const firstName = contact.firstName?.trim() || name.split(/\s+/)[0] || "there";
+  const lastName = contact.lastName?.trim() || name.split(/\s+/).slice(1).join(" ");
   return template
     .replaceAll("{{first_name}}", firstName)
+    .replaceAll("{{last_name}}", lastName)
     .replaceAll("{{name}}", name || "there")
-    .replaceAll("{{company}}", contact.company?.trim() || "");
+    .replaceAll("{{company}}", contact.company?.trim() || "")
+    .replaceAll("{{location}}", contact.location?.trim() || "")
+    .replaceAll("{{city}}", contact.location?.trim() || "")
+    .replaceAll("{{country}}", contact.country?.trim() || "");
 }
 
 function originForRequest(request: Request): string {
@@ -216,7 +224,7 @@ function isMachine(answeredBy: string | undefined): boolean {
 async function handleAnswer(campaignCallId: string, params: Record<string, string>, origin: string): Promise<Response> {
   await ensureSchema();
   const [row] = await sql`
-    select cc.campaign_id, cc.call_id, cc.tenant_id, cc.contact_id, ct.person, ct.company, c.ai_prompt, c.ai_settings
+    select cc.campaign_id, cc.call_id, cc.tenant_id, cc.contact_id, ct.person, ct.company, ct.first_name, ct.last_name, ct.location, ct.country, c.ai_prompt, c.ai_settings
     from campaign_calls cc
     join contacts ct on ct.id = cc.contact_id
     join campaigns c on c.id = cc.campaign_id
@@ -230,7 +238,14 @@ async function handleAnswer(campaignCallId: string, params: Record<string, strin
 
   const saved = sanitizeAiSettings(row.ai_settings);
   const settings = { ...saved, voice: await voiceForPlan(row.tenant_id as string, saved.voice) };
-  const person ={ person: row.person as string | null, company: row.company as string | null };
+  const person = {
+    person: row.person as string | null,
+    company: row.company as string | null,
+    firstName: row.first_name as string | null,
+    lastName: row.last_name as string | null,
+    location: row.location as string | null,
+    country: row.country as string | null,
+  };
 
   // A voicemail greeting is not a conversation: hang up, or leave the message once the beep is done.
   if (isMachine(params["AnsweredBy"])) {
@@ -254,8 +269,10 @@ async function handleAnswer(campaignCallId: string, params: Record<string, strin
     brief,
     callId: row.call_id as string,
     origin,
+    greeting: campaignGreeting((row.first_name as string | null) || (row.person as string | null)),
     postPrompt: summaryPrompt("the person who runs this campaign"),
   });
+  console.log(`[campaign-ai] answered ${campaignCallId}: AnsweredBy=${params["AnsweredBy"] ?? "(not checked)"} voice=${settings.voice} model=${settings.model} style=${settings.style}`);
   return swml({ version: "1.0.0", sections: { main: [{ answer: {} }, { ai }, { hangup: {} }] } });
 }
 
@@ -266,6 +283,7 @@ async function handleStatusCallback(
 ): Promise<Response> {
   const callStatus = (params["CallStatus"] ?? "").toLowerCase();
   const duration = Number(params["CallDuration"] ?? 0);
+  console.log(`[campaign-ai] finished ${campaignCallId}: status=${callStatus} seconds=${duration} error=${params["ErrorCode"] ?? ""} ${params["ErrorMessage"] ?? ""}`);
 
   await ensureSchema();
   const [tagged] = await sql`

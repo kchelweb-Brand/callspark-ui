@@ -17,6 +17,11 @@
     return div.innerHTML;
   }
 
+  /** WhatsApp can't be checked for a number, so the owner marks the ones that have it with a "whatsapp" tag. */
+  function hasWhatsApp(c) {
+    return (c.tags || []).some((t) => String(t).trim().toLowerCase() === "whatsapp");
+  }
+
   function render(contacts) {
     if (contacts.length === 0) {
       els.table.innerHTML = '<p class="hint" style="padding:16px">No contacts yet — import a CSV to get started.</p>';
@@ -24,17 +29,23 @@
     }
     els.table.innerHTML = `
       <table class="data-table">
-        <thead><tr><th>Name</th><th>Phone</th><th>List</th><th>Tags</th><th></th></tr></thead>
+        <thead><tr><th>Name</th><th>Phone</th><th>Location</th><th>List</th><th>Tags</th><th></th></tr></thead>
         <tbody>
           ${contacts
             .map(
               (c) => `
             <tr>
-              <td>${escapeHtml(c.company || c.person || "—")}</td>
+              <td>${escapeHtml([c.first_name, c.last_name].filter(Boolean).join(" ") || c.person || c.company || "—")}${c.company && (c.first_name || c.last_name || c.person) ? `<div class="hint">${escapeHtml(c.company)}</div>` : ""}</td>
               <td class="mono">${escapeHtml(c.phone)}</td>
+              <td>${escapeHtml([c.location, c.country].filter(Boolean).join(", ") || "—")}</td>
               <td>${escapeHtml(c.list_name || "—")}</td>
               <td>${(c.tags || []).map(escapeHtml).join(", ")}</td>
-              <td><button type="button" data-wa="${escapeHtml(String(c.phone).replace(/\D/g, ""))}" title="Open a WhatsApp chat">WhatsApp</button></td>
+              <td>
+                <div class="row-actions">
+                  <button type="button" class="primary" data-call="${escapeHtml(c.phone)}" data-label="${escapeHtml(c.company || c.person || c.phone)}" ${c.do_not_call ? 'disabled title="Marked do-not-call"' : 'title="Call this number"'}>Call</button>
+                  ${hasWhatsApp(c) ? `<button type="button" data-wa="${escapeHtml(String(c.phone).replace(/\D/g, ""))}" title="This contact is on WhatsApp. Open a chat.">WhatsApp</button>` : ""}
+                </div>
+              </td>
             </tr>
           `,
             )
@@ -42,7 +53,18 @@
         </tbody>
       </table>
     `;
-    // Opens WhatsApp in the browser or the WhatsApp app; its own call button takes it from there.
+    // The main action: ring the number from the Dialer.
+    els.table.querySelectorAll("[data-call]").forEach((b) =>
+      b.addEventListener("click", async () => {
+        try {
+          window.showView("dialer");
+          await window.KchelDialer.placeCall(b.dataset.call);
+        } catch (err) {
+          window.KchelUi.toast(err.message, "error");
+        }
+      }),
+    );
+    // Only shown for contacts tagged as being on WhatsApp. Opens a chat in the browser or the WhatsApp app.
     els.table.querySelectorAll("[data-wa]").forEach((b) =>
       b.addEventListener("click", () => window.open("https://wa.me/" + b.dataset.wa)),
     );
@@ -108,7 +130,7 @@
       .join("");
     const sample = parse.rows
       .slice(0, 5)
-      .map((r) => "<div class=\"task-line\"><span class=\"mono\">" + U.esc(r.phone) + "</span><span>" + U.esc([r.person, r.company].filter(Boolean).join(" · ")) + "</span></div>")
+      .map((r) => "<div class=\"task-line\"><span class=\"mono\">" + U.esc(r.phone) + "</span><span>" + U.esc([[r.firstName, r.lastName].filter(Boolean).join(" ") || r.person, r.company, [r.location, r.country].filter(Boolean).join(", ")].filter(Boolean).join(" · ")) + "</span></div>")
       .join("");
     const m = U.modal({
       title: "Import contacts",

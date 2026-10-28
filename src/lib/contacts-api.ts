@@ -13,6 +13,10 @@ export interface Contact {
   id: string;
   company: string | null;
   person: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  location: string | null;
+  country: string | null;
   phone: string;
   email: string | null;
   tags: string[];
@@ -33,6 +37,10 @@ export interface ContactList {
 export interface ImportRow {
   company?: string;
   person?: string;
+  firstName?: string;
+  lastName?: string;
+  location?: string;
+  country?: string;
   phone: string;
   email?: string;
   tags?: string[];

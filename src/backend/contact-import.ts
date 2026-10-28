@@ -10,6 +10,10 @@ export const MAX_IMPORT_ROWS = 10_000;
 export interface RawImportRow {
   company?: string;
   person?: string;
+  firstName?: string;
+  lastName?: string;
+  location?: string;
+  country?: string;
   phone?: string;
   email?: string;
   tags?: string[] | string;
@@ -20,6 +24,10 @@ export interface RawImportRow {
 export interface CleanContact {
   company: string | null;
   person: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  location: string | null;
+  country: string | null;
   phone: string;
   email: string | null;
   tags: string[];
@@ -148,9 +156,24 @@ export function prepareRows(rows: RawImportRow[], dialCode?: string | null): Pre
     seen.add(key);
     const email = cleanEmail(r.email);
     if (r.email && String(r.email).trim() && !email) droppedEmails++;
+    // First and last name are kept apart. A file with only a full name is split at the first space,
+    // and a file with only first and last names gets a full name made from them.
+    let firstName = text(r.firstName, 100);
+    let lastName = text(r.lastName, 100);
+    let person = text(r.person, 200);
+    if (!firstName && !lastName && person) {
+      const parts = person.split(" ");
+      firstName = parts[0] ?? null;
+      lastName = parts.slice(1).join(" ") || null;
+    }
+    if (!person && (firstName || lastName)) person = [firstName, lastName].filter(Boolean).join(" ");
     ready.push({
       company: text(r.company, 200),
-      person: text(r.person, 200),
+      person,
+      firstName,
+      lastName,
+      location: text(r.location, 200),
+      country: text(r.country, 100),
       phone: parsed.phone,
       email,
       tags: cleanTags(r.tags),

@@ -185,6 +185,24 @@ const HEADER_ALIASES = {
     labels: "tags",
     label: "tags",
     groups: "tags",
+    location: "location",
+    city: "location",
+    town: "location",
+    "city town": "location",
+    address: "location",
+    "street address": "location",
+    "home address": "location",
+    state: "location",
+    region: "location",
+    province: "location",
+    "state province": "location",
+    area: "location",
+    locality: "location",
+    suburb: "location",
+    district: "location",
+    country: "country",
+    "country name": "country",
+    nation: "country",
 };
 function tidyHeader(h) {
     return h
@@ -286,6 +304,8 @@ function csvToContacts(input) {
     const firstCols = columns("first");
     const lastCols = columns("last");
     const tagCols = columns("tags");
+    const locationCols = columns("location");
+    const countryCols = columns("country");
     const firstLabel = (idx) => (idx[0] !== undefined ? labels[idx[0]] || `Column ${idx[0] + 1}` : "");
     for (const [field, idx] of [
         ["phone", phoneCols],
@@ -300,7 +320,15 @@ function csvToContacts(input) {
     if (firstCols.length && lastCols.length && !personCols.length) {
         detectedColumns["person"] = `${firstLabel(firstCols)} + ${firstLabel(lastCols)}`;
     }
-    const used = new Set([...phoneCols, ...emailCols, ...companyCols, ...personCols, ...firstCols, ...lastCols, ...tagCols]);
+    if (firstCols.length)
+        detectedColumns["first name"] = firstLabel(firstCols);
+    if (lastCols.length)
+        detectedColumns["last name"] = firstLabel(lastCols);
+    if (locationCols.length)
+        detectedColumns["location"] = locationCols.map((i) => labels[i] || `Column ${i + 1}`).join(" + ");
+    if (countryCols.length)
+        detectedColumns["country"] = firstLabel(countryCols);
+    const used = new Set([...phoneCols, ...emailCols, ...companyCols, ...personCols, ...firstCols, ...lastCols, ...tagCols, ...locationCols, ...countryCols]);
     const ignoredColumns = labels.filter((l, i) => !used.has(i) && l.trim() !== "");
     const cell = (r, idx) => {
         for (const i of idx) {
@@ -322,13 +350,32 @@ function csvToContacts(input) {
         }
         const row = { phone, line: lines[n] ?? n + 1 };
         const company = cell(r, companyCols);
-        const person = personCols.length ? cell(r, personCols) : [cell(r, firstCols), cell(r, lastCols)].filter(Boolean).join(" ");
+        const firstName = cell(r, firstCols);
+        const lastName = cell(r, lastCols);
+        const person = personCols.length ? cell(r, personCols) : [firstName, lastName].filter(Boolean).join(" ");
+        // A city and a state in two columns read as "Lagos, Lagos State"; the same value twice is kept once.
+        const places = [];
+        for (const i of locationCols) {
+            const v = (r[i] ?? "").trim();
+            if (v && !places.some((p) => p.toLowerCase() === v.toLowerCase()))
+                places.push(v);
+        }
+        const location = places.join(", ");
+        const country = cell(r, countryCols);
         const email = cell(r, emailCols);
         const rawTags = tagCols.map((i) => (r[i] ?? "").trim()).filter(Boolean).join(";");
         if (company)
             row.company = company;
         if (person)
             row.person = person;
+        if (firstName)
+            row.firstName = firstName;
+        if (lastName)
+            row.lastName = lastName;
+        if (location)
+            row.location = location;
+        if (country)
+            row.country = country;
         if (email)
             row.email = email;
         if (rawTags) {

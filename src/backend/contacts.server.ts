@@ -28,6 +28,7 @@ async function requireTenant(token: string): Promise<string> {
  * book, 'assigned' only the contacts on their open tasks, 'none' nothing.
  */
 async function contactScope(token: string, write = false) {
+  await ensureSchema();
   const member = await requireMember(token);
   if (!member.isAgent) return { tenantId: member.tenantId, onlyForAgent: null as string | null };
   const p = member.permissions!;
@@ -41,6 +42,10 @@ interface ContactRow {
   id: string;
   company: string | null;
   person: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  location: string | null;
+  country: string | null;
   phone: string;
   email: string | null;
   tags: string[];
@@ -53,7 +58,7 @@ interface ContactRow {
 }
 
 const CONTACT_COLUMNS = `
-  c.id, c.company, c.person, c.phone, c.email, c.tags, c.do_not_call, c.do_not_sms,
+  c.id, c.company, c.person, c.first_name, c.last_name, c.location, c.country, c.phone, c.email, c.tags, c.do_not_call, c.do_not_sms,
   c.last_touched_at, c.created_at, c.list_id, l.name as list_name
 `;
 
@@ -89,7 +94,7 @@ export async function listContacts(data: {
     if (data.search?.trim()) {
       params.push(`%${data.search.trim()}%`);
       const p = params.length;
-      where += ` and (c.company ilike $${p} or c.person ilike $${p} or c.phone ilike $${p} or c.email ilike $${p})`;
+      where += ` and (c.company ilike $${p} or c.person ilike $${p} or c.first_name ilike $${p} or c.last_name ilike $${p} or c.location ilike $${p} or c.country ilike $${p} or c.phone ilike $${p} or c.email ilike $${p})`;
     }
     if (data.listId) {
       params.push(data.listId);
@@ -258,6 +263,7 @@ export async function importContacts(data: {
   listName?: string;
 }) {
     const tenantId = await requireTenant(data.token);
+    await ensureSchema();
     if (!Array.isArray(data.rows) || data.rows.length === 0) throw new Error("There are no rows to import.");
     if (data.rows.length > MAX_IMPORT_ROWS) {
       throw new Error(`Import up to ${MAX_IMPORT_ROWS.toLocaleString()} contacts at a time. Split the file and import it in parts.`);
@@ -286,11 +292,14 @@ export async function importContacts(data: {
 
     if (fresh.length > 0) {
       const listId = listName ? await findOrCreateList(tenantId, listName) : null;
-      const payload = fresh.map(({ company, person, phone, email, tags }) => ({ company, person, phone, email, tags }));
+      const payload = fresh.map(({ company, person, firstName, lastName, location, country, phone, email, tags }) => ({
+        company, person, firstName, lastName, location, country, phone, email, tags,
+      }));
       const inserted = await sql`
-        insert into contacts (tenant_id, list_id, company, person, phone, email, tags)
-        select ${tenantId}, ${listId}, r.company, r.person, r.phone, r.email, coalesce(r.tags, '{}')
-        from jsonb_to_recordset(${JSON.stringify(payload)}::jsonb) as r(company text, person text, phone text, email text, tags text[])
+        insert into contacts (tenant_id, list_id, company, person, first_name, last_name, location, country, phone, email, tags)
+        select ${tenantId}, ${listId}, r.company, r.person, r."firstName", r."lastName", r.location, r.country, r.phone, r.email, coalesce(r.tags, '{}')
+        from jsonb_to_recordset(${JSON.stringify(payload)}::jsonb)
+          as r(company text, person text, "firstName" text, "lastName" text, location text, country text, phone text, email text, tags text[])
         returning id
       `;
       imported = inserted.length;
