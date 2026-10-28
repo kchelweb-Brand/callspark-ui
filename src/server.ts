@@ -8,6 +8,7 @@ import { handleSignalWireVoiceWebhook } from "./backend/inbound-signalwire";
 import { CAMPAIGN_AI_WEBHOOK_PATH, handleCampaignAiWebhook } from "./backend/campaign-dialer";
 import { AI_ACTIONS_PATH, handleAiFunction } from "./backend/ai-agent.server";
 import { FLUTTERWAVE_WEBHOOK_PATH, handleFlutterwaveWebhook } from "./backend/payment-webhook.server";
+import { RECEIPT_PATH, serveReceipt } from "./backend/receipts.server";
 import { NATIVE_API_PREFIX, handleNativeApi } from "./backend/native-api";
 
 /**
@@ -167,6 +168,14 @@ export default {
           return new Response("Method not allowed", { status: 405 });
         }
         return await handleFlutterwaveWebhook(request);
+      }
+
+      // A receipt a customer attached to "I've paid". The address itself is the credential.
+      if (url.pathname === RECEIPT_PATH) {
+        if (request.method !== "GET") {
+          return new Response("Method not allowed", { status: 405 });
+        }
+        return await serveReceipt(url);
       }
 
       // What the AI agent asks us to do mid-call (tag the call, note a booking,

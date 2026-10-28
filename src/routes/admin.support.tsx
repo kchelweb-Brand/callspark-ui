@@ -37,6 +37,20 @@ import {
 } from "@/lib/admin-api";
 import { cn } from "@/lib/utils";
 
+/** A payment receipt a customer attached shows up in the ticket as an address; make it openable. */
+function withReceiptLinks(body: string) {
+  const parts = body.split(/(\/api\/payments\/receipt\?id=[0-9a-f-]{36}&k=[\w-]{32})/i);
+  return parts.map((part, i) =>
+    i % 2 === 1 ? (
+      <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="font-semibold text-leaf underline">
+        Open receipt
+      </a>
+    ) : (
+      part
+    ),
+  );
+}
+
 export const Route = createFileRoute("/admin/support")({
   head: () => ({
     meta: [
@@ -483,7 +497,7 @@ function ConversationPane({
               <p className="mb-1 text-[11px] font-semibold text-muted-foreground">
                 {mine ? "Kchel support" : (m.sender_email ?? "Customer")} · {when(m.created_at)}
               </p>
-              <p className="whitespace-pre-wrap text-sm leading-relaxed">{m.body}</p>
+              <p className="whitespace-pre-wrap text-sm leading-relaxed">{withReceiptLinks(m.body)}</p>
             </div>
           );
         })}

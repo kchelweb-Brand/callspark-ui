@@ -34,6 +34,7 @@ interface Invoice {
 }
 const invoices: Invoice[] = [];
 import { getTenantSettings, saveTenantSettings } from "@/lib/workspace-api";
+import { prepareReceipt } from "@/lib/receipt-file";
 import {
   USAGE_LABELS,
   formatUsage,
@@ -67,6 +68,29 @@ export const Route = createFileRoute("/billing")({
   component: BillingPage,
 });
 
+/** The order ways to pay are offered in, what they are called, and a line telling the customer what happens next. */
+const METHOD_ORDER = ["card", "crypto", "giftcard", "bank", "other"];
+const METHOD_LABEL: Record<string, string> = {
+  card: "Card or bank",
+  crypto: "Crypto",
+  giftcard: "Apple gift card (USA)",
+  bank: "Bank transfer",
+  other: "Other",
+};
+const METHOD_HELP: Record<string, string> = {
+  card: "Pay with the email you sign in with and your plan switches on by itself within a minute or two.",
+  crypto: "The price includes $10 VAT. You'll see the wallet and the network to use, then tell us you've paid and attach your receipt.",
+  giftcard: "US Apple gift cards only, monthly. The price is higher because gift cards are worth less when converted to cash.",
+  bank: "Confirmed by our team after you tell us you've paid.",
+  other: "Confirmed by our team after you tell us you've paid.",
+};
+
+/** The way to pay shown now: the customer's pick, or the first one on offer. */
+function activeMethod(checkout: { method: string }[], picked: string): string {
+  if (checkout.some((o) => o.method === picked)) return picked;
+  return METHOD_ORDER.find((m) => checkout.some((o) => o.method === m)) ?? picked;
+}
+
 type PlanUsage = Awaited<ReturnType<typeof getPlanUsage>>;
 type Catalog = Awaited<ReturnType<typeof listPlans>>["plans"];
 type Checkout = Awaited<ReturnType<typeof listPlans>>["checkout"];
@@ -84,6 +108,9 @@ function BillingPage() {
   const [claimBusy, setClaimBusy] = useState(false);
   // Named to avoid shadowing the global setInterval in this scope.
   const [billingInterval, setBillingInterval] = useState<"monthly" | "annual">("monthly");
+  // How the customer pays comes first: the price or the payment link follows from it.
+  const [payMethod, setPayMethod] = useState<string>("card");
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [billingEmail, setBillingEmail] = useState("");
@@ -530,6 +557,24 @@ function BillingPage() {
             })}
           </div>
 
+          <div className="flex flex-col gap-2">
+            <p className="text-sm font-semibold">1. How do you want to pay?</p>
+            <div className="flex flex-wrap gap-2">
+              {METHOD_ORDER.filter((m) => checkout.some((o) => o.method === m)).map((m) => (
+                <Button
+                  key={m}
+                  size="sm"
+                  variant={(activeMethod(checkout, payMethod) === m ? "default" : "outline")}
+                  onClick={() => setPayMethod(m)}
+                >
+                  {METHOD_LABEL[m] ?? m}
+                </Button>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">{METHOD_HELP[activeMethod(checkout, payMethod)] ?? ""}</p>
+          </div>
+
+          <p className="text-sm font-semibold">2. Pick your plan</p>
           <div className="flex items-center gap-2">
             <Button
               size="sm"
@@ -549,7 +594,7 @@ function BillingPage() {
 
           <div className="flex flex-col gap-2">
             {checkout
-              .filter((o) => o.interval === billingInterval)
+              .filter((o) => o.interval === billingInterval && o.method === activeMethod(checkout, payMethod))
               .map((o) => {
                 const planName = catalog.find((p) => p.id === o.planId)?.name ?? o.planId;
                 return (
@@ -603,9 +648,9 @@ function BillingPage() {
                   </div>
                 );
               })}
-            {checkout.filter((o) => o.interval === billingInterval).length === 0 && (
+            {checkout.filter((o) => o.interval === billingInterval && o.method === activeMethod(checkout, payMethod)).length === 0 && (
               <p className="py-4 text-center text-sm text-muted-foreground">
-                No {billingInterval} options available yet.
+                No {billingInterval} options for this way of paying. Try {billingInterval === "annual" ? "Monthly" : "another way to pay"}.
               </p>
             )}
           </div>
@@ -694,8 +739,21 @@ function BillingPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-2">
-            <Label htmlFor="claim-ref">Reference</Label>
+            <Label htmlFor="claim-ref">Reference (transaction ID or receipt number)</Label>
             <Input id="claim-ref" value={claimRef} onChange={(e) => setClaimRef(e.target.value)} />
+            <Label htmlFor="claim-receipt" className="mt-2">
+              Receipt (screenshot or PDF) — helps us verify faster
+            </Label>
+            <input
+              id="claim-receipt"
+              type="file"
+              accept="image/png,image/jpeg,image/webp,application/pdf"
+              className="text-sm file:mr-3 file:rounded-md file:border file:border-border file:bg-muted file:px-3 file:py-1.5 file:text-sm"
+              onChange={(e) => setReceiptFile(e.target.files?.[0] ?? null)}
+            />
+            <p className="text-xs text-muted-foreground">
+              A reference or a receipt is enough; both is best. Cover any card number or gift card code first.
+            </p>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setClaimFor(null)}>
@@ -714,11 +772,13 @@ function BillingPage() {
                     method: claimFor.method,
                     reference: claimRef,
                     amountUsd: claimFor.amountUsd,
+                    ...(receiptFile ? { receipt: await prepareReceipt(receiptFile) } : {}),
                   });
                   toast.success("Thanks. We'll confirm it and activate your plan.", {
                     description: "You can follow this in Support.",
                   });
                   setClaimFor(null);
+                  setReceiptFile(null);
                 } catch (err) {
                   toast.error(err instanceof Error ? err.message : "Couldn't send that.");
                 } finally {

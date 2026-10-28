@@ -18,6 +18,7 @@ import { CHECKOUT_OPTIONS, getPlan, isPlanId, type BillingInterval, type PlanId 
 import { PRICE_REGIONS, countryByCode, countryByDial, regionForCountry, type PriceRegion } from "./countries";
 import { callingCodeFromE164 } from "./phone-numbers";
 import { createMyTicket } from "./workspace.server";
+import { saveReceipt, type ReceiptUpload } from "./receipts.server";
 
 export type PayMethod = "card" | "bank" | "crypto" | "giftcard" | "other";
 
@@ -375,6 +376,10 @@ export async function savePaymentSettings(data: SavePaymentSettingsInput) {
     if (address.length < 10 || /\s/.test(String(w.address).trim())) {
       throw new Error(`The ${coin} address doesn't look right. Paste it exactly, with no spaces.`);
     }
+    // Ethereum-style networks (ERC20, BEP20, Polygon…) all use a 0x address of 40 hex characters.
+    if (/erc|eth|bep|bsc|polygon|matic|arbitrum|optimism|base/i.test(network) && !/^0x[0-9a-fA-F]{40}$/.test(address)) {
+      throw new Error(`That doesn't look like a ${network} address: it should start with 0x and be 42 characters long. Copy it again from your wallet.`);
+    }
     wallets.push({ coin, network, address });
   }
   if (wallets.length > 10) throw new Error("Keep it to ten wallets or fewer.");
@@ -435,15 +440,19 @@ export async function claimPayment(data: {
   method: string;
   reference: string;
   amountUsd?: number;
+  /** A screenshot or PDF of the receipt, for the owner to check the payment against. */
+  receipt?: ReceiptUpload | undefined;
 }) {
   const payload = await verifyToken(data.token);
   if (!payload || !payload.tenantId) throw new Error("Not signed in.");
   if (!isPlanId(data.planId) || data.planId === "trial") throw new Error("Choose a plan.");
   if (!PAY_METHODS.some((m) => m.id === data.method)) throw new Error("Choose how you paid.");
   const reference = data.reference.trim().slice(0, 300);
-  if (reference.length < 4) {
-    throw new Error("Add a reference we can find: a transaction ID, receipt number, or the name you paid with.");
+  if (reference.length < 4 && !data.receipt) {
+    throw new Error("Add a reference we can find (a transaction ID, receipt number, or the name you paid with), or attach your receipt.");
   }
+  // Kept before the ticket is written, so the ticket can carry the address that opens it.
+  const receiptPath = data.receipt ? await saveReceipt(payload.tenantId, data.receipt) : null;
   const plan = getPlan(data.planId);
   const method = PAY_METHODS.find((m) => m.id === data.method)?.label ?? data.method;
   const result = await createMyTicket({
@@ -453,7 +462,9 @@ export async function claimPayment(data: {
     body:
       `We've paid for the ${plan.name} plan (${data.seats} seat${data.seats === 1 ? "" : "s"}, ${data.interval}) by ${method}.\n` +
       (Number.isFinite(data.amountUsd) && Number(data.amountUsd) > 0 ? `Amount shown at checkout: $${Number(data.amountUsd)}\n` : "") +
-      `Reference: ${reference}\n\nPlease confirm the payment and activate the plan.`,
+      (reference ? `Reference: ${reference}\n` : "") +
+      (receiptPath ? `Receipt: ${receiptPath}\n` : "") +
+      `\nPlease confirm the payment and activate the plan.`,
   });
   return { ok: true as const, ticketRef: result.ticket.ticket_ref };
 }

@@ -284,6 +284,19 @@ async function apply(): Promise<void> {
     )
   `;
 
+  // ---------- receipts customers attach to "I've paid" ----------
+  await sql`
+    create table if not exists payment_receipts (
+      id uuid primary key default gen_random_uuid(),
+      tenant_id uuid references tenants(id) on delete cascade,
+      filename text not null,
+      content_type text not null,
+      size int not null,
+      data bytea not null,
+      created_at timestamptz not null default now()
+    )
+  `;
+
   // One request for everything. The advisory lock makes two workers that start
   // at once take turns instead of racing to create the same table.
   await sqlQuery(
