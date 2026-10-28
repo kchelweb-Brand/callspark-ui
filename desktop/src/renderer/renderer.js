@@ -25,6 +25,7 @@ const els = {
   keypad: document.getElementById("keypad"),
   btnDial: document.getElementById("btn-dial"),
   btnBackspace: document.getElementById("btn-backspace"),
+  btnPlus: document.getElementById("btn-plus"),
   dialerHint: document.getElementById("dialer-hint"),
   recentsList: document.getElementById("recents-list"),
 };
@@ -207,6 +208,46 @@ els.keypad.addEventListener("click", (e) => {
   const digit = e.target.dataset.digit;
   if (!digit) return;
   dialedNumber += digit;
+  renderNumberDisplay();
+});
+
+els.btnPlus.addEventListener("click", () => {
+  if (!dialedNumber) {
+    dialedNumber = "+";
+    renderNumberDisplay();
+  }
+});
+
+/** Only while the keypad is actually on screen and nothing else has focus. */
+function keypadHasFocus(e) {
+  if (els.dialPanel.offsetParent === null) return false;
+  const t = e.target;
+  return !(t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable));
+}
+
+// Type or paste a number instead of tapping every digit.
+document.addEventListener("keydown", (e) => {
+  if (e.ctrlKey || e.metaKey || e.altKey || !keypadHasFocus(e)) return;
+  if (/^[0-9*#]$/.test(e.key) || (e.key === "+" && !dialedNumber)) {
+    dialedNumber += e.key;
+  } else if (e.key === "Backspace") {
+    dialedNumber = dialedNumber.slice(0, -1);
+  } else if (e.key === "Enter") {
+    els.btnDial.click();
+    return;
+  } else {
+    return;
+  }
+  e.preventDefault();
+  renderNumberDisplay();
+});
+
+document.addEventListener("paste", (e) => {
+  if (!keypadHasFocus(e)) return;
+  const pasted = (e.clipboardData?.getData("text") ?? "").replace(/[^\d+*#]/g, "");
+  if (!pasted) return;
+  e.preventDefault();
+  dialedNumber = pasted.slice(0, 32);
   renderNumberDisplay();
 });
 

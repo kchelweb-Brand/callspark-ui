@@ -13,7 +13,7 @@ import { sql } from "./db";
 import { verifyToken } from "./tokens";
 import { decryptSecret } from "./crypto";
 import { requestLoginCode, verifyLoginCode } from "./auth.server";
-import { startCall, answerCall, endCall } from "./calls.server";
+import { startCall, answerCall, endCall, prepareDialNumber } from "./calls.server";
 import { reportRegistration } from "./webrtc.server";
 import { isDialerAddonEnabled } from "./addons.server";
 import { listContacts, getContactsMeta, createContact, importContacts, deleteContacts } from "./contacts.server";
@@ -225,6 +225,11 @@ export async function handleNativeApi(request: Request, pathname: string): Promi
         }
         const result = await startCall(body);
         return jsonOk(result);
+      }
+
+      case "calls/prepare": {
+        const body = await readJson<{ token: string; number: string }>(request);
+        return jsonOk(await prepareDialNumber(body));
       }
 
       case "calls/answer": {

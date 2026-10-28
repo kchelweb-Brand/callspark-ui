@@ -783,6 +783,17 @@ button.link:hover { background: var(--blue-tint); color: var(--brand-blue); }
   color: rgba(255, 255, 255, 0.85);
   box-shadow: none;
 }
+.plus-btn {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.15));
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+  font-size: 22px;
+  cursor: pointer;
+}
+.plus-btn:hover { background: var(--accent-tint); border-color: rgba(16, 161, 87, 0.4); }
 .erase-btn svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .erase-btn:hover { background: rgba(214, 64, 58, 0.26); border-color: rgba(255, 154, 148, 0.5); color: #ffb0ab; }
 

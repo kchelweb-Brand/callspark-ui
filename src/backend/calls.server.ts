@@ -3,6 +3,8 @@ import { createServerFn } from "@tanstack/react-start";
 import { sql, sqlQuery } from "./db";
 import { verifyToken } from "./tokens";
 import { findContactByPhone } from "./phone-numbers";
+import { parsePhone } from "./contact-import";
+import { workspaceDialCode } from "./contacts.server";
 import { requireCanCreate } from "./entitlements";
 import { ensureSchema } from "./schema.server";
 
@@ -71,6 +73,29 @@ export async function startCall(data: {
       returning id
     `;
     return { ok: true as const, callId: (rows[0] as { id: string }).id };
+}
+
+/**
+ * Turns what was typed on the keypad into the number the carrier needs.
+ *
+ * A national number ("0803…", "415 555 0100") is completed with the
+ * workspace's country code, so it reaches the carrier in international form
+ * instead of being rejected there with nothing explaining why. Extensions and
+ * feature codes (*67, 911, a 4-digit extension) go through exactly as typed.
+ */
+export async function prepareDialNumber(data: { token: string; number: string }) {
+    const payload = await requireSession(data.token);
+    const typed = String(data.number ?? "").replace(/[^\d+*#]/g, "");
+    if (!typed) throw new Error("Enter a number to call.");
+
+    const plain = typed.replace(/\D/g, "");
+    if (/^[*#]/.test(typed) || (plain.length < 7 && !typed.startsWith("+"))) {
+      return { ok: true as const, number: typed, normalized: false };
+    }
+
+    const parsed = parsePhone(typed, await workspaceDialCode(payload.tenantId!));
+    if ("error" in parsed) throw new Error(parsed.error + ".");
+    return { ok: true as const, number: parsed.phone, normalized: parsed.phone !== typed };
 }
 
 export const startCallFn = createServerFn({ method: "POST" })

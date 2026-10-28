@@ -159,7 +159,7 @@ export const getContactsMetaFn = createServerFn({ method: "POST" })
  * The country code national numbers should be read against: the one set in
  * Phone System → Routing, else the one the owner's signup phone number carried.
  */
-async function workspaceDialCode(tenantId: string): Promise<string | null> {
+export async function workspaceDialCode(tenantId: string): Promise<string | null> {
   const routing = await sql`
     select routing ->> 'defaultDialCode' as code from phone_system_settings where tenant_id = ${tenantId} limit 1
   `;

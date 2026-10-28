@@ -185,9 +185,14 @@ ipcMain.handle("call:dial", async (_e, { number }) => {
   const session = loadSession();
   if (!session) throw new Error("Not signed in.");
 
-  const started = await apiPost("calls/start", { token: session.token, direction: "outbound", toNumber: number });
+  // The server completes national numbers with the workspace's country code,
+  // and refuses anything that could never be dialled, with the reason.
+  const prepared = await apiPost("calls/prepare", { token: session.token, number });
+  const target = prepared.number;
+
+  const started = await apiPost("calls/start", { token: session.token, direction: "outbound", toNumber: target });
   const engine = ensureBaresip();
-  const resp = await engine.sendCommand("dial", number.replace(/[^\d+]/g, ""));
+  const resp = await engine.sendCommand("dial", target);
   if (!resp?.ok) {
     try {
       await apiPost("calls/end", { token: session.token, callId: started.callId, status: "failed", error: resp?.data });
@@ -196,7 +201,7 @@ ipcMain.handle("call:dial", async (_e, { number }) => {
     }
     throw new Error(resp?.data || "The calling engine could not place this call.");
   }
-  return { callId: started.callId, engineCallId: extractCallId(resp) };
+  return { callId: started.callId, engineCallId: extractCallId(resp), number: target };
 });
 
 ipcMain.handle("calls:recent", async () => {

@@ -30,6 +30,11 @@ async function requireTenant(token: string): Promise<string> {
 }
 
 /** "Hi {{first_name}}" -> "Hi Jordan". Falls back to "there"/"" for missing fields rather than leaving the literal placeholder. */
+const OPENING_INSTRUCTION =
+  "IMPORTANT: You placed this call and the person has just picked up. Do not wait for them to speak. " +
+  "Speak first, right away: say a short greeting, who you are and why you are calling, in one or two sentences, " +
+  "then pause and let them answer. If they say hello first, still introduce yourself straight away.";
+
 function interpolate(template: string, contact: { person: string | null; company: string | null }): string {
   const name = contact.person?.trim() || "";
   const firstName = name.split(/\s+/)[0] || "there";
@@ -198,11 +203,23 @@ async function handleAnswer(campaignCallId: string): Promise<Response> {
     return swml({ sections: { main: [{ hangup: {} }] } });
   }
 
-  const prompt = interpolate(row.ai_prompt, { person: row.person, company: row.company });
+  // The model only talks first when told to: with just a role description it
+  // sits silent until the person says "hello", so every campaign prompt gets
+  // the same opening instruction appended.
+  const prompt = `${interpolate(row.ai_prompt, { person: row.person, company: row.company })}\n\n${OPENING_INSTRUCTION}`;
   return swml({
     version: "1.0.0",
     sections: {
-      main: [{ answer: {} }, { ai: { prompt: { text: prompt } } }, { hangup: {} }],
+      main: [
+        { answer: {} },
+        {
+          ai: {
+            prompt: { text: prompt },
+            params: { direction: "outbound", wait_for_user: false },
+          },
+        },
+        { hangup: {} },
+      ],
     },
   });
 }
