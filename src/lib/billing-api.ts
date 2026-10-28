@@ -13,6 +13,7 @@ import {
   setDialerAddonFn,
   setSipAddonFn,
 } from "@/backend/addons.server";
+import { claimPaymentFn } from "@/backend/payments.server";
 import { getSessionToken } from "./auth-api";
 
 function requireToken(): string {
@@ -22,7 +23,11 @@ function requireToken(): string {
 }
 
 export function listPlans() {
-  return listPlansFn({ data: {} });
+  return listPlansFn({ data: { ...(getSessionToken() ? { token: getSessionToken() as string } : {}) } });
+}
+
+export function claimPayment(input: { planId: string; seats: number; interval: string; method: string; reference: string }) {
+  return claimPaymentFn({ data: { token: requireToken(), ...input } });
 }
 
 export function requestPlanUpgrade(planId: string) {

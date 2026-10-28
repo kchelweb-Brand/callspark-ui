@@ -8,6 +8,9 @@ import { callingCodeFromE164 } from "./phone-numbers";
 import { PLANS } from "./plans";
 import { signToken, verifyToken } from "./tokens";
 import { ensureSchema } from "./schema.server";
+import { parsePhone } from "./contact-import";
+import { sendSms } from "./signalwire-rest";
+import { countryByCode } from "./countries";
 
 type Purpose = "login" | "admin_login" | "signup";
 
@@ -255,157 +258,307 @@ export const checkSlugAvailabilityFn = createServerFn({ method: "POST" })
       : { available: true, reason: null };
   });
 
-export const submitSignupFn = createServerFn({ method: "POST" })
-  .validator(
-    (data: {
-      fullName: string;
-      email: string;
-      accountType: "individual" | "business";
-      companyName?: string;
-      phone?: string;
-      workspaceSlug: string;
-    }) => data,
-  )
-  .handler(async ({ data }) => {
-    const email = data.email.trim().toLowerCase();
-    const slug = data.workspaceSlug.trim().toLowerCase();
-    const fullName = data.fullName.trim();
-    if (!email || !fullName) throw new Error("Please fill in all the required fields.");
+const PHONE_CODE_TTL_MINUTES = 10;
+const SIGNUPS_PER_PHONE_PER_HOUR = 3;
 
-    const issue = slugIssue(slug);
-    if (issue) throw new Error(issue);
-    if (await isSlugTaken(slug)) throw new Error("This workspace name is already taken.");
-
-    const inserted = await sql`
-      insert into signup_requests (email, full_name, account_type, company_name, phone, workspace_slug)
-      values (
-        ${email}, ${fullName}, ${data.accountType}, ${data.companyName || null},
-        ${data.phone?.trim() || null}, ${slug}
-      )
-      returning id
-    `;
-    const signupId = (inserted[0] as { id: string }).id;
-
-    // Signup can report a delivery failure honestly: this flow already tells
-    // the caller whether an email or workspace is taken, so there is no account
-    // to leak. Telling someone "check your email" when nothing was sent leaves
-    // them waiting on a message that will never arrive.
-    const sent = await issueCode(email, "signup");
-
-    if (!sent.delivered) {
-      // Undo the reservation. A pending signup holds its workspace name for an
-      // hour, so leaving this row behind would make the retry fail with "this
-      // workspace name is already taken" — the user blocked by their own
-      // failed attempt, and no way to tell that from a genuine collision.
-      await sql`delete from signup_requests where id = ${signupId} and verified_at is null`;
-      throw new Error(sent.error ?? "We couldn't send your verification code. Please try again.");
-    }
-
-    return { ok: true as const, message: "Verification code sent.", expiresInMinutes: CODE_TTL_MINUTES };
+/**
+ * Texts a verification code to a pending signup's phone, from the platform's
+ * own number. With no sender configured nothing is sent and signup carries on
+ * with the phone recorded as unverified; a sender that is configured but fails
+ * is an error, because the number is then probably wrong.
+ */
+async function sendPhoneCode(signupId: string, phone: string): Promise<{ sent: boolean; error?: string }> {
+  const from = process.env["PLATFORM_SMS_FROM"] || "";
+  if (!from) return { sent: false };
+  const code = generateCode();
+  const hash = await hashCode(phone, "phone", code);
+  await sql`
+    update signup_requests set
+      phone_code_hash = ${hash},
+      phone_code_expires_at = now() + (${PHONE_CODE_TTL_MINUTES} || ' minutes')::interval,
+      phone_code_attempts = 0
+    where id = ${signupId}
+  `;
+  const result = await sendSms({
+    to: phone,
+    from,
+    body: `Your Kchel verification code is ${code}. It expires in ${PHONE_CODE_TTL_MINUTES} minutes.`,
   });
+  if (!result.ok) {
+    await sql`update signup_requests set phone_code_hash = null where id = ${signupId}`;
+    return { sent: false, error: "We couldn't text that number. Check it, including the country, and try again." };
+  }
+  return { sent: true };
+}
 
-export const verifySignupFn = createServerFn({ method: "POST" })
-  .validator((data: { email: string; code: string }) => data)
-  .handler(async ({ data }) => {
-    const email = data.email.trim().toLowerCase();
-    const code = data.code.trim();
+function cleanWebsite(raw: string | undefined): string | null {
+  const text = (raw ?? "").trim();
+  if (!text) return null;
+  try {
+    const url = new URL(/^https?:\/\//i.test(text) ? text : `https://${text}`);
+    if (!url.hostname.includes(".")) throw new Error("no dot");
+    return url.toString().replace(/\/$/, "").slice(0, 200);
+  } catch {
+    throw new Error("That website address doesn't look right. Leave it empty if you don't have one.");
+  }
+}
 
-    const rows = await sql`
-      select id, code_hash, attempt_count from otp_codes
-      where email = ${email} and purpose = 'signup' and consumed_at is null and expires_at > now()
-      order by created_at desc limit 1
-    `;
-    const row = rows[0] as { id: string; code_hash: string; attempt_count: number } | undefined;
-    if (!row) throw new Error("Invalid or expired code.");
-    if (isAttemptsExceeded(row.attempt_count)) throw new Error("Too many attempts. Request a new code.");
+export async function resendPhoneCode(data: { email: string }) {
+  await ensureSchema();
+  const email = data.email.trim().toLowerCase();
+  const rows = await sql`
+    select id, phone, (phone_code_expires_at is not null
+      and phone_code_expires_at > now() + ((${PHONE_CODE_TTL_MINUTES} - 1) || ' minutes')::interval) as too_soon
+    from signup_requests where email = ${email} and verified_at is null order by created_at desc limit 1
+  `;
+  const row = rows[0] as { id: string; phone: string | null; too_soon: boolean } | undefined;
+  if (!row?.phone) throw new Error("Signup request not found. Please start over.");
+  if (row.too_soon) throw new Error("Wait a minute before asking for another text.");
+  const sent = await sendPhoneCode(row.id, row.phone);
+  if (sent.error) throw new Error(sent.error);
+  return { ok: true as const, sent: sent.sent };
+}
 
-    const expectedHash = await hashCode(email, "signup", code);
-    if (expectedHash !== row.code_hash) {
-      await sql`update otp_codes set attempt_count = attempt_count + 1 where id = ${row.id}`;
-      throw new Error("Invalid or expired code.");
+export const resendPhoneCodeFn = createServerFn({ method: "POST" })
+  .validator((data: Parameters<typeof resendPhoneCode>[0]) => data)
+  .handler(async ({ data }) => resendPhoneCode(data));
+
+export async function submitSignup(data: {
+  fullName: string;
+  email: string;
+  accountType: "individual" | "business";
+  companyName?: string;
+  phone: string;
+  country: string;
+  city: string;
+  address?: string;
+  website?: string;
+  workspaceSlug: string;
+}) {
+  await ensureSchema();
+  const email = data.email.trim().toLowerCase();
+  const slug = data.workspaceSlug.trim().toLowerCase();
+  const fullName = data.fullName.trim();
+  if (!email || !fullName) throw new Error("Please fill in all the required fields.");
+
+  const issue = slugIssue(slug);
+  if (issue) throw new Error(issue);
+  if (await isSlugTaken(slug)) throw new Error("This workspace name is already taken.");
+
+  // Where the customer is and how to reach them: asked for up front so a
+  // workspace is never an anonymous throwaway, and so prices and phone
+  // routing start out right for their country.
+  const country = countryByCode(data.country);
+  if (!country) throw new Error("Choose your country.");
+  const city = data.city?.trim().slice(0, 100);
+  if (!city) throw new Error("Enter your city.");
+  if (data.accountType === "business" && !data.companyName?.trim()) {
+    throw new Error("Company name is required for business accounts.");
+  }
+  const parsedPhone = parsePhone(data.phone ?? "", country.dial);
+  if ("error" in parsedPhone) throw new Error(`Phone number: ${parsedPhone.error}.`);
+  const phone = parsedPhone.phone;
+  const website = cleanWebsite(data.website);
+  const address = data.address?.trim().slice(0, 200) || null;
+
+  // Each text costs money and a code can be requested for any number, so a
+  // number can only start a few signups an hour.
+  const [recent] = await sql`
+    select count(*)::int as n from signup_requests
+    where phone = ${phone} and created_at > now() - interval '1 hour'
+  `;
+  if (Number(recent?.["n"] ?? 0) >= SIGNUPS_PER_PHONE_PER_HOUR) {
+    throw new Error("That phone number has been used for too many signups. Try again in an hour.");
+  }
+
+  const inserted = await sql`
+    insert into signup_requests (email, full_name, account_type, company_name, phone, workspace_slug, country, city, address, website)
+    values (
+      ${email}, ${fullName}, ${data.accountType}, ${data.companyName || null},
+      ${phone}, ${slug}, ${country.code}, ${city}, ${address}, ${website}
+    )
+    returning id
+  `;
+  const signupId = (inserted[0] as { id: string }).id;
+
+  const phoneCode = await sendPhoneCode(signupId, phone);
+  if (phoneCode.error) {
+    await sql`delete from signup_requests where id = ${signupId} and verified_at is null`;
+    throw new Error(phoneCode.error);
+  }
+
+  // Signup can report a delivery failure honestly: this flow already tells
+  // the caller whether an email or workspace is taken, so there is no account
+  // to leak. Telling someone "check your email" when nothing was sent leaves
+  // them waiting on a message that will never arrive.
+  const sent = await issueCode(email, "signup");
+
+  if (!sent.delivered) {
+    // Undo the reservation. A pending signup holds its workspace name for an
+    // hour, so leaving this row behind would make the retry fail with "this
+    // workspace name is already taken" — the user blocked by their own
+    // failed attempt, and no way to tell that from a genuine collision.
+    await sql`delete from signup_requests where id = ${signupId} and verified_at is null`;
+    throw new Error(sent.error ?? "We couldn't send your verification code. Please try again.");
+  }
+
+  return {
+    ok: true as const,
+    message: "Verification code sent.",
+    expiresInMinutes: CODE_TTL_MINUTES,
+    phoneCodeSent: phoneCode.sent,
+  };
+}
+
+export const submitSignupFn = createServerFn({ method: "POST" })
+  .validator((data: Parameters<typeof submitSignup>[0]) => data)
+  .handler(async ({ data }) => submitSignup(data));
+
+export async function verifySignup(data: { email: string; code: string; phoneCode?: string }) {
+  await ensureSchema();
+  const email = data.email.trim().toLowerCase();
+  const code = data.code.trim();
+
+  // When a text was sent, that code is owed too. It is checked first, so a
+  // wrong text code never uses up the email code.
+  const owed = await sql`
+    select id, phone, phone_code_hash, phone_code_attempts, (phone_code_expires_at > now()) as phone_code_live
+    from signup_requests where email = ${email} and verified_at is null order by created_at desc limit 1
+  `;
+  const phoneOwed = owed[0] as
+    | { id: string; phone: string; phone_code_hash: string | null; phone_code_attempts: number; phone_code_live: boolean }
+    | undefined;
+  let phoneVerified = false;
+  if (phoneOwed?.phone_code_hash) {
+    const typed = (data.phoneCode ?? "").trim();
+    if (typed.length !== 6) throw new Error("Enter the 6-digit code we texted to your phone.");
+    if (!phoneOwed.phone_code_live) throw new Error("The text code has expired. Ask for a new one.");
+    if (isAttemptsExceeded(phoneOwed.phone_code_attempts)) throw new Error("Too many attempts. Ask for a new text code.");
+    if ((await hashCode(phoneOwed.phone, "phone", typed)) !== phoneOwed.phone_code_hash) {
+      await sql`update signup_requests set phone_code_attempts = phone_code_attempts + 1 where id = ${phoneOwed.id}`;
+      throw new Error("That text code isn't right.");
     }
-    await sql`update otp_codes set consumed_at = now() where id = ${row.id}`;
+    phoneVerified = true;
+  }
 
-    const pending = await sql`
-      select id, full_name, account_type, company_name, phone, workspace_slug from signup_requests
-      where email = ${email} and verified_at is null
-      order by created_at desc limit 1
-    `;
-    const signup = pending[0] as
-      | {
-          id: string;
-          full_name: string;
-          account_type: string;
-          company_name: string | null;
-          phone: string | null;
-          workspace_slug: string;
-        }
-      | undefined;
-    if (!signup) throw new Error("Signup request not found. Please start over.");
+  const rows = await sql`
+    select id, code_hash, attempt_count from otp_codes
+    where email = ${email} and purpose = 'signup' and consumed_at is null and expires_at > now()
+    order by created_at desc limit 1
+  `;
+  const row = rows[0] as { id: string; code_hash: string; attempt_count: number } | undefined;
+  if (!row) throw new Error("Invalid or expired code.");
+  if (isAttemptsExceeded(row.attempt_count)) throw new Error("Too many attempts. Request a new code.");
 
-    if (await isSlugTaken(signup.workspace_slug, signup.id)) {
-      throw new Error("That workspace name was just taken. Please start over with a different name.");
-    }
+  const expectedHash = await hashCode(email, "signup", code);
+  if (expectedHash !== row.code_hash) {
+    await sql`update otp_codes set attempt_count = attempt_count + 1 where id = ${row.id}`;
+    throw new Error("Invalid or expired code.");
+  }
+  await sql`update otp_codes set consumed_at = now() where id = ${row.id}`;
 
-    await sql`update signup_requests set verified_at = now() where id = ${signup.id}`;
+  const pending = await sql`
+    select id, full_name, account_type, company_name, phone, workspace_slug, country, city, address, website
+    from signup_requests
+    where email = ${email} and verified_at is null
+    order by created_at desc limit 1
+  `;
+  const signup = pending[0] as
+    | {
+        id: string;
+        full_name: string;
+        account_type: string;
+        company_name: string | null;
+        phone: string | null;
+        workspace_slug: string;
+        country: string | null;
+        city: string | null;
+        address: string | null;
+        website: string | null;
+      }
+    | undefined;
+  if (!signup) throw new Error("Signup request not found. Please start over.");
 
-    // Live immediately, no approval queue — the trial clock starts at this
-    // exact insert, not whenever a human next looks at it. Same interval
-    // setTenantPlanFn uses when the admin console puts a tenant back on
-    // trial, so there's one place that decides what "7 days" means.
-    const tenantName = signup.company_name?.trim() || signup.full_name;
-    const trialDays = PLANS.trial.trialDays ?? 7;
-    const tenants = await sql`
-      insert into tenants (name, workspace_slug, status, trial_ends_at)
-      values (
-        ${tenantName}, ${signup.workspace_slug}, 'active',
-        now() + (${trialDays} || ' days')::interval
-      )
-      returning id
-    `;
-    const tenant = tenants[0] as { id: string };
+  if (await isSlugTaken(signup.workspace_slug, signup.id)) {
+    throw new Error("That workspace name was just taken. Please start over with a different name.");
+  }
 
+  await sql`
+    update signup_requests set verified_at = now(),
+      phone_verified_at = case when ${phoneVerified} then now() else null end,
+      phone_code_hash = null
+    where id = ${signup.id}
+  `;
+
+  // Live immediately, no approval queue — the trial clock starts at this
+  // exact insert, not whenever a human next looks at it. Same interval
+  // setTenantPlanFn uses when the admin console puts a tenant back on
+  // trial, so there's one place that decides what "7 days" means.
+  const tenantName = signup.company_name?.trim() || signup.full_name;
+  const trialDays = PLANS.trial.trialDays ?? 7;
+  const tenants = await sql`
+    insert into tenants (name, workspace_slug, status, trial_ends_at, country, phone_verified_at)
+    values (
+      ${tenantName}, ${signup.workspace_slug}, 'active',
+      now() + (${trialDays} || ' days')::interval,
+      ${signup.country}, case when ${phoneVerified} then now() else null end
+    )
+    returning id
+  `;
+  const tenant = tenants[0] as { id: string };
+
+  await sql`
+    insert into users (tenant_id, email, role, is_super_admin)
+    values (${tenant.id}, ${email}, 'tenant_owner', false)
+  `;
+
+  // Prefill from what signup already collected, so Settings and Phone
+  // System open with real information instead of blanks the owner has to
+  // remember to fill in a second time. Both are genuine upserts (the row
+  // doesn't exist yet for a brand-new tenant) and neither invents data the
+  // customer didn't provide — a business phone left blank at signup just
+  // means the dial code stays blank too, same as today.
+  await sql`
+    insert into tenant_settings (tenant_id, workspace, updated_at)
+    values (
+      ${tenant.id},
+      ${JSON.stringify({
+        company: tenantName,
+        phone: signup.phone,
+        country: signup.country,
+        city: signup.city,
+        address: signup.address,
+        website: signup.website,
+      })}::jsonb,
+      now()
+    )
+    on conflict (tenant_id) do update set
+      workspace = tenant_settings.workspace || excluded.workspace,
+      updated_at = now()
+  `;
+
+  const dialCode = signup.phone ? callingCodeFromE164(signup.phone) : "";
+  if (dialCode) {
     await sql`
-      insert into users (tenant_id, email, role, is_super_admin)
-      values (${tenant.id}, ${email}, 'tenant_owner', false)
-    `;
-
-    // Prefill from what signup already collected, so Settings and Phone
-    // System open with real information instead of blanks the owner has to
-    // remember to fill in a second time. Both are genuine upserts (the row
-    // doesn't exist yet for a brand-new tenant) and neither invents data the
-    // customer didn't provide — a business phone left blank at signup just
-    // means the dial code stays blank too, same as today.
-    await sql`
-      insert into tenant_settings (tenant_id, workspace, updated_at)
-      values (
-        ${tenant.id},
-        ${JSON.stringify({ company: tenantName, phone: signup.phone })}::jsonb,
-        now()
-      )
+      insert into phone_system_settings (tenant_id, routing, updated_at)
+      values (${tenant.id}, ${JSON.stringify({ defaultDialCode: dialCode })}::jsonb, now())
       on conflict (tenant_id) do update set
-        workspace = tenant_settings.workspace || excluded.workspace,
+        routing = phone_system_settings.routing || excluded.routing,
         updated_at = now()
     `;
+  }
 
-    const dialCode = signup.phone ? callingCodeFromE164(signup.phone) : "";
-    if (dialCode) {
-      await sql`
-        insert into phone_system_settings (tenant_id, routing, updated_at)
-        values (${tenant.id}, ${JSON.stringify({ defaultDialCode: dialCode })}::jsonb, now())
-        on conflict (tenant_id) do update set
-          routing = phone_system_settings.routing || excluded.routing,
-          updated_at = now()
-      `;
-    }
+  return {
+    ok: true as const,
+    status: "active",
+    message: `Your workspace is live. Your ${trialDays}-day trial starts now.`,
+    workspaceSlug: signup.workspace_slug,
+  };
+}
 
-    return {
-      ok: true as const,
-      status: "active",
-      message: `Your workspace is live. Your ${trialDays}-day trial starts now.`,
-      workspaceSlug: signup.workspace_slug,
-    };
-  });
+export const verifySignupFn = createServerFn({ method: "POST" })
+  .validator((data: Parameters<typeof verifySignup>[0]) => data)
+  .handler(async ({ data }) => verifySignup(data));
 
 // ---------- admin: tenants ----------
 

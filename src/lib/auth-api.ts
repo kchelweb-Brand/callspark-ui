@@ -8,6 +8,7 @@ import {
   requestLoginCodeFn,
   setTenantStatusFn,
   submitSignupFn,
+  resendPhoneCodeFn,
   verifyLoginCodeFn,
   verifySignupFn,
 } from "@/backend/auth.server";
@@ -121,8 +122,12 @@ export interface SignupParams {
   email: string;
   accountType: AccountType;
   companyName?: string | undefined;
-  /** Full international format. Seeds the workspace's default dial code. */
-  phone?: string | undefined;
+  /** In national or international format; completed with the country's calling code. */
+  phone: string;
+  country: string;
+  city: string;
+  address?: string | undefined;
+  website?: string | undefined;
   workspaceSlug: string;
 }
 
@@ -138,13 +143,21 @@ export async function submitSignup(params: SignupParams) {
       accountType: params.accountType,
       workspaceSlug: params.workspaceSlug,
       ...(params.companyName ? { companyName: params.companyName } : {}),
-      ...(params.phone ? { phone: params.phone } : {}),
+      phone: params.phone,
+      country: params.country,
+      city: params.city,
+      ...(params.address ? { address: params.address } : {}),
+      ...(params.website ? { website: params.website } : {}),
     },
   });
 }
 
-export async function verifySignup(email: string, code: string) {
-  return verifySignupFn({ data: { email, code } });
+export async function resendPhoneCode(email: string) {
+  return resendPhoneCodeFn({ data: { email } });
+}
+
+export async function verifySignup(email: string, code: string, phoneCode?: string) {
+  return verifySignupFn({ data: { email, code, ...(phoneCode ? { phoneCode } : {}) } });
 }
 
 // ---------- Admin ----------

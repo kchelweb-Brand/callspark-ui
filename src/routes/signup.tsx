@@ -8,10 +8,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   checkSlugAvailability,
+  resendPhoneCode,
   submitSignup,
   verifySignup,
   type AccountType,
 } from "@/lib/auth-api";
+import { COUNTRIES, countryByCode } from "@/backend/countries";
 import { LogoMark } from "@/components/brand/Logo";
 import { AuthArt } from "@/components/auth/AuthArt";
 
@@ -43,6 +45,12 @@ function SignupPage() {
   const [fullName, setFullName] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [phone, setPhone] = useState("");
+  const [country, setCountry] = useState("");
+  const [city, setCity] = useState("");
+  const [address, setAddress] = useState("");
+  const [website, setWebsite] = useState("");
+  const [phoneCode, setPhoneCode] = useState("");
+  const [phoneCodeSent, setPhoneCodeSent] = useState(false);
   const [email, setEmail] = useState("");
   const [slug, setSlug] = useState("");
   const [code, setCode] = useState("");
@@ -90,19 +98,30 @@ function SignupPage() {
       toast.error(slugState.reason || "Pick a different workspace name.");
       return;
     }
+    if (!country || !city.trim() || !phone.trim()) {
+      toast.error("Choose your country and enter your city and phone number.");
+      return;
+    }
 
     setBusy(true);
     setSubmitError(null);
     try {
-      await submitSignup({
+      const result = await submitSignup({
         fullName: fullName.trim(),
         email,
         accountType,
         companyName: accountType === "business" ? companyName.trim() : undefined,
-        phone: phone.trim() || undefined,
+        phone: phone.trim(),
+        country,
+        city: city.trim(),
+        address: address.trim() || undefined,
+        website: website.trim() || undefined,
         workspaceSlug: slug,
       });
-      toast.success("Verification code sent", { description: `Check ${email}.` });
+      setPhoneCodeSent(result.phoneCodeSent);
+      toast.success("Verification code sent", {
+        description: result.phoneCodeSent ? `Check ${email} and your phone.` : `Check ${email}.`,
+      });
       setStep("code");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Could not create your account.";
@@ -119,9 +138,13 @@ function SignupPage() {
       toast.error("Enter the 6-digit code from your email.");
       return;
     }
+    if (phoneCodeSent && phoneCode.trim().length !== 6) {
+      toast.error("Enter the 6-digit code we texted to your phone.");
+      return;
+    }
     setBusy(true);
     try {
-      await verifySignup(email, code);
+      await verifySignup(email, code, phoneCodeSent ? phoneCode : undefined);
       setStep("done");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Invalid or expired code.");
@@ -205,20 +228,68 @@ function SignupPage() {
               )}
 
               <div className="flex flex-col gap-2">
-                <Label htmlFor="signupPhone">
-                  Business phone <span className="text-muted-foreground">(optional)</span>
+                <Label htmlFor="signupCountry">Country</Label>
+                <select
+                  id="signupCountry"
+                  value={country}
+                  onChange={(e) => setCountry(e.target.value)}
+                  autoComplete="country"
+                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                >
+                  <option value="">Choose your country…</option>
+                  {COUNTRIES.map((c) => (
+                    <option key={c.code} value={c.code}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="signupCity">City</Label>
+                  <Input id="signupCity" value={city} onChange={(e) => setCity(e.target.value)} autoComplete="address-level2" />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="signupAddress">
+                    Address <span className="text-muted-foreground">(optional)</span>
+                  </Label>
+                  <Input id="signupAddress" value={address} onChange={(e) => setAddress(e.target.value)} autoComplete="street-address" />
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="signupWebsite">
+                  Website <span className="text-muted-foreground">(optional)</span>
                 </Label>
                 <Input
-                  id="signupPhone"
-                  type="tel"
-                  placeholder="+234 803 406 4184"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  autoComplete="tel"
+                  id="signupWebsite"
+                  placeholder="yourcompany.com"
+                  value={website}
+                  onChange={(e) => setWebsite(e.target.value)}
+                  autoComplete="url"
                 />
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="signupPhone">Mobile phone</Label>
+                <div className="flex items-center rounded-md border border-input bg-background pl-3 focus-within:ring-1 focus-within:ring-ring">
+                  <span className="shrink-0 font-mono text-sm text-muted-foreground">
+                    {countryByCode(country) ? `+${countryByCode(country)?.dial}` : "+"}
+                  </span>
+                  <Input
+                    id="signupPhone"
+                    type="tel"
+                    placeholder="803 406 4184"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    autoComplete="tel-national"
+                    className="border-0 shadow-none focus-visible:ring-0"
+                  />
+                </div>
                 <p className="text-xs text-muted-foreground">
-                  Full international format. We use it to set your call routing&apos;s default
-                  country code, so local-format numbers dial correctly from day one.
+                  We text a code to this number to confirm it&apos;s yours, and use it to set your
+                  default country code so local numbers dial correctly from day one.
                 </p>
               </div>
 
@@ -303,9 +374,10 @@ function SignupPage() {
 
         {step === "code" && (
           <form className="w-full max-w-sm" onSubmit={handleVerify}>
-            <h1 className="text-2xl font-bold tracking-tight">Verify your email</h1>
+            <h1 className="text-2xl font-bold tracking-tight">{phoneCodeSent ? "Verify your email and phone" : "Verify your email"}</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              We sent a 6-digit code to <span className="font-medium">{email}</span>.
+              We sent a 6-digit code to <span className="font-medium">{email}</span>
+              {phoneCodeSent ? ", and another by text to your phone." : "."}
             </p>
 
             <div className="mt-7 flex flex-col gap-4">
@@ -323,9 +395,35 @@ function SignupPage() {
                 />
               </div>
 
+              {phoneCodeSent && (
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="signupPhoneCode">Code texted to your phone</Label>
+                  <Input
+                    id="signupPhoneCode"
+                    inputMode="numeric"
+                    maxLength={6}
+                    placeholder="123456"
+                    value={phoneCode}
+                    onChange={(e) => setPhoneCode(e.target.value.replace(/\D/g, ""))}
+                    className="font-mono tracking-[0.3em]"
+                  />
+                  <button
+                    type="button"
+                    className="self-start text-xs text-muted-foreground hover:underline"
+                    onClick={() => {
+                      void resendPhoneCode(email)
+                        .then(() => toast.success("Sent a new text code"))
+                        .catch((err) => toast.error(err instanceof Error ? err.message : "Couldn't resend the text."));
+                    }}
+                  >
+                    Text me a new code
+                  </button>
+                </div>
+              )}
+
               <Button type="submit" className="w-full" disabled={busy}>
                 {busy ? <Loader2 className="size-4 animate-spin" /> : null}
-                Verify email
+                {phoneCodeSent ? "Verify and create workspace" : "Verify email"}
               </Button>
 
               <button

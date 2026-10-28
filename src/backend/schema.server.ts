@@ -167,4 +167,34 @@ async function apply(): Promise<void> {
   `;
   await sql`create index if not exists idx_appointments_tenant on appointments (tenant_id, created_at desc)`;
   await sql`create index if not exists idx_calls_ai_outcome on calls (tenant_id, ai_outcome) where ai_outcome is not null`;
+
+  // ---------- signup details and phone verification ----------
+  await sql`alter table signup_requests add column if not exists phone text`;
+  await sql`alter table signup_requests add column if not exists country text`;
+  await sql`alter table signup_requests add column if not exists city text`;
+  await sql`alter table signup_requests add column if not exists address text`;
+  await sql`alter table signup_requests add column if not exists website text`;
+  await sql`alter table signup_requests add column if not exists phone_code_hash text`;
+  await sql`alter table signup_requests add column if not exists phone_code_expires_at timestamptz`;
+  await sql`alter table signup_requests add column if not exists phone_code_attempts int not null default 0`;
+  await sql`alter table signup_requests add column if not exists phone_verified_at timestamptz`;
+  await sql`alter table tenants add column if not exists country text`;
+  await sql`alter table tenants add column if not exists phone_verified_at timestamptz`;
+
+  // ---------- payment links the owner manages (card, bank, crypto, gift card) ----------
+  await sql`
+    create table if not exists payment_links (
+      id uuid primary key default gen_random_uuid(),
+      region text not null default 'default' check (region in ('default','emerging')),
+      plan_id text not null,
+      seats int not null default 1,
+      interval text not null default 'monthly' check (interval in ('monthly','annual')),
+      method text not null default 'card' check (method in ('card','bank','crypto','giftcard','other')),
+      label text not null default '',
+      amount_usd numeric(10,2) not null check (amount_usd > 0),
+      url text not null,
+      active boolean not null default true,
+      created_at timestamptz not null default now()
+    )
+  `;
 }

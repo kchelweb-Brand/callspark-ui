@@ -24,7 +24,7 @@
     }
     els.table.innerHTML = `
       <table class="data-table">
-        <thead><tr><th>Name</th><th>Phone</th><th>List</th><th>Tags</th></tr></thead>
+        <thead><tr><th>Name</th><th>Phone</th><th>List</th><th>Tags</th><th></th></tr></thead>
         <tbody>
           ${contacts
             .map(
@@ -34,6 +34,7 @@
               <td class="mono">${escapeHtml(c.phone)}</td>
               <td>${escapeHtml(c.list_name || "—")}</td>
               <td>${(c.tags || []).map(escapeHtml).join(", ")}</td>
+              <td><button type="button" data-wa="${escapeHtml(String(c.phone).replace(/\D/g, ""))}" title="Open a WhatsApp chat">WhatsApp</button></td>
             </tr>
           `,
             )
@@ -41,6 +42,10 @@
         </tbody>
       </table>
     `;
+    // Opens WhatsApp in the browser or the WhatsApp app; its own call button takes it from there.
+    els.table.querySelectorAll("[data-wa]").forEach((b) =>
+      b.addEventListener("click", () => window.open("https://wa.me/" + b.dataset.wa)),
+    );
   }
 
   async function load(search) {

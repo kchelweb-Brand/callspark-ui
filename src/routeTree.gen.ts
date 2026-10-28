@@ -31,6 +31,7 @@ import { Route as TeamRouteImport } from './routes/team'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AdminLoginRouteImport } from './routes/admin.login'
 import { Route as AdminOutreachRouteImport } from './routes/admin.outreach'
+import { Route as AdminPaymentsRouteImport } from './routes/admin.payments'
 import { Route as AdminRevenueRouteImport } from './routes/admin.revenue'
 import { Route as AdminSupportRouteImport } from './routes/admin.support'
 import { Route as AdminSystemHealthRouteImport } from './routes/admin.system-health'
@@ -146,6 +147,11 @@ const AdminOutreachRoute = AdminOutreachRouteImport.update({
   path: '/admin/outreach',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminPaymentsRoute = AdminPaymentsRouteImport.update({
+  id: '/admin/payments',
+  path: '/admin/payments',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminRevenueRoute = AdminRevenueRouteImport.update({
   id: '/admin/revenue',
   path: '/admin/revenue',
@@ -189,6 +195,7 @@ export interface FileRoutesByFullPath {
   '/team': typeof TeamRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/outreach': typeof AdminOutreachRoute
+  '/admin/payments': typeof AdminPaymentsRoute
   '/admin/revenue': typeof AdminRevenueRoute
   '/admin/support': typeof AdminSupportRoute
   '/admin/system-health': typeof AdminSystemHealthRoute
@@ -217,6 +224,7 @@ export interface FileRoutesByTo {
   '/team': typeof TeamRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/outreach': typeof AdminOutreachRoute
+  '/admin/payments': typeof AdminPaymentsRoute
   '/admin/revenue': typeof AdminRevenueRoute
   '/admin/support': typeof AdminSupportRoute
   '/admin/system-health': typeof AdminSystemHealthRoute
@@ -246,6 +254,7 @@ export interface FileRoutesById {
   '/team': typeof TeamRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/outreach': typeof AdminOutreachRoute
+  '/admin/payments': typeof AdminPaymentsRoute
   '/admin/revenue': typeof AdminRevenueRoute
   '/admin/support': typeof AdminSupportRoute
   '/admin/system-health': typeof AdminSystemHealthRoute
@@ -276,6 +285,7 @@ export interface FileRouteTypes {
     | '/team'
     | '/admin/login'
     | '/admin/outreach'
+    | '/admin/payments'
     | '/admin/revenue'
     | '/admin/support'
     | '/admin/system-health'
@@ -304,6 +314,7 @@ export interface FileRouteTypes {
     | '/team'
     | '/admin/login'
     | '/admin/outreach'
+    | '/admin/payments'
     | '/admin/revenue'
     | '/admin/support'
     | '/admin/system-health'
@@ -332,6 +343,7 @@ export interface FileRouteTypes {
     | '/team'
     | '/admin/login'
     | '/admin/outreach'
+    | '/admin/payments'
     | '/admin/revenue'
     | '/admin/support'
     | '/admin/system-health'
@@ -361,6 +373,7 @@ export interface RootRouteChildren {
   TeamRoute: typeof TeamRoute
   AdminLoginRoute: typeof AdminLoginRoute
   AdminOutreachRoute: typeof AdminOutreachRoute
+  AdminPaymentsRoute: typeof AdminPaymentsRoute
   AdminRevenueRoute: typeof AdminRevenueRoute
   AdminSupportRoute: typeof AdminSupportRoute
   AdminSystemHealthRoute: typeof AdminSystemHealthRoute
@@ -524,6 +537,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminOutreachRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/payments': {
+      id: '/admin/payments'
+      path: '/admin/payments'
+      fullPath: '/admin/payments'
+      preLoaderRoute: typeof AdminPaymentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/revenue': {
       id: '/admin/revenue'
       path: '/admin/revenue'
@@ -577,6 +597,7 @@ const rootRouteChildren: RootRouteChildren = {
   TeamRoute: TeamRoute,
   AdminLoginRoute: AdminLoginRoute,
   AdminOutreachRoute: AdminOutreachRoute,
+  AdminPaymentsRoute: AdminPaymentsRoute,
   AdminRevenueRoute: AdminRevenueRoute,
   AdminSupportRoute: AdminSupportRoute,
   AdminSystemHealthRoute: AdminSystemHealthRoute,

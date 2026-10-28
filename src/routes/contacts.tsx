@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Search, Upload, Loader2, Phone, Plus, Trash2, RefreshCw, FileWarning } from "lucide-react";
+import { Search, Upload, Loader2, MessageCircle, Phone, Plus, Trash2, RefreshCw, FileWarning } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -56,6 +56,11 @@ export const Route = createFileRoute("/contacts")({
 });
 
 const PAGE_SIZE = 50;
+
+/** A WhatsApp chat with this number. WhatsApp's own app handles the call button from there. */
+function whatsappLink(e164: string) {
+  return `https://wa.me/${e164.replace(/\D/g, "")}`;
+}
 
 function formatPhone(e164: string) {
   const m = /^\+1(\d{3})(\d{3})(\d{4})$/.exec(e164);
@@ -504,6 +509,16 @@ function ContactsPage() {
                         >
                           <Phone className="size-3.5" />
                         </ActionButton>
+                        <a
+                          href={whatsappLink(c.phone)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title="Open a WhatsApp chat"
+                          aria-label={`WhatsApp ${formatPhone(c.phone)}`}
+                          className="ml-1 inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+                        >
+                          <MessageCircle className="size-3.5" />
+                        </a>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -569,6 +584,16 @@ function ContactsPage() {
                   >
                     <Phone className="size-3.5" />
                   </ActionButton>
+                  <a
+                          href={whatsappLink(c.phone)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title="Open a WhatsApp chat"
+                          aria-label={`WhatsApp ${formatPhone(c.phone)}`}
+                          className="inline-flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+                        >
+                          <MessageCircle className="size-3.5" />
+                        </a>
                 </li>
               ))}
             </ul>

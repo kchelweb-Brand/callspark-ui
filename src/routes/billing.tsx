@@ -38,6 +38,7 @@ import {
   USAGE_LABELS,
   formatUsage,
   getAddonStatus,
+  claimPayment,
   getPlanUsage,
   listPlans,
   requestDialerAddon,
@@ -76,6 +77,10 @@ function BillingPage() {
   const [planUsage, setPlanUsage] = useState<PlanUsage | null>(null);
   const [catalog, setCatalog] = useState<Catalog>([]);
   const [checkout, setCheckout] = useState<Checkout>([]);
+  const [region, setRegion] = useState<string>("default");
+  const [claimFor, setClaimFor] = useState<Checkout[number] | null>(null);
+  const [claimRef, setClaimRef] = useState("");
+  const [claimBusy, setClaimBusy] = useState(false);
   // Named to avoid shadowing the global setInterval in this scope.
   const [billingInterval, setBillingInterval] = useState<"monthly" | "annual">("monthly");
   const [upgradeOpen, setUpgradeOpen] = useState(false);
@@ -100,6 +105,7 @@ function BillingPage() {
       .then((r) => {
         setCatalog(r.plans);
         setCheckout(r.checkout);
+        setRegion(r.region);
       })
       .catch(() => {});
     void getAddonStatus()
@@ -560,11 +566,23 @@ function BillingPage() {
                     </div>
                     {/* noreferrer as well as noopener: the payment page should
                         not receive this workspace's URL as a referrer. */}
-                    <Button size="sm" asChild>
-                      <a href={o.url} target="_blank" rel="noopener noreferrer">
-                        Pay ${o.amountUsd}
-                      </a>
-                    </Button>
+                    <div className="flex shrink-0 flex-col items-end gap-1">
+                      <Button size="sm" asChild>
+                        <a href={o.url} target="_blank" rel="noopener noreferrer">
+                          Pay ${o.amountUsd} · {o.label}
+                        </a>
+                      </Button>
+                      <button
+                        type="button"
+                        className="text-xs text-muted-foreground hover:underline"
+                        onClick={() => {
+                          setClaimRef("");
+                          setClaimFor(o);
+                        }}
+                      >
+                        I've paid
+                      </button>
+                    </div>
                   </div>
                 );
               })}
@@ -574,6 +592,12 @@ function BillingPage() {
               </p>
             )}
           </div>
+
+          {region !== "default" && (
+            <p className="text-xs text-muted-foreground">
+              Where your country has a regional price, that is the price shown.
+            </p>
+          )}
 
           {/* Paying does not grant the plan — activation is manual, so say so
               here rather than letting a customer wonder why nothing changed. */}
@@ -586,6 +610,53 @@ function BillingPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setUpgradeOpen(false)}>
               Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!claimFor} onOpenChange={(open) => !open && setClaimFor(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Tell us you've paid</DialogTitle>
+            <DialogDescription>
+              We'll confirm the payment and activate your plan. Add something we can find: a transaction ID, a
+              receipt number, or the name you paid with. Never type a gift card code or card number here.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="claim-ref">Reference</Label>
+            <Input id="claim-ref" value={claimRef} onChange={(e) => setClaimRef(e.target.value)} />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setClaimFor(null)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={claimBusy}
+              onClick={async () => {
+                if (!claimFor) return;
+                setClaimBusy(true);
+                try {
+                  await claimPayment({
+                    planId: claimFor.planId,
+                    seats: claimFor.seats,
+                    interval: claimFor.interval,
+                    method: claimFor.method,
+                    reference: claimRef,
+                  });
+                  toast.success("Thanks. We'll confirm it and activate your plan.", {
+                    description: "You can follow this in Support.",
+                  });
+                  setClaimFor(null);
+                } catch (err) {
+                  toast.error(err instanceof Error ? err.message : "Couldn't send that.");
+                } finally {
+                  setClaimBusy(false);
+                }
+              }}
+            >
+              Send
             </Button>
           </DialogFooter>
         </DialogContent>

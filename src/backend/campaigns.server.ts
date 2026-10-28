@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 
 import { sql } from "./db";
 import { verifyToken } from "./tokens";
-import { requireCanCreate } from "./entitlements";
+import { requireCanCreate, requirePremiumVoice } from "./entitlements";
 import { reviewCampaignPrompt } from "./prompt-review";
 import { ensureSchema } from "./schema.server";
 import { aiSettingsProblem, sanitizeAiSettings, type AiAgentSettings } from "./ai-agent-options";
@@ -81,6 +81,7 @@ export async function createCampaign(data: {
   const aiSettings = data.aiSettings === undefined ? null : sanitizeAiSettings(data.aiSettings);
   const aiProblem = aiSettings ? aiSettingsProblem(aiSettings) : null;
   if (aiProblem) throw new Error(aiProblem);
+  if (aiSettings) await requirePremiumVoice(tenantId, aiSettings.voice);
   // An AI campaign always starts Draft — it's only allowed to go Active
   // through startCampaignDialingFn, which gates on the prompt and the
   // compliance acknowledgment existing first.
@@ -132,6 +133,7 @@ export async function updateCampaign(data: {
   const aiSettings = data.aiSettings === undefined ? null : sanitizeAiSettings(data.aiSettings);
   const aiProblem = aiSettings ? aiSettingsProblem(aiSettings) : null;
   if (aiProblem) throw new Error(aiProblem);
+  if (aiSettings) await requirePremiumVoice(tenantId, aiSettings.voice);
 
   if (data.status === "Active") {
     const [existing] = await sql`select mode from campaigns where id = ${data.id} and tenant_id = ${tenantId}`;

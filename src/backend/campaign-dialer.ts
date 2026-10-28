@@ -10,7 +10,7 @@
 import { sql } from "./db";
 import { env } from "./env";
 import { verifyToken } from "./tokens";
-import { requireCanCreate } from "./entitlements";
+import { requireCanCreate, requirePremiumVoice, voiceForPlan } from "./entitlements";
 import { originateAiCall } from "./signalwire-rest";
 import { pickOutboundNumber } from "./reputation.server";
 import { verifySignalWireSignature } from "./signalwire";
@@ -228,8 +228,9 @@ async function handleAnswer(campaignCallId: string, params: Record<string, strin
     return swml({ sections: { main: [{ hangup: {} }] } });
   }
 
-  const settings = sanitizeAiSettings(row.ai_settings);
-  const person = { person: row.person as string | null, company: row.company as string | null };
+  const saved = sanitizeAiSettings(row.ai_settings);
+  const settings = { ...saved, voice: await voiceForPlan(row.tenant_id as string, saved.voice) };
+  const person ={ person: row.person as string | null, company: row.company as string | null };
 
   // A voicemail greeting is not a conversation: hang up, or leave the message once the beep is done.
   if (isMachine(params["AnsweredBy"])) {
@@ -447,6 +448,7 @@ export async function sampleAiCall(data: { token: string; settings: unknown; to:
   }
 
   const settings = sanitizeAiSettings(data.settings);
+  await requirePremiumVoice(tenantId, settings.voice);
   const parsed = parsePhone(data.to, await workspaceDialCode(tenantId));
   if ("error" in parsed) throw new Error(`${parsed.error}.`);
 

@@ -63,6 +63,7 @@ import { getOverview, getAnalytics, getLiveFloor, listRecordings } from "./metri
 import { listAgents, createAgent, updateAgent, deleteAgent } from "./agents.server";
 import { listCalls } from "./calls.server";
 import { listPlans, getPlanUsage } from "./billing.server";
+import { claimPayment, deletePaymentLink, listPaymentLinks, savePaymentLink } from "./payments.server";
 import { getAddonStatus, requestDialerAddon, requestSipAddon, setDialerAddon, setSipAddon } from "./addons.server";
 import {
   getPlatformOverview,
@@ -489,7 +490,7 @@ export async function handleNativeApi(request: Request, pathname: string): Promi
         return jsonOk(await powerStop(await readJson(request)));
 
       case "billing/plans":
-        return jsonOk(await listPlans({}));
+        return jsonOk(await listPlans(await readJson(request)));
       case "billing/usage":
         return jsonOk(await getPlanUsage(await readJson(request)));
       case "billing/addons":
@@ -500,6 +501,8 @@ export async function handleNativeApi(request: Request, pathname: string): Promi
         return jsonOk(await requestSipAddon(await readJson(request)));
       case "billing/request-plan":
         return jsonOk(await requestPlanUpgrade(await readJson(request)));
+      case "billing/claim-payment":
+        return jsonOk(await claimPayment(await readJson(request)));
 
       // ---------- super admin ----------
       // A founder's tenant login isn't always flagged super-admin, so the app
@@ -532,6 +535,12 @@ export async function handleNativeApi(request: Request, pathname: string): Promi
         return jsonOk(await sendBroadcast(await readJson(request)));
       case "admin/broadcasts":
         return jsonOk(await listBroadcasts(await readJson(request)));
+      case "admin/payment-links":
+        return jsonOk(await listPaymentLinks(await readJson(request)));
+      case "admin/payment-link-save":
+        return jsonOk(await savePaymentLink(await readJson(request)));
+      case "admin/payment-link-delete":
+        return jsonOk(await deletePaymentLink(await readJson(request)));
       case "admin/conversations":
         return jsonOk(await listConversations(await readJson(request)));
       case "admin/conversation":

@@ -62,6 +62,10 @@ export interface CustomerProfile {
   contact_name: string | null;
   contact_phone: string | null;
   company_name: string | null;
+  /** Where they said they are, and whether the phone was confirmed by a text. */
+  location: string | null;
+  website: string | null;
+  phone_verified: boolean;
   user_count: number;
   agent_count: number;
   contact_count: number;
@@ -372,7 +376,12 @@ async function loadCustomerProfile(tenantId: string): Promise<CustomerProfile | 
            (select sr.phone from signup_requests sr where sr.workspace_slug = t.workspace_slug
               order by sr.created_at asc limit 1) as contact_phone,
            (select sr.company_name from signup_requests sr where sr.workspace_slug = t.workspace_slug
-              order by sr.created_at asc limit 1) as company_name
+              order by sr.created_at asc limit 1) as company_name,
+           (select concat_ws(', ', nullif(sr.city, ''), nullif(sr.country, '')) from signup_requests sr where sr.workspace_slug = t.workspace_slug
+              order by sr.created_at asc limit 1) as location,
+           (select sr.website from signup_requests sr where sr.workspace_slug = t.workspace_slug
+              order by sr.created_at asc limit 1) as website,
+           (t.phone_verified_at is not null) as phone_verified
     from tenants t where t.id = ${tenantId} limit 1
   `;
   const r = rows[0] as Record<string, unknown> | undefined;
@@ -394,6 +403,9 @@ async function loadCustomerProfile(tenantId: string): Promise<CustomerProfile | 
     contact_name: (r["contact_name"] as string | null) ?? null,
     contact_phone: (r["contact_phone"] as string | null) ?? null,
     company_name: (r["company_name"] as string | null) ?? null,
+    location: (r["location"] as string | null) || null,
+    website: (r["website"] as string | null) ?? null,
+    phone_verified: r["phone_verified"] === true,
     user_count: users,
     agent_count: Number(r["agent_count"] ?? 0),
     contact_count: Number(r["contact_count"] ?? 0),

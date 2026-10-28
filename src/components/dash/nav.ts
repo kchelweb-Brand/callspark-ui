@@ -17,6 +17,7 @@ import {
   Zap,
   ListChecks,
   Megaphone as Announce,
+  Wallet,
   House,
   type LucideIcon,
 } from "lucide-react";
@@ -50,4 +51,5 @@ export const adminNav: NavItem[] = [
   { label: "Billing & Revenue", to: "/admin/revenue", icon: CreditCard },
   { label: "Support", to: "/admin/support", icon: LifeBuoy },
   { label: "Outreach", to: "/admin/outreach", icon: Announce },
+  { label: "Payment links", to: "/admin/payments", icon: Wallet },
 ];

@@ -11,7 +11,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { sql } from "./db";
 import { verifyToken } from "./tokens";
 import { ensureSchema } from "./schema.server";
-import { getTenantPlan, requireFeature, tenantHasFeature } from "./entitlements";
+import { getTenantPlan, requireFeature, requirePremiumVoice, tenantHasFeature } from "./entitlements";
 import { findContactByPhone } from "./phone-numbers";
 import { sendSms } from "./signalwire-rest";
 import { aiSettingsProblem, sanitizeAiSettings, type AiAgentSettings } from "./ai-agent-options";
@@ -110,6 +110,7 @@ export async function saveAutomations(data: { token: string; automations: unknow
 
   const agentProblem = aiSettingsProblem({ ...next.aiReceptionist.agent, transferNumber: next.aiReceptionist.transferNumber });
   if (agentProblem) throw new Error(agentProblem);
+  await requirePremiumVoice(user.tenantId, next.aiReceptionist.agent.voice);
 
   // Turning something off is always allowed; turning it on needs the plan for it.
   if (next.missedCallTextBack.enabled) await requireFeature(user.tenantId, "missedCallTextBack");

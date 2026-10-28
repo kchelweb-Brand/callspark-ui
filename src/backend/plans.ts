@@ -39,6 +39,7 @@ export interface PlanFeatures {
   callSummaries: boolean;
   /** An AI agent that answers inbound calls, after hours or when nobody picks up. */
   aiReceptionist: boolean;
+  premiumVoices: boolean;
 }
 
 export interface Plan {
@@ -93,6 +94,7 @@ export const PLANS: Record<PlanId, Plan> = {
       missedCallTextBack: false,
       callSummaries: false,
       aiReceptionist: false,
+      premiumVoices: false,
     },
   },
   starter: {
@@ -118,6 +120,7 @@ export const PLANS: Record<PlanId, Plan> = {
       missedCallTextBack: true,
       callSummaries: false,
       aiReceptionist: false,
+      premiumVoices: false,
     },
   },
   professional: {
@@ -143,6 +146,7 @@ export const PLANS: Record<PlanId, Plan> = {
       missedCallTextBack: true,
       callSummaries: true,
       aiReceptionist: false,
+      premiumVoices: false,
     },
   },
   // The step between Professional ($295 for 5 seats) and Managed ($2,500): a
@@ -173,6 +177,7 @@ export const PLANS: Record<PlanId, Plan> = {
       missedCallTextBack: true,
       callSummaries: true,
       aiReceptionist: true,
+      premiumVoices: true,
     },
   },
   managed: {
@@ -203,6 +208,7 @@ export const PLANS: Record<PlanId, Plan> = {
       missedCallTextBack: true,
       callSummaries: true,
       aiReceptionist: true,
+      premiumVoices: true,
     },
   },
 };
@@ -245,6 +251,7 @@ export const FEATURE_LABELS: Record<FeatureKey, string> = {
   missedCallTextBack: "Missed-call text-back",
   callSummaries: "Call summaries",
   aiReceptionist: "AI receptionist",
+  premiumVoices: "Premium AI voices",
 };
 
 /** The cheapest plan that includes a feature — what an upgrade message should name. */

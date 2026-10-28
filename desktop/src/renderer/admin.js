@@ -12,6 +12,7 @@
     ["health", "System health"],
     ["tickets", "Support"],
     ["outreach", "Outreach"],
+    ["payments", "Payment links"],
   ];
   const STATUSES = ["Open", "In progress", "Waiting on customer", "Escalated", "Resolved"];
   const money = (n) => "$" + Number(n || 0).toLocaleString();
@@ -161,6 +162,107 @@
         )}</div>`;
     },
 
+    // Payment links: regional prices and other ways to pay (crypto, gift card, bank).
+    async payments(body) {
+      const d = await api("admin/payment-links");
+      const regionName = (id) => (d.regions.find((r) => r.id === id) || {}).label || id;
+      const opt = (items, value) => items.map((i) => `<option value="${U.esc(i.id)}" ${i.id === value ? "selected" : ""}>${U.esc(i.label)}</option>`).join("");
+      const plans = ["starter", "professional", "business", "managed"];
+      body.innerHTML = `
+        <div class="panel stack">
+          <p class="eyebrow">How this works</p>
+          <p class="hint">Each link is a fixed-amount payment page you create at your payment provider. Customers see the links for their own region, and a regional link replaces the standard one for the same plan, seats, interval and method. Paying activates nothing by itself: you confirm the money and activate the plan. Customers tell you they've paid from Billing, and it arrives in Support.</p>
+        </div>
+        <div class="panel stack" id="pl-form">
+          <p class="eyebrow" id="pl-title">Add link</p>
+          <div class="perm-grid">
+            <label>Region<select id="pl-region">${opt(d.regions, "default")}</select></label>
+            <label>Paid by<select id="pl-method">${opt(d.methods, "crypto")}</select></label>
+            <label>Plan<select id="pl-plan">${plans.map((p) => `<option value="${p}">${p}</option>`).join("")}</select></label>
+            <label>Billing<select id="pl-interval"><option value="monthly">Monthly</option><option value="annual">Annual</option></select></label>
+            <label>Seats<input id="pl-seats" type="number" min="1" value="1" /></label>
+            <label>Amount in US dollars<input id="pl-amount" type="number" min="1" step="0.01" /></label>
+          </div>
+          <label>Button text (optional)<input id="pl-label" type="text" maxlength="60" placeholder="Crypto (USDT)" /></label>
+          <label>Payment link<input id="pl-url" type="text" placeholder="https://" /></label>
+          <label class="inline"><input id="pl-active" type="checkbox" checked /> Show to customers</label>
+          <div class="row-actions"><button id="pl-save">Save link</button><button id="pl-cancel" class="hidden">Cancel edit</button><span class="hint" id="pl-hint"></span></div>
+        </div>
+        <div class="panel table-panel"><p class="eyebrow" style="padding:10px 6px 0">Links</p>${U.table(
+          ["Plan", "Region", "Paid by", "Amount", "Link", ""],
+          d.links.map((l) => [
+            U.esc(`${l.plan_id} · ${l.seats} seat${l.seats === 1 ? "" : "s"} · ${l.interval}`),
+            U.esc(regionName(l.region)),
+            U.esc(l.method + (l.label ? " · " + l.label : "") + (l.active ? "" : " (hidden)")),
+            U.esc("$" + l.amount_usd),
+            `<span class="mono">${U.esc(l.url.slice(0, 40))}</span>`,
+            `<button data-edit="${l.id}">Edit</button> <button data-del="${l.id}">Delete</button>`,
+          ]),
+          "Nothing added yet. The built-in card links keep working.",
+        )}</div>`;
+
+      const $ = (id) => document.getElementById(id);
+      let editing = null;
+      const reset = () => {
+        editing = null;
+        $("pl-title").textContent = "Add link";
+        $("pl-cancel").classList.add("hidden");
+        $("pl-url").value = "";
+        $("pl-label").value = "";
+        $("pl-amount").value = "";
+      };
+      $("pl-cancel").addEventListener("click", reset);
+      body.querySelectorAll("[data-edit]").forEach((b) =>
+        b.addEventListener("click", () => {
+          const l = d.links.find((x) => x.id === b.dataset.edit);
+          if (!l) return;
+          editing = l.id;
+          $("pl-title").textContent = "Edit link";
+          $("pl-cancel").classList.remove("hidden");
+          $("pl-region").value = l.region;
+          $("pl-method").value = l.method;
+          $("pl-plan").value = l.plan_id;
+          $("pl-interval").value = l.interval;
+          $("pl-seats").value = l.seats;
+          $("pl-amount").value = l.amount_usd;
+          $("pl-label").value = l.label;
+          $("pl-url").value = l.url;
+          $("pl-active").checked = l.active;
+        }),
+      );
+      body.querySelectorAll("[data-del]").forEach((b) =>
+        b.addEventListener("click", async () => {
+          try {
+            await api("admin/payment-link-delete", { id: b.dataset.del });
+            await PANES.payments(body);
+          } catch (err) {
+            U.toast(err.message, "error");
+          }
+        }),
+      );
+      $("pl-save").addEventListener("click", async () => {
+        $("pl-hint").textContent = "Saving…";
+        try {
+          await api("admin/payment-link-save", {
+            id: editing || undefined,
+            region: $("pl-region").value,
+            method: $("pl-method").value,
+            planId: $("pl-plan").value,
+            interval: $("pl-interval").value,
+            seats: Number($("pl-seats").value),
+            amountUsd: Number($("pl-amount").value),
+            label: $("pl-label").value,
+            url: $("pl-url").value,
+            active: $("pl-active").checked,
+          });
+          U.toast("Saved", "info");
+          await PANES.payments(body);
+        } catch (err) {
+          $("pl-hint").textContent = err.message;
+        }
+      });
+    },
+
     // Outreach: tell every user (or a chosen group) about an update.
     async outreach(body) {
       const d = await api("admin/broadcasts");
@@ -308,7 +410,9 @@
           ["Account", U.esc(c.status)],
           ["Owner", U.esc(c.owner_email || "—")],
           ["Signed up as", U.esc([c.contact_name, c.company_name].filter(Boolean).join(" · ") || "—")],
-          ["Phone", U.esc(c.contact_phone || "—")],
+          ["Phone", U.esc(c.contact_phone ? c.contact_phone + (c.phone_verified ? " (verified)" : " (not verified)") : "—")],
+          ["Location", U.esc(c.location || "—")],
+          ["Website", U.esc(c.website || "—")],
           ["Customer since", U.esc(U.when(c.created_at))],
           c.trial_ends_at ? ["Trial ends", U.esc(U.when(c.trial_ends_at))] : null,
           ["Users / agents", `${c.user_count} / ${c.agent_count}`],

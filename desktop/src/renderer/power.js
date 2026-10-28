@@ -17,7 +17,25 @@
     ["wrong_number", "Wrong number"],
     ["dnc", "Do not call"],
   ];
-  const COUNTDOWN_SECONDS = 3;
+  // How fast the agent wants to work, remembered between sessions.
+  const DELAYS = [[0, "No wait"], [3, "3 seconds"], [5, "5 seconds"], [10, "10 seconds"]];
+  const RINGS = [[15, "15 seconds"], [25, "25 seconds"], [40, "40 seconds"], [60, "60 seconds"]];
+  const pace = (() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("kchelPowerPace") || "{}");
+      return { delay: DELAYS.some(([v]) => v === saved.delay) ? saved.delay : 3, ring: RINGS.some(([v]) => v === saved.ring) ? saved.ring : 40 };
+    } catch {
+      return { delay: 3, ring: 40 };
+    }
+  })();
+  function savePace() {
+    try {
+      localStorage.setItem("kchelPowerPace", JSON.stringify(pace));
+    } catch {
+      // Remembering the setting is a convenience, never a requirement.
+    }
+  }
+  let ringTimer = null;
 
   let overlay = null;
   let campaign = null; // { id, name }
@@ -30,6 +48,7 @@
 
   function close() {
     clearInterval(timer);
+    clearTimeout(ringTimer);
     timer = null;
     if (overlay) overlay.remove();
     overlay = null;
@@ -87,6 +106,10 @@
         </div>
         <div class="meter-bar"><i style="width:${pct}%"></i></div>
         <p class="hint">${done} of ${total} done${progress ? ` · ${progress.pending} left` : ""}</p>
+        <div class="power-pace">
+          <label>Wait between calls <select data-pace="delay">${DELAYS.map(([v, l]) => `<option value="${v}" ${v === pace.delay ? "selected" : ""}>${l}</option>`).join("")}</select></label>
+          <label>Stop ringing after <select data-pace="ring">${RINGS.map(([v, l]) => `<option value="${v}" ${v === pace.ring ? "selected" : ""}>${l}</option>`).join("")}</select></label>
+        </div>
         ${body}
       </div>`;
   }
@@ -107,7 +130,7 @@
       current = { queueId: r.queueId, contact: r.contact };
       answered = false;
       callId = null;
-      startCountdown(COUNTDOWN_SECONDS);
+      startCountdown(pace.delay);
     } catch (err) {
       U.toast(err.message, "error");
       close();
@@ -115,6 +138,10 @@
   }
 
   function startCountdown(n) {
+    if (n <= 0) {
+      void dial();
+      return;
+    }
     state = "countdown";
     let left = n;
     render(left);
@@ -134,6 +161,11 @@
     render();
     try {
       callId = await window.KchelDialer.placeCall(current.contact.phone);
+      // Nobody is going to pick up after this long: hang up and move on.
+      clearTimeout(ringTimer);
+      ringTimer = setTimeout(() => {
+        if (state === "dialing") document.getElementById("btn-hangup").click();
+      }, pace.ring * 1000);
     } catch (err) {
       U.toast(err.message, "error");
       // Hand the contact back rather than losing it, and stop.
@@ -155,6 +187,7 @@
 
   async function stop() {
     clearInterval(timer);
+    clearTimeout(ringTimer);
     if (state === "dialing" || state === "incall") document.getElementById("btn-hangup").click();
     // A call that was answered but not yet logged still counts: record it, or it
     // would be handed out again after the abandoned-contact timeout.
@@ -165,6 +198,13 @@
       // Closing matters more than the bookkeeping.
     }
     close();
+  }
+
+  function onChange(e) {
+    const key = e.target.dataset && e.target.dataset.pace;
+    if (!key) return;
+    pace[key] = Number(e.target.value);
+    savePace();
   }
 
   function onClick(e) {
@@ -203,10 +243,12 @@
       overlay = document.createElement("div");
       overlay.className = "power-overlay";
       overlay.addEventListener("click", onClick);
+      overlay.addEventListener("change", onChange);
       document.body.appendChild(overlay);
       void next();
     },
     onCallAnswered() {
+      clearTimeout(ringTimer);
       if (state === "dialing") {
         answered = true;
         state = "incall";
@@ -214,6 +256,7 @@
       }
     },
     onCallClosed(info) {
+      clearTimeout(ringTimer);
       if (!overlay || (state !== "dialing" && state !== "incall")) return;
       if (info && info.direction && info.direction !== "outgoing") return;
       if (info && info.callId) callId = info.callId;

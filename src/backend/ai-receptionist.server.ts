@@ -12,7 +12,7 @@
 
 import { sql } from "./db";
 import { ensureSchema } from "./schema.server";
-import { tenantHasFeature } from "./entitlements";
+import { tenantHasFeature, voiceForPlan } from "./entitlements";
 import { loadAutomations, type Automations } from "./automation.server";
 import { sanitizeAiSettings } from "./ai-agent-options";
 import { buildAiVerb, contactBrief, summaryPrompt } from "./ai-agent.server";
@@ -69,10 +69,11 @@ export async function receptionistResponse(
 ): Promise<Response> {
   await ensureSchema();
   // The settings in force are kept on the call, because the action webhooks read them back.
-  const settings = sanitizeAiSettings({ ...cfg.agent, transferNumber: cfg.transferNumber });
+  const [call] = await sql`select tenant_id, contact_id from calls where id = ${callId} limit 1`;
+  const wanted = sanitizeAiSettings({ ...cfg.agent, transferNumber: cfg.transferNumber });
+  const settings = call ? { ...wanted, voice: await voiceForPlan(call["tenant_id"] as string, wanted.voice) } : wanted;
   await sql`update calls set handled_by = 'ai', ai_settings = ${JSON.stringify(settings)}::jsonb where id = ${callId}`;
 
-  const [call] = await sql`select tenant_id, contact_id from calls where id = ${callId} limit 1`;
   const brief = call ? await contactBrief(call["tenant_id"] as string, call["contact_id"] as string | null) : "";
 
   const ai = await buildAiVerb({

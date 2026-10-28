@@ -3,7 +3,8 @@ import { createServerFn } from "@tanstack/react-start";
 import { sql } from "./db";
 import { verifyToken } from "./tokens";
 import { getUsageSummary } from "./entitlements";
-import { CHECKOUT_OPTIONS, PLANS, getPlan, isPlanId, type PlanId } from "./plans";
+import { PLANS, getPlan, isPlanId, type PlanId } from "./plans";
+import { checkoutFor } from "./payments.server";
 import { sendAccountActivatedEmail } from "./email";
 import { createMyTicket } from "./workspace.server";
 
@@ -20,8 +21,13 @@ async function requireSuperAdmin(token: string) {
 }
 
 /** The catalog, flattened for rendering. Safe for anyone to read — it's pricing. */
-export async function listPlans(_data: Record<string, never>) { return ({
+export async function listPlans(data: { token?: string }) {
+  // Prices depend on where the customer is, so the payment links are chosen per signed-in workspace.
+  const signedIn = data.token ? await verifyToken(data.token) : null;
+  const { region, options } = await checkoutFor(signedIn?.tenantId ?? null);
+  return ({
     ok: true as const,
+    region,
     plans: Object.values(PLANS).map((p) => ({
       id: p.id,
       name: p.name,
@@ -35,7 +41,7 @@ export async function listPlans(_data: Record<string, never>) { return ({
     })),
     // Seat tiers a customer can actually pay for. Managed has none — it's
     // quoted, not self-serve, until the carrier side is approved.
-    checkout: CHECKOUT_OPTIONS,
+    checkout: options,
   }); }
 
 export const listPlansFn = createServerFn({ method: "POST" })

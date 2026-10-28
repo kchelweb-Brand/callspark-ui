@@ -388,12 +388,35 @@
                   <p class="hint">${U.esc(pl.blurb || "")}</p>
                   <p class="hint">${pl.limits.agents ?? "∞"} agents · ${pl.limits.contacts?.toLocaleString() ?? "∞"} contacts · ${pl.limits.ivrMenus ?? "∞"} IVR · ${pl.limits.phoneNumbers ?? "∞"} numbers</p>
                   <p class="hint">${FEATURES.filter(([k]) => pl.features && pl.features[k]).map(([, l]) => l).join(" · ")}</p>
-                  ${pl.id === u.plan.id ? '<span class="status status-ok">Current</span>' : opts.map((o) => `<button data-pay="${U.esc(o.url)}">${o.seats} seat${o.seats > 1 ? "s" : ""} · $${o.amountUsd}/mo</button>`).join("") || `<button data-plan="${U.esc(pl.id)}">Request ${U.esc(pl.name)}</button>`}
+                  ${pl.id === u.plan.id ? '<span class="status status-ok">Current</span>' : opts.map((o) => `<button data-pay="${U.esc(o.url)}">${o.seats} seat${o.seats > 1 ? "s" : ""} · $${o.amountUsd}/mo · ${U.esc(o.label || "Pay")}</button>`).join("") + (opts.length ? `<button data-claim="${U.esc(pl.id)}" class="link-btn">I've paid</button>` : "") || `<button data-plan="${U.esc(pl.id)}">Request ${U.esc(pl.name)}</button>`}
                 </div>`;
               })
               .join("")}</div>
           </div>`;
         root.querySelectorAll("[data-pay]").forEach((b) => b.addEventListener("click", () => openLink(b.dataset.pay)));
+        root.querySelectorAll("[data-claim]").forEach((b) =>
+          b.addEventListener("click", () => {
+            const options = (p.checkout || []).filter((o) => o.planId === b.dataset.claim && o.interval === "monthly");
+            const m = U.modal({
+              title: "Tell us you've paid",
+              html:
+                '<p class="hint">We\'ll confirm the payment and activate your plan. Add something we can find: a transaction ID, a receipt number, or the name you paid with. Never type a gift card code or card number here.</p>' +
+                `<label>Which payment<select id="claim-which">${options.map((o, i) => `<option value="${i}">${o.seats} seat${o.seats > 1 ? "s" : ""} · $${o.amountUsd} · ${U.esc(o.label || o.method)}</option>`).join("")}</select></label>` +
+                '<label>Reference<input id="claim-ref" type="text" maxlength="300" /></label>' +
+                '<div class="modal-actions" style="margin-top:12px"><button id="claim-send">Send</button></div><p class="hint" id="claim-hint"></p>',
+            });
+            m.el.querySelector("#claim-send").addEventListener("click", async () => {
+              const o = options[Number(m.el.querySelector("#claim-which").value)];
+              try {
+                await api("billing/claim-payment", { planId: o.planId, seats: o.seats, interval: o.interval, method: o.method, reference: m.el.querySelector("#claim-ref").value });
+                m.close();
+                U.toast("Thanks. We'll confirm it and activate your plan.", "info");
+              } catch (err) {
+                m.el.querySelector("#claim-hint").textContent = err.message;
+              }
+            });
+          }),
+        );
         root.querySelectorAll("[data-plan]").forEach((b) =>
           b.addEventListener("click", async () => {
             try {
