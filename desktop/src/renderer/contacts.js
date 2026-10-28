@@ -148,6 +148,10 @@
     els.hint.textContent = "Imported " + result.imported.toLocaleString() + (parts ? " · " + parts : "") + ".";
     if (result.imported > 0) U.toast(result.imported.toLocaleString() + " contacts imported", "info");
     else U.toast("No new contacts were added", "info");
+    if (result.overLimit) {
+      els.hint.textContent += " " + result.overLimit.toLocaleString() + " not added: your plan holds " + (result.planLimit || 0).toLocaleString() + " contacts.";
+      U.toast(result.overLimit.toLocaleString() + " contacts left out: plan holds " + (result.planLimit || 0).toLocaleString(), "info");
+    }
     if (!result.invalidCount && !result.droppedEmails) return;
     U.modal({
       title: "Some rows were not imported",

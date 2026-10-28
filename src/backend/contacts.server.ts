@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 
 import { sql, sqlQuery } from "./db";
 import { verifyToken } from "./tokens";
-import { requireCanCreate } from "./entitlements";
+import { getTenantPlan, requireActivePlan, requireCanCreate } from "./entitlements";
 import { requireMember } from "./access.server";
 import { ensureSchema } from "./schema.server";
 import { callingCodeFromE164 } from "./phone-numbers";
@@ -233,6 +233,10 @@ export interface ImportResult {
   invalid: InvalidRow[];
   invalidCount: number;
   droppedEmails: number;
+  /** Valid new contacts left out because the plan's contact limit was reached. */
+  overLimit: number;
+  /** The plan's contact limit, or null when unlimited. */
+  planLimit: number | null;
   listName: string | null;
 }
 
@@ -242,10 +246,11 @@ export interface ImportResult {
  * One statement means all-or-nothing: a failure leaves nothing half-written for
  * the user to reconcile by hand. (The old loop issued one request per row, which
  * ran into the Worker's request limits on any real-sized file and could stop
- * halfway.) Numbers are normalised against the workspace's country code,
- * repeats are dropped by comparing the last ten digits, and the plan limit is
- * checked against the contacts that will actually be added, not the raw row
- * count.
+ * halfway.) Numbers are normalised against the workspace's country code and
+ * repeats are dropped by comparing the last ten digits.
+ *
+ * The plan limit never makes an import fail: the file fills the plan up to its
+ * limit and the remainder is reported as `overLimit` for the caller to show.
  */
 export async function importContacts(data: {
   token: string;
@@ -265,15 +270,21 @@ export async function importContacts(data: {
       select right(regexp_replace(phone, '\\D', '', 'g'), 10) as k from contacts where tenant_id = ${tenantId}
     `;
     const existing = new Set((existingRows as { k: string }[]).map((r) => r.k));
-    const fresh = prepared.ready.filter((r) => !existing.has(r.key));
-    const duplicates = prepared.duplicatesInFile + (prepared.ready.length - fresh.length);
+    const newRows = prepared.ready.filter((r) => !existing.has(r.key));
+    const duplicates = prepared.duplicatesInFile + (prepared.ready.length - newRows.length);
+
+    // Fill the plan up to its limit; whatever does not fit is skipped, not refused.
+    await requireActivePlan(tenantId);
+    const { plan } = await getTenantPlan(tenantId);
+    const planLimit = plan.limits.contacts;
+    const room = planLimit === null ? newRows.length : Math.max(0, planLimit - existingRows.length);
+    const fresh = newRows.slice(0, room);
+    const overLimit = newRows.length - fresh.length;
 
     const listName = data.listName?.trim().slice(0, 100) || null;
     let imported = 0;
 
     if (fresh.length > 0) {
-      // Only the contacts that will really be added count against the plan.
-      await requireCanCreate(tenantId, "contacts", fresh.length);
       const listId = listName ? await findOrCreateList(tenantId, listName) : null;
       const payload = fresh.map(({ company, person, phone, email, tags }) => ({ company, person, phone, email, tags }));
       const inserted = await sql`
@@ -291,6 +302,8 @@ export async function importContacts(data: {
       invalid: prepared.invalid.slice(0, 100),
       invalidCount: prepared.invalid.length,
       droppedEmails: prepared.droppedEmails,
+      overLimit,
+      planLimit,
       listName,
     };
     return { ok: true as const, ...result };

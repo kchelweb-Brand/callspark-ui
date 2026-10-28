@@ -117,6 +117,8 @@ function ContactsPage() {
     invalid: InvalidRow[];
     invalidCount: number;
     droppedEmails: number;
+    overLimit: number;
+    planLimit: number | null;
   } | null>(null);
 
   const load = useCallback(async () => {
@@ -243,12 +245,15 @@ function ContactsPage() {
         [
           result.duplicates ? `${result.duplicates} already existed` : null,
           result.invalidCount ? `${result.invalidCount} couldn't be imported` : null,
+          result.overLimit
+            ? `${result.overLimit.toLocaleString()} left out: your plan holds ${result.planLimit?.toLocaleString()} contacts`
+            : null,
         ]
           .filter(Boolean)
           .join(" · ") || undefined;
       if (result.imported > 0) toast.success(`${result.imported.toLocaleString()} contacts imported`, detail ? { description: detail } : {});
       else toast.info("No new contacts were added", detail ? { description: detail } : {});
-      if (result.invalidCount > 0 || result.droppedEmails > 0) setImportResult(result);
+      if (result.invalidCount > 0 || result.droppedEmails > 0 || result.overLimit > 0) setImportResult(result);
       setImportOpen(false);
       setPending(null);
       setPage(1);
@@ -678,6 +683,8 @@ function ContactsPage() {
             <DialogDescription>
               {importResult
                 ? `${importResult.imported.toLocaleString()} imported, ${importResult.duplicates.toLocaleString()} already existed, ${importResult.invalidCount.toLocaleString()} couldn't be read${
+                    importResult.overLimit ? `, ${importResult.overLimit.toLocaleString()} not added because your plan holds ${importResult.planLimit?.toLocaleString()} contacts (upgrade to add the rest)` : ""
+                  }${
                     importResult.droppedEmails ? `, ${importResult.droppedEmails} email${importResult.droppedEmails === 1 ? "" : "s"} left blank because they weren't valid` : ""
                   }.`
                 : ""}
