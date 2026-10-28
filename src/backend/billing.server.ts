@@ -5,6 +5,8 @@ import { verifyToken } from "./tokens";
 import { getUsageSummary } from "./entitlements";
 import { PLANS, getPlan, isPlanId, type PlanId } from "./plans";
 import { checkoutFor } from "./payments.server";
+import { extendPaidPeriod } from "./billing-lifecycle.server";
+import type { Lifecycle } from "./billing-lifecycle";
 import { sendAccountActivatedEmail } from "./email";
 import { createMyTicket } from "./workspace.server";
 
@@ -85,6 +87,19 @@ export const requestPlanUpgradeFn = createServerFn({ method: "POST" })
   .validator((data: Parameters<typeof requestPlanUpgrade>[0]) => data)
   .handler(async ({ data }) => requestPlanUpgrade(data));
 
+/** How close the plan is to ending, in plain values the browser can show. */
+function renewalView(l: Lifecycle) {
+  const iso = (d: Date) => d.toISOString();
+  return {
+    state: l.state,
+    endsAt: "endsAt" in l ? iso(l.endsAt) : null,
+    holdAt: l.state === "grace" ? iso(l.holdAt) : null,
+    daysLeft: l.state === "upcoming" || l.state === "ok" ? l.daysLeft : null,
+    daysToHold: l.state === "grace" ? l.daysToHold : null,
+    reason: l.state === "hold" ? l.reason : null,
+  };
+}
+
 /** Current plan plus real usage, for the Billing page. */
 export async function getPlanUsage(data: { token: string }) {
     const tenantId = await requireTenant(data.token);
@@ -105,6 +120,7 @@ export async function getPlanUsage(data: { token: string }) {
       trialExpired: plan.trialExpired,
       daysRemaining: plan.daysRemaining,
       usage,
+      renewal: renewalView(plan.lifecycle),
     };
   }
 
@@ -159,7 +175,7 @@ export const setTenantPlanFn = createServerFn({ method: "POST" })
  */
 export const activateTenantFn = createServerFn({ method: "POST" })
   .validator(
-    (data: { token: string; tenantId: string; plan: string; notify?: boolean; origin?: string }) =>
+    (data: { token: string; tenantId: string; plan: string; notify?: boolean; origin?: string; months?: number }) =>
       data,
   )
   .handler(async ({ data }) => {
@@ -187,6 +203,17 @@ export const activateTenantFn = createServerFn({ method: "POST" })
         `;
     const tenant = updated[0] as { name: string; workspace_slug: string } | undefined;
     if (!tenant) throw new Error("Could not find that tenant.");
+
+    // Confirming a payment starts a paid period: a month unless told otherwise.
+    // Zero means "never expires", for a plan that is not paid month by month.
+    if (plan.id !== "trial") {
+      const months = Math.max(0, Math.min(60, Math.round(data.months ?? 1)));
+      if (months === 0) {
+        await sql`update tenants set paid_until = null, renewal_stage = null, renewal_checked_on = null where id = ${data.tenantId}`;
+      } else {
+        await extendPaidPeriod(data.tenantId, "monthly", months);
+      }
+    }
 
     // The owner is the account that signed up; fall back to the earliest user
     // so an activation notice still reaches someone.

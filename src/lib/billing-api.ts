@@ -65,13 +65,14 @@ export const USAGE_LABELS: Record<string, string> = {
  * `origin` is passed from the browser so the sign-in link in the email points
  * at whatever host the admin is actually using, rather than a baked-in URL.
  */
-export function activateTenant(tenantId: string, plan: string, notify = true) {
+export function activateTenant(tenantId: string, plan: string, notify = true, months = 1) {
   return activateTenantFn({
     data: {
       token: requireToken(),
       tenantId,
       plan,
       notify,
+      months,
       origin: typeof window === "undefined" ? "" : window.location.origin,
     },
   });

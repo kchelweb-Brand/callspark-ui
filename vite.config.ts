@@ -12,4 +12,6 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
+  // The renewal reminders run on a schedule, which only Nitro can hand to us.
+  nitro: { plugins: ["./nitro-plugins/scheduled.ts"] },
 });

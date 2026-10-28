@@ -6,6 +6,8 @@
 
 import { sql } from "./db";
 import { findAiVoice } from "./ai-agent-options";
+import { ensureSchema } from "./schema.server";
+import { isOnHold, lifecycleOf, type Lifecycle } from "./billing-lifecycle";
 import {
   FEATURE_LABELS,
   checkLimit,
@@ -23,8 +25,12 @@ export interface TenantPlan {
   trialEndsAt: string | null;
   trialExpired: boolean;
   daysRemaining: number | null;
-  /** Reflects the write below — 'suspended' the instant this function notices expiry. */
   status: string;
+  /** Where the plan is in its life: fine, ending, in its grace period, or on hold. */
+  lifecycle: Lifecycle;
+  /** True once a trial has ended, or a paid plan's grace period has run out. New work is refused. */
+  onHold: boolean;
+  paidUntil: string | null;
 }
 
 /** A blocked action. Thrown so callers surface the message verbatim. */
@@ -37,41 +43,39 @@ export class PlanLimitError extends Error {
 }
 
 /**
- * A trial that ran out unpaid is suspended the moment anything next checks
- * it — a login attempt, a write, the billing page loading. There's no
- * scheduler in this app to sweep for it on a timer instead, so whichever
- * request notices first is the one that flips the switch. It's the same
- * outcome a founder gets from the admin console's own Suspend button, just
- * triggered by the calendar instead of a click.
+ * The plan a workspace is on, and how healthy it is.
  *
- * Guarded on the current status so it only ever moves a tenant out of
- * 'active' — it can't clobber a state an admin set deliberately (back to
- * 'pending', say), and calling it twice after the first flip is a no-op.
+ * A lapsed trial or an unrenewed plan is "on hold", worked out from dates (see
+ * billing-lifecycle.ts). The workspace is not suspended: the owner can still sign
+ * in, open Billing and pay, and the checks that guard new work refuse it with a
+ * clear message. A real suspension, set by a platform admin, is a different
+ * thing and still locks everyone out.
  */
 export async function getTenantPlan(tenantId: string): Promise<TenantPlan> {
+  // paid_until is added by the one-time schema upgrade, so it must have run before it is read.
+  await ensureSchema();
   const rows = await sql`
-    select plan, trial_ends_at, status from tenants where id = ${tenantId} limit 1
+    select plan, trial_ends_at, paid_until, status from tenants where id = ${tenantId} limit 1
   `;
   const row = rows[0] as
-    | { plan: string | null; trial_ends_at: string | null; status: string | null }
+    | { plan: string | null; trial_ends_at: string | null; paid_until: string | null; status: string | null }
     | undefined;
 
   const plan = getPlan(row?.plan);
   const trialEndsAt = row?.trial_ends_at ?? null;
   const trialExpired = isTrialExpired(plan.id, trialEndsAt);
-  let status = row?.status ?? "active";
-
-  if (trialExpired && plan.id === "trial" && status === "active") {
-    await sql`update tenants set status = 'suspended' where id = ${tenantId} and status = 'active'`;
-    status = "suspended";
-  }
+  const paidUntil = row?.paid_until ?? null;
+  const lifecycle = lifecycleOf({ plan: plan.id, trialEndsAt, paidUntil });
 
   return {
     plan,
     trialEndsAt,
     trialExpired,
     daysRemaining: trialDaysRemaining(plan.id, trialEndsAt),
-    status,
+    status: row?.status ?? "active",
+    lifecycle,
+    onHold: isOnHold(lifecycle),
+    paidUntil,
   };
 }
 
@@ -141,10 +145,12 @@ export async function requireWithinLimit(
  * door shut.
  */
 export async function requireActivePlan(tenantId: string): Promise<void> {
-  const { plan, trialExpired } = await getTenantPlan(tenantId);
-  if (trialExpired) {
+  const { plan, onHold, lifecycle } = await getTenantPlan(tenantId);
+  if (onHold) {
     throw new PlanLimitError(
-      `Your ${plan.name} has ended. Your data is safe and still exportable — upgrade to start working again.`,
+      lifecycle.state === "hold" && lifecycle.reason === "plan_expired"
+        ? `Your ${plan.name} plan ended and the account is on hold. Renew it in Billing to start working again. Your data is safe.`
+        : `Your ${plan.name} has ended. Your data is safe and still exportable. Choose a plan in Billing to start working again.`,
     );
   }
 }
@@ -180,8 +186,8 @@ export async function requireCountWithinLimit(
 
 /** Whether the tenant's plan includes a feature. Never throws. */
 export async function tenantHasFeature(tenantId: string, feature: FeatureKey): Promise<boolean> {
-  const { plan, trialExpired } = await getTenantPlan(tenantId);
-  return !trialExpired && plan.features[feature];
+  const { plan, onHold } = await getTenantPlan(tenantId);
+  return !onHold && plan.features[feature];
 }
 
 /** Blocks a feature the plan doesn't include, naming the plan that does. */

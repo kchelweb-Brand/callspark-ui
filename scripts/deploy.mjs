@@ -27,6 +27,10 @@ config.r2_buckets = [{ binding: "MEDIA_BUCKET", bucket_name: "kchel-dialer-media
 // spam/scam checker instead of a paid third-party LLM key.
 config.ai = { binding: "AI" };
 
+// The renewal check: every 15 minutes it looks at a few workspaces that are due a
+// reminder, so it stays inside the limit on outside requests per run.
+config.triggers = { crons: ["*/15 * * * *"] };
+
 writeFileSync(CONFIG, JSON.stringify(config, null, 2));
 console.log(
   `Patched ${CONFIG}\n  name: ${config.name}\n  compatibility_date: ${config.compatibility_date}\n  r2: ${config.r2_buckets[0].bucket_name} -> env.${config.r2_buckets[0].binding}\n  ai: env.${config.ai.binding}`,

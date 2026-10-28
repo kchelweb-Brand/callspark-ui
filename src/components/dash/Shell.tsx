@@ -11,6 +11,7 @@ import { SoftphoneBar } from "@/components/dash/SoftphoneBar";
 import { clearSession, getSessionUser } from "@/lib/auth-api";
 import { tenantNavGroups, adminNav, agentNav, type NavGroup } from "./nav";
 import { NotificationBell } from "./NotificationBell";
+import { PlanBanner } from "./PlanBanner";
 import { Logo } from "@/components/brand/Logo";
 
 type Scope = "tenant" | "admin" | "agent";
@@ -192,6 +193,8 @@ export function Shell({
               </div>
             </div>
           </header>
+
+          {scope === "tenant" && <PlanBanner />}
 
           <main className="px-4 py-8 md:px-8 md:py-10">
             <div className="mx-auto flex max-w-[1400px] flex-col gap-7">

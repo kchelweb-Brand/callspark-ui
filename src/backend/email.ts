@@ -322,6 +322,80 @@ export async function sendTeamAlertEmail(to: string, subject: string, data: Team
   await send(to, subject, shell(data.heading, body), "team-alert");
 }
 
+// ---------- plan renewal ----------
+
+export type RenewalKind = "ending" | "trial_ending" | "grace" | "hold" | "trial_ended";
+
+export interface RenewalEmailData {
+  workspaceName: string;
+  /** "Professional", or "free trial". */
+  planName: string;
+  kind: RenewalKind;
+  /** Days until it ends, for the reminder emails. */
+  daysLeft: number;
+  /** The day it ended, or will end, already written out. */
+  endsOn: string;
+  /** The day the account goes on hold, while there is still time to avoid it. */
+  holdOn: string | null;
+  daysToHold: number;
+}
+
+/**
+ * Tells an owner their plan is ending, has ended, or has put the account on hold,
+ * and what to do: renew it, or move to a bigger plan. Plain about the deadline,
+ * and about what stays safe, because an email that frightens people gets ignored
+ * and one that is vague gets ignored too.
+ */
+export async function sendRenewalEmail(to: string, d: RenewalEmailData): Promise<void> {
+  const days = (n: number) => `${n} day${n === 1 ? "" : "s"}`;
+  const trial = d.planName === "free trial";
+  const label = trial ? "free trial" : `${d.planName} plan`;
+
+  let subject: string;
+  let heading: string;
+  let lead: string;
+  switch (d.kind) {
+    case "ending":
+    case "trial_ending":
+      subject = `Your ${label} ends in ${days(d.daysLeft)}`;
+      heading = `Your ${label} ends in ${days(d.daysLeft)}`;
+      lead = `Your ${label} for ${d.workspaceName} ends on ${d.endsOn}. Renew now so nothing is interrupted.`;
+      break;
+    case "grace":
+      subject = `Your ${d.planName} plan has ended: renew within ${days(d.daysToHold)}`;
+      heading = "Your plan has ended";
+      lead = `Your ${d.planName} plan for ${d.workspaceName} ended on ${d.endsOn}. Everything still works for now, but if it isn't renewed by ${d.holdOn} the account will be put on hold.`;
+      break;
+    case "hold":
+      subject = `${d.workspaceName} is on hold`;
+      heading = "Your account is on hold";
+      lead = `Your ${d.planName} plan for ${d.workspaceName} ended on ${d.endsOn} and wasn't renewed, so the account is now on hold. You can't place calls, run campaigns or add contacts until it is renewed.`;
+      break;
+    default:
+      subject = "Your free trial has ended";
+      heading = "Your free trial has ended";
+      lead = `The free trial for ${d.workspaceName} ended on ${d.endsOn}, so the account is on hold. Choose a plan to pick up where you left off.`;
+  }
+
+  const html = shell(
+    heading,
+    `
+      <p style="font-size:14px;line-height:1.6;color:#334155">${escapeHtml(lead)}</p>
+      <p style="font-size:14px;line-height:1.6;color:#334155">
+        Your contacts, recordings and history are safe and will be there when you come back.
+        ${d.kind === "grace" ? "We'll email you each day until it's renewed." : ""}
+      </p>
+      ${ctaButton(trial || d.kind === "trial_ended" ? "Choose a plan" : "Renew my plan", `${PUBLIC_ORIGIN}/billing`)}
+      <p style="margin:18px 0 0;font-size:13px;line-height:1.6;color:#64748b">
+        Want more agents, contacts or features? You can move to a higher plan at the same time:
+        <a href="${PUBLIC_ORIGIN}/pricing" style="color:#0b8f4d">compare plans</a>.
+        Pay by card with the email you sign in with and your plan switches on within a minute or two.
+      </p>
+    `,
+  );
+  await send(to, subject, html, "renewal");
+}
+
 export interface AnnouncementEmailData {
   title: string;
   body: string;

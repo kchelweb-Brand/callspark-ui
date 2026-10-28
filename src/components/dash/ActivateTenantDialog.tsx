@@ -44,6 +44,7 @@ export function ActivateTenantDialog({
   const [catalog, setCatalog] = useState<Catalog>([]);
   const [plan, setPlan] = useState<string>("starter");
   const [notify, setNotify] = useState(true);
+  const [months, setMonths] = useState(1);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -65,7 +66,7 @@ export function ActivateTenantDialog({
     if (!tenant) return;
     setBusy(true);
     try {
-      const result = await activateTenant(tenant.id, plan, notify);
+      const result = await activateTenant(tenant.id, plan, notify, months);
       const planName = catalog.find((p) => p.id === plan)?.name ?? plan;
       toast.success(`${tenant.name} activated on ${planName}`, {
         description: result.notified
@@ -120,6 +121,26 @@ export function ActivateTenantDialog({
                 contacts
               </p>
             )}
+          </div>
+
+          <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-muted/40 p-3">
+            <div className="min-w-0">
+              <Label htmlFor="paid-months" className="text-sm font-medium">
+                Paid for (months)
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                When it lapses they get a daily email, then the account is put on hold. 0 means it never expires.
+              </p>
+            </div>
+            <input
+              id="paid-months"
+              type="number"
+              min={0}
+              max={60}
+              value={months}
+              onChange={(e) => setMonths(Math.max(0, Math.min(60, Number(e.target.value) || 0)))}
+              className="h-9 w-20 rounded-md border border-input bg-background px-2 text-right text-sm"
+            />
           </div>
 
           <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-muted/40 p-3">

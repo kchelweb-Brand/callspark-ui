@@ -206,6 +206,21 @@ async function apply(): Promise<void> {
     )
   `;
 
+  // ---------- plan expiry and renewal reminders ----------
+  await sql`alter table tenants add column if not exists paid_until timestamptz`;
+  await sql`alter table tenants add column if not exists renewal_stage text`;
+  await sql`alter table tenants add column if not exists renewal_checked_on date`;
+  await sql`create table if not exists app_flags (name text primary key, done_at timestamptz not null default now())`;
+  // Trials that ran out used to be suspended outright, which locked the owner out of
+  // the very page they need to pay. They are now simply on hold, so reopen them, once.
+  await sql`
+    if not exists (select 1 from app_flags where name = 'lapsed-trials-reopened') then
+      update tenants set status = 'active'
+        where status = 'suspended' and plan = 'trial' and trial_ends_at is not null and trial_ends_at < now();
+      insert into app_flags (name) values ('lapsed-trials-reopened');
+    end if
+  `;
+
   // ---------- payments received (one row per provider transaction, so none is handled twice) ----------
   await sql`
     create table if not exists payments (

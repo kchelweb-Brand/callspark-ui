@@ -18,6 +18,7 @@ import { ensureSchema } from "./schema.server";
 import { sendAccountActivatedEmail, sendTeamAlertEmail } from "./email";
 import { PLANS, getPlan, type BillingInterval, type PlanId } from "./plans";
 import { knownPaidOptions } from "./payments.server";
+import { extendPaidPeriod } from "./billing-lifecycle.server";
 
 export const FLUTTERWAVE_WEBHOOK_PATH = "/api/payments/flutterwave";
 
@@ -180,6 +181,8 @@ export async function handleFlutterwaveWebhook(request: Request): Promise<Respon
     const t = updated[0] as { name: string; workspace_slug: string } | undefined;
     tenantName = t?.name ?? "";
     tenantSlug = t?.workspace_slug ?? "";
+    // Paid for another month (or year): the clock restarts and the reminders reset.
+    await extendPaidPeriod(decision.tenantId, decision.interval ?? "monthly");
 
     // The customer is told once, when their plan actually changes.
     if (wasPlan !== decision.planId && email) {
