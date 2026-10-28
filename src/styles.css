@@ -59,6 +59,18 @@
   --color-brand-black: var(--brand-black);
   --shadow-card: 0 1px 2px 0 oklch(0.22 0.04 250 / 6%), 0 1px 3px 0 oklch(0.22 0.04 250 / 4%);
   --shadow-lift: 0 10px 30px -12px oklch(0.22 0.04 250 / 18%);
+
+  /* Public website. Ink and slate carry the text, mist and rule are the
+     surfaces and hairlines, navy is the one dark band, and leaf is the action
+     colour: the logo's green, deepened until white text on it is readable. */
+  --color-ink: #0b1d2e;
+  --color-slate: #465a6e;
+  --color-mist: #f4f7fa;
+  --color-rule: #dde5ec;
+  --color-navy: #0a2540;
+  --color-leaf: #0b8f4d;
+  --color-leaf-dark: #087a41;
+  --shadow-pane: 0 24px 48px -24px rgba(10, 37, 64, 0.35), 0 2px 6px rgba(10, 37, 64, 0.08);
 }
 
 :root {

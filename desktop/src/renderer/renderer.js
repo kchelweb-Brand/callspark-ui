@@ -73,6 +73,9 @@ function show(screen) {
   document.getElementById("screen-splash").classList.add("hidden");
   els.screenLogin.classList.toggle("hidden", screen !== "login");
   els.screenApp.classList.toggle("hidden", screen !== "app");
+  // The help assistant belongs to a signed-in workspace.
+  if (screen === "app") window.KchelHelp?.show();
+  else window.KchelHelp?.hide();
 }
 
 function showView(name) {

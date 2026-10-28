@@ -11,6 +11,7 @@ import { useEffect, type ReactNode } from "react";
 
 import { Toaster } from "@/components/ui/sonner";
 import { SoftphoneProvider } from "@/components/dash/SoftphoneProvider";
+import { HelpChat } from "@/components/help/HelpChat";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -142,6 +143,7 @@ function RootComponent() {
         {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
         <Outlet />
       </SoftphoneProvider>
+      <HelpChat />
       <Toaster richColors position="top-right" />
     </QueryClientProvider>
   );

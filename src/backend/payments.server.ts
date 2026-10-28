@@ -69,18 +69,29 @@ async function regionForTenant(tenantId: string): Promise<PriceRegion> {
 
 /** The ways to pay for each plan, as this customer should see them. */
 export async function checkoutFor(tenantId: string | null): Promise<{ region: PriceRegion; options: CheckoutLink[] }> {
-  await ensureSchema();
-  const region = tenantId ? await regionForTenant(tenantId) : "default";
-  const rows = await sql`
-    select region, plan_id, seats, interval, method, label, amount_usd, url from payment_links
-    where active = true and (region = 'default' or region = ${region})
-    order by created_at asc
-  `;
+  const builtIn = CHECKOUT_OPTIONS.map(
+    (o): CheckoutLink => ({ ...o, method: "card", label: "Card or bank (Flutterwave)", region: "default" }),
+  );
+
+  // The owner's extra links and regional prices live in the database. The public
+  // pricing must never depend on it: if it can't be read, the standard prices show.
+  let region: PriceRegion = "default";
+  let rows: Record<string, unknown>[] = [];
+  try {
+    await ensureSchema();
+    region = tenantId ? await regionForTenant(tenantId) : "default";
+    rows = await sql`
+      select region, plan_id, seats, interval, method, label, amount_usd, url from payment_links
+      where active = true and (region = 'default' or region = ${region})
+      order by created_at asc
+    `;
+  } catch (err) {
+    console.warn("[payments] using the standard payment links only", err);
+    return { region: "default", options: builtIn };
+  }
 
   const all: CheckoutLink[] = [
-    ...CHECKOUT_OPTIONS.map(
-      (o): CheckoutLink => ({ ...o, method: "card", label: "Card or bank (Flutterwave)", region: "default" }),
-    ),
+    ...builtIn,
     ...rows
       .filter((r) => isPlanId(r["plan_id"] as string))
       .map(

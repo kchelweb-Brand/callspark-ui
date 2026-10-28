@@ -181,6 +181,29 @@ async function apply(): Promise<void> {
   await sql`alter table tenants add column if not exists country text`;
   await sql`alter table tenants add column if not exists phone_verified_at timestamptz`;
 
+  // ---------- help assistant: questions counted per hour, so it cannot run up a bill ----------
+  await sql`
+    create table if not exists help_chat_usage (
+      bucket text not null,
+      hour timestamptz not null,
+      n int not null default 0,
+      primary key (bucket, hour)
+    )
+  `;
+
+  // ---------- messages from the public contact form ----------
+  await sql`
+    create table if not exists contact_requests (
+      id uuid primary key default gen_random_uuid(),
+      name text not null,
+      email text not null,
+      company text,
+      team_size text,
+      message text not null,
+      created_at timestamptz not null default now()
+    )
+  `;
+
   // ---------- payment links the owner manages (card, bank, crypto, gift card) ----------
   await sql`
     create table if not exists payment_links (

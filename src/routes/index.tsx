@@ -1,28 +1,12 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState, type CSSProperties } from "react";
-import {
-  ArrowRight,
-  Activity,
-  AudioLines,
-  BarChart3,
-  Bot,
-  Check,
-  Clock,
-  Download,
-  FileText,
-  Headset,
-  MessageSquare,
-  PhoneCall,
-  Repeat,
-  ShieldCheck,
-  Voicemail,
-  Workflow,
-  Zap,
-} from "lucide-react";
+import { createFileRoute } from "@tanstack/react-router";
+import { ArrowUpRight } from "lucide-react";
+import { useState } from "react";
 
-import { Button } from "@/components/ui/button";
-import { listPlans } from "@/lib/billing-api";
-import { LogoMark } from "@/components/brand/Logo";
+import { CtaBand, CtaLink, Container, Eyebrow, Facts, FaqList, Section, SectionHead, SLink, Split, TextLink, Ticks } from "@/site/blocks";
+import { FAQS, GUIDES, PRODUCTS, SOLUTIONS } from "@/site/content";
+import { SiteLayout } from "@/site/Layout";
+import { Visual } from "@/site/mocks";
+import { PlanCards, TrialStrip } from "@/site/PlanCards";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -31,676 +15,233 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "A cloud dialer with IVR menus, call routing, business hours, voicemail and analytics. Bring your own SIP trunk or let us supply one. Free 7-day trial.",
+          "Calling, campaigns, AI voice agents and a team workspace in one place. Bring your own phone line, import a list and make your first call this afternoon. Free for 7 days.",
       },
-      { property: "og:title", content: "Kchel Dialer — Cloud dialer and phone system" },
-      {
-        property: "og:description",
-        content:
-          "IVR, call routing, a browser softphone and real analytics. Start free for 7 days.",
-      },
+      { property: "og:title", content: "Kchel Dialer — The phone system your sales floor actually dials with" },
+      { property: "og:description", content: "Power dialer, AI voice agent, AI receptionist and team tools. Free for 7 days." },
     ],
   }),
   component: HomePage,
 });
 
-const FEATURES = [
-  {
-    icon: PhoneCall,
-    title: "Browser softphone",
-    body: "Your agents call from a tab. No handsets, no desktop installs — with hold, transfer, mute and a keypad that doubles as DTMF.",
-  },
-  {
-    icon: Workflow,
-    title: "IVR menus that answer",
-    body: "Build a menu, record or type a greeting, and map each keypress to a person, a department or voicemail.",
-  },
-  {
-    icon: Clock,
-    title: "Business hours",
-    body: "Open hours ring your team. After hours and holidays follow whatever fallback you choose, in your own timezone.",
-  },
-  {
-    icon: Headset,
-    title: "Smart call routing",
-    body: "Ring your team in order. An agent who doesn't pick up falls through to the next one instead of dropping the caller.",
-  },
-  {
-    icon: Voicemail,
-    title: "Voicemail and recordings",
-    body: "Missed calls leave a message. Answered calls can be recorded, and both land in one searchable place.",
-  },
-  {
-    icon: BarChart3,
-    title: "Analytics that mean something",
-    body: "Connect rate, talk time, outcome breakdown and an agent leaderboard — from real calls, never sample data.",
-  },
-  {
-    icon: MessageSquare,
-    title: "Contacts your team dials",
-    body: "Import a list in bulk, tag it, flag do-not-call, and dial straight from a contact record.",
-  },
-  {
-    icon: AudioLines,
-    title: "Call history you can search",
-    body: "Every call logged against the contact it belongs to, with its outcome, duration and recording.",
-  },
-];
+const TABS = ["phone-system", "dialer", "ai-voice-agent", "ai-receptionist"] as const;
+const TAB_LABEL: Record<(typeof TABS)[number], string> = {
+  "phone-system": "Phone system",
+  dialer: "Power dialer",
+  "ai-voice-agent": "AI voice agent",
+  "ai-receptionist": "AI receptionist",
+};
 
-const EXTRAS = [
-  {
-    icon: Bot,
-    title: "AI receptionist",
-    body: "Answers when you're closed or busy, asks who is calling and why, and takes a message. You get a written summary on the call.",
-    plan: "Business and up",
-  },
-  {
-    icon: Zap,
-    title: "Missed-call text-back",
-    body: "A call goes unanswered and the caller gets a text within seconds, before they dial your competitor.",
-    plan: "Starter and up",
-  },
-  {
-    icon: FileText,
-    title: "Call transcripts and summaries",
-    body: "Turn any recording into a transcript and a short summary with next steps, so nobody replays a 20-minute call.",
-    plan: "Professional and up",
-  },
-  {
-    icon: Activity,
-    title: "Number health",
-    body: "See which numbers are being answered and which are drifting toward a spam label, before your connect rate falls.",
-    plan: "Every plan",
-  },
-  {
-    icon: Repeat,
-    title: "Number rotation",
-    body: "Spread automated calls across your numbers, cap each one per day, and rest the ones that start to look like spam.",
-    plan: "Professional and up",
-  },
-  {
-    icon: PhoneCall,
-    title: "Power dialer",
-    body: "Work a list one contact after another with a short countdown and one-click call results. No seat minimums, on every plan.",
-    plan: "Every plan",
-  },
-];
-
-const COMPARE = [
-  ["Seat minimum", "None. Start with one agent", "Often 3 or more"],
-  ["Power dialer", "On every plan", "Often a higher tier"],
-  ["Missed-call text-back", "From Starter", "Often an add-on or missing"],
-  ["AI receptionist", "Included from Business", "Often a separate paid add-on"],
-  ["Call summaries", "From Professional", "Often an add-on or a higher tier"],
-  ["Number health and rotation", "Built in", "Usually a separate tool"],
-];
-
-const STEPS = [
-  {
-    n: "01",
-    title: "Create your workspace",
-    body: "Sign up with an email address. No card, no sales call.",
-  },
-  {
-    n: "02",
-    title: "Connect your SIP trunk",
-    body: "Bring credentials from a carrier you already pay, or ask us to supply one.",
-  },
-  {
-    n: "03",
-    title: "Start dialling",
-    body: "Import contacts, build your IVR, and put your team on the phone the same day.",
-  },
-];
-
-type Catalog = Awaited<ReturnType<typeof listPlans>>["plans"];
-
-function HomePage() {
-  const [plans, setPlans] = useState<Catalog>([]);
-
-  // Pricing comes from the same catalog the app enforces limits from, so the
-  // marketing page can never promise something the product won't honour.
-  useEffect(() => {
-    void listPlans()
-      .then((r) => setPlans(r.plans))
-      .catch(() => {
-        // Non-fatal — the rest of the page is still worth showing.
-      });
-  }, []);
-
+function ProductTabs() {
+  const [active, setActive] = useState<(typeof TABS)[number]>("dialer");
+  const product = PRODUCTS.find((p) => p.slug === active)!;
+  const block = product.blocks[0]!;
   return (
-    <div className="min-h-screen bg-background">
-      <SiteHeader />
-
-      {/* ---------- hero ---------- */}
-      <section className="ks-ground">
-        <div className="relative mx-auto grid max-w-6xl items-center gap-6 px-6 pb-10 pt-20 sm:pt-24 lg:grid-cols-[1.05fr_0.95fr]">
-          <div>
-            <span className="ks-rise inline-flex items-center gap-2 rounded-full border border-brand-yellow/40 bg-brand-yellow/15 px-3 py-1 text-xs font-semibold text-brand-yellow">
-              <span className="size-1.5 rounded-full bg-brand-yellow" />
-              Free for 7 days — no card required
-            </span>
-
-            <h1 className="ks-rise ks-rise-2 mt-6 text-4xl font-extrabold leading-[1.06] tracking-tight text-white sm:text-6xl">
-              The phone system your sales floor <span className="ks-grad">actually dials with</span>
-            </h1>
-
-            <p className="ks-rise ks-rise-3 mt-6 max-w-xl text-lg leading-relaxed text-white/75">
-              IVR menus, call routing, business hours and voicemail — plus a real dialer your agents
-              run from the browser. Bring your own SIP trunk and keep your carrier rates, or let us
-              supply one.
-            </p>
-
-            <div className="ks-rise ks-rise-4 mt-9 flex flex-wrap items-center gap-3">
-              <Button size="lg" asChild className="ks-glow h-12 px-7 text-base">
-                <Link to="/signup">
-                  Start free <ArrowRight className="size-4" />
-                </Link>
-              </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                asChild
-                className="h-12 border-white/25 bg-white/5 px-7 text-base text-white hover:bg-white/10 hover:text-white"
-              >
-                <a href="#pricing">See pricing</a>
-              </Button>
-            </div>
+    <div>
+      <div role="tablist" aria-label="Products" className="flex gap-1 overflow-x-auto border-b border-rule">
+        {TABS.map((t) => (
+          <button
+            key={t}
+            role="tab"
+            id={`tab-${t}`}
+            aria-selected={active === t}
+            aria-controls="tour-panel"
+            onClick={() => setActive(t)}
+            className={`-mb-px shrink-0 border-b-[3px] px-5 py-3.5 text-[16px] font-bold whitespace-nowrap transition-colors ${
+              active === t ? "border-leaf text-ink" : "border-transparent text-slate hover:text-ink"
+            }`}
+          >
+            {TAB_LABEL[t]}
+          </button>
+        ))}
+      </div>
+      <div id="tour-panel" role="tabpanel" aria-labelledby={`tab-${active}`} className="mt-10 grid items-center gap-10 lg:grid-cols-[1fr_1.1fr] lg:gap-16">
+        <div>
+          <h3 className="text-[1.8rem] leading-tight font-extrabold tracking-tight sm:text-[2.2rem]">{product.headline}</h3>
+          <p className="mt-4 text-[17px] leading-relaxed text-slate">{product.lede}</p>
+          <div className="mt-6">
+            <Ticks items={(block.points ?? []).slice(0, 3)} />
           </div>
-
-          {/* A dialer, floating over the signal rings. */}
-          <div className="ks-stage ks-rise ks-rise-3 hidden lg:block" aria-hidden>
-            <div className="ks-phone">
-              <div className="ks-phone-status">
-                <i /> Registered · Sales line
-              </div>
-              <div className="ks-phone-number">+1 866 787 9664</div>
-              <div className="ks-keys">
-                {[
-                  ["1", ""],
-                  ["2", "ABC"],
-                  ["3", "DEF"],
-                  ["4", "GHI"],
-                  ["5", "JKL"],
-                  ["6", "MNO"],
-                  ["7", "PQRS"],
-                  ["8", "TUV"],
-                  ["9", "WXYZ"],
-                  ["*", ""],
-                  ["0", "+"],
-                  ["#", ""],
-                ].map(([d, l]) => (
-                  <span key={d}>
-                    {d}
-                    <small>{l || " "}</small>
-                  </span>
-                ))}
-              </div>
-              <div className="ks-phone-call">
-                <PhoneCall className="size-5" /> Call
-              </div>
-            </div>
-
-            <div className="ks-float ks-f1">
-              <span className="ico bg-brand-yellow text-black">
-                <PhoneCall className="size-[18px]" />
-              </span>
-              <div>
-                <strong>Incoming call</strong>
-                <span className="sub">Sales line · ringing</span>
-              </div>
-            </div>
-
-            <div className="ks-float ks-f2">
-              <div>
-                <strong>AI agent dialing</strong>
-                <span className="sub">Spring outreach · 24 of 60 calls</span>
-              </div>
-              <div className="ks-bar">
-                <i />
-              </div>
-            </div>
-
-            <div className="ks-float ks-f3">
-              <span className="ico bg-brand-green text-white">
-                <BarChart3 className="size-[18px]" />
-              </span>
-              <div>
-                <strong>68% connect rate</strong>
-                <span className="sub">Up 12% this week</span>
-              </div>
-            </div>
+          <div className="mt-8">
+            <TextLink to={`/product/${product.slug}`}>Explore {product.name.toLowerCase()}</TextLink>
           </div>
         </div>
-
-        <div className="relative mx-auto max-w-6xl px-6 pb-16">
-          <dl className="ks-stats ks-rise ks-rise-4 grid grid-cols-2 gap-x-8 gap-y-6 p-6 sm:grid-cols-4 sm:px-8">
-            {[
-              ["7 days", "free trial"],
-              ["Your carrier", "or ours"],
-              ["Up to 10", "IVR menus"],
-              ["No contract", "cancel anytime"],
-            ].map(([big, small]) => (
-              <div key={small}>
-                <dt className="text-xl font-extrabold text-white">{big}</dt>
-                <dd className="mt-0.5 text-sm text-white/60">{small}</dd>
-              </div>
-            ))}
-          </dl>
-        </div>
-      </section>
-
-      {/* ---------- features ---------- */}
-      <section id="features" className="ks-night">
-        <div className="mx-auto max-w-6xl px-6 py-24">
-          <div className="max-w-2xl">
-            <p className="ks-eyebrow">Everything included</p>
-            <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
-              A full phone system, not a dialer bolted onto a CRM
-            </h2>
-            <p className="mt-4 text-lg text-muted-foreground">
-              Every plan gets the calling, menus, routing and reporting. Tiers differ by how many
-              people and contacts you bring — and, at the top, by who runs the carrier for you.
-            </p>
-          </div>
-
-          <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {FEATURES.map(({ icon: Icon, title, body }, i) => {
-              // Cycle the brand across the grid so no single colour dominates.
-              const tone = ["var(--g)", "var(--b)", "var(--y)", "var(--ink-2)"][i % 4];
-              return (
-                <div key={title} className="ks-card" style={{ "--tone": tone } as CSSProperties}>
-                  <span className={`ks-icon ${i % 4 === 2 ? "!text-black" : ""}`}>
-                    <Icon className="size-5" />
-                  </span>
-                  <h3 className="relative mt-5 font-bold">{title}</h3>
-                  <p className="relative mt-2 text-sm leading-relaxed text-muted-foreground">
-                    {body}
-                  </p>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* ---------- built to win leads ---------- */}
-      <section id="extras" className="ks-tint border-t border-border">
-        <div className="mx-auto max-w-6xl px-6 py-24">
-          <div className="max-w-2xl">
-            <p className="ks-eyebrow">Built to win leads</p>
-            <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
-              The things other phone systems charge extra for, or don't have
-            </h2>
-            <p className="mt-4 text-lg text-muted-foreground">
-              Most of a sales team's lost revenue is a missed call that nobody followed up. These are
-              built in, not bolted on.
-            </p>
-          </div>
-
-          <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {EXTRAS.map(({ icon: Icon, title, body, plan }) => (
-              <div key={title} className="card-surface rounded-2xl p-6">
-                <span className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                  <Icon className="size-5" />
-                </span>
-                <h3 className="mt-5 font-bold">{title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{body}</p>
-                <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-primary">{plan}</p>
-              </div>
-            ))}
-          </div>
-
-          <div className="card-surface mt-10 overflow-x-auto rounded-2xl">
-            <table className="w-full min-w-[520px] text-left text-sm">
-              <thead>
-                <tr className="border-b border-border text-xs uppercase tracking-wide text-muted-foreground">
-                  <th className="px-5 py-3 font-semibold" />
-                  <th className="px-5 py-3 font-semibold text-primary">Kchel Dialer</th>
-                  <th className="px-5 py-3 font-semibold">Typical cloud phone systems</th>
-                </tr>
-              </thead>
-              <tbody>
-                {COMPARE.map(([what, us, them]) => (
-                  <tr key={what} className="border-b border-border last:border-0">
-                    <td className="px-5 py-3 font-medium">{what}</td>
-                    <td className="px-5 py-3 font-semibold">{us}</td>
-                    <td className="px-5 py-3 text-muted-foreground">{them}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </section>
-
-      {/* ---------- how it works ---------- */}
-      <section className="ks-steps border-y border-border">
-        <div className="mx-auto max-w-6xl px-6 py-20">
-          <p className="ks-eyebrow">How it works</p>
-          <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">Live the same day</h2>
-          <div className="mt-12 grid gap-10 md:grid-cols-3">
-            {STEPS.map((s, i) => (
-              <div key={s.n} className="ks-step relative">
-                <span
-                  className="ks-step-n"
-                  style={{ "--tone": ["var(--g)", "var(--b)", "#b8940a"][i] } as CSSProperties}
-                >
-                  {s.n}
-                </span>
-                <h3 className="mt-5 text-lg font-bold">{s.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{s.body}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ---------- pricing ---------- */}
-      <section id="pricing" className="ks-tint">
-        <div className="mx-auto max-w-6xl px-6 py-24">
-          <div className="mx-auto max-w-2xl text-center">
-            <p className="ks-eyebrow">Pricing</p>
-            <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
-              Per agent as you start. One flat price once you grow.
-            </h2>
-            <p className="mt-4 text-lg text-muted-foreground">
-              On Starter, Professional and Business you bring your own SIP trunk, so your call
-              minutes stay on your carrier bill at your rates. Business gives a growing team one
-              flat price with the AI receptionist included. On Managed Enterprise we also supply the
-              trunk, run the carrier relationship and handle support.
-            </p>
-          </div>
-
-          <div className="mt-14 grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-            {plans.map((p) => {
-              const featured = p.id === "business";
-              return (
-                <div
-                  key={p.id}
-                  className={featured ? "ks-featured p-6" : "card-surface rounded-2xl p-6"}
-                >
-                  {featured && (
-                    <span className="ks-glow absolute -top-3 left-6 rounded-full bg-primary px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-primary-foreground">
-                      Best value
-                    </span>
-                  )}
-                  <h3 className="font-semibold">{p.name}</h3>
-                  <p className="mt-1 min-h-10 text-sm text-muted-foreground">{p.blurb}</p>
-
-                  <p className="mt-5">
-                    <span className="text-3xl font-bold tracking-tight">
-                      {p.priceFlatMonthly !== null
-                        ? `$${p.priceFlatMonthly.toLocaleString()}`
-                        : p.price === 0
-                          ? "Free"
-                          : `$${p.price}`}
-                    </span>
-                    {p.priceFlatMonthly !== null ? (
-                      <span className="text-sm text-muted-foreground"> /month, any team size</span>
-                    ) : (
-                      p.price > 0 && (
-                        <span className="text-sm text-muted-foreground"> /agent/month</span>
-                      )
-                    )}
-                  </p>
-
-                  <ul className="mt-6 flex flex-col gap-2.5 text-sm">
-                    <PlanLine value={p.limits.agents} one="agent" many="agents" />
-                    <PlanLine value={p.limits.contacts} one="contact" many="contacts" />
-                    <PlanLine value={p.limits.ivrMenus} one="IVR menu" many="IVR menus" />
-                    <PlanLine
-                      value={p.limits.phoneNumbers}
-                      one="phone number"
-                      many="phone numbers"
-                    />
-                    <Line
-                      on={p.limits.recordingRetentionDays !== 0}
-                      text={
-                        p.limits.recordingRetentionDays === null
-                          ? "Call recordings"
-                          : p.limits.recordingRetentionDays === 0
-                            ? "Call recordings"
-                            : `${p.limits.recordingRetentionDays}-day recordings`
-                      }
-                    />
-                    <Line on={p.features.powerDialer} text="Power dialer" />
-                    <Line on={p.features.missedCallTextBack} text="Missed-call text-back" />
-                    <Line on={p.features.numberRotation} text="Number health & rotation" />
-                    <Line on={p.features.callSummaries} text="AI call summaries" />
-                    <Line on={p.features.aiReceptionist} text="AI receptionist" />
-                    <Line on={p.managedSip} text="SIP trunk included" />
-                  </ul>
-
-                  <Button
-                    className="mt-7 w-full"
-                    variant={featured ? "default" : "outline"}
-                    asChild
-                  >
-                    {/* The flat-priced tier is quoted, not self-serve, so it must
-                      not inherit the trial's "Start free" from a zero seat price. */}
-                    <Link to="/signup">
-                      {p.priceFlatMonthly !== null
-                        ? "Talk to us"
-                        : p.price === 0
-                          ? "Start free"
-                          : "Get started"}
-                    </Link>
-                  </Button>
-                </div>
-              );
-            })}
-            {plans.length === 0 && (
-              <p className="col-span-full text-center text-sm text-muted-foreground">
-                Loading plans…
-              </p>
-            )}
-          </div>
-
-          <p className="mt-8 text-center text-sm text-muted-foreground">
-            Annual billing saves two months. Need more seats or a trunk from us?{" "}
-            <Link to="/signup" className="font-semibold text-primary hover:underline">
-              Get in touch
-            </Link>
-            .
-          </p>
-        </div>
-      </section>
-
-      {/* ---------- desktop app ---------- */}
-      <section className="ks-tint border-t border-border py-20">
-        <div className="mx-auto grid max-w-6xl items-center gap-10 px-6 md:grid-cols-2">
-          <div>
-            <p className="ks-eyebrow">Desktop app</p>
-            <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
-              Kchel Dialer, off to the side of your browser
-            </h2>
-            <p className="mt-4 text-lg text-muted-foreground">
-              A real Windows app with a native SIP/RTP calling engine — its own window, its own
-              taskbar entry, no browser in the way. Closing it keeps you reachable in the tray
-              instead of hanging up on a caller.
-            </p>
-            <ul className="mt-6 flex flex-col gap-2.5 text-sm">
-              <li className="flex items-start gap-2.5">
-                <Check className="mt-0.5 size-4 shrink-0 text-primary" />
-                <span>Native calling engine — no WebRTC, no browser limitations</span>
-              </li>
-              <li className="flex items-start gap-2.5">
-                <Check className="mt-0.5 size-4 shrink-0 text-primary" />
-                <span>Stays reachable in the tray when the window is closed</span>
-              </li>
-              <li className="flex items-start gap-2.5">
-                <Check className="mt-0.5 size-4 shrink-0 text-primary" />
-                <span>Same account, same workspace — sign in once</span>
-              </li>
-            </ul>
-            <div className="mt-8 flex flex-wrap items-center gap-4">
-              <Button size="lg" asChild className="h-12 px-7 text-base">
-                <Link to="/signup">
-                  <Download className="size-4" /> Add it to your workspace — $500
-                </Link>
-              </Button>
-              <span className="text-xs text-muted-foreground">
-                One-time add-on · request it from Billing once signed in · Windows 10/11
-              </span>
-            </div>
-          </div>
-          <div className="ks-win" aria-hidden>
-            <div className="ks-win-bar">
-              <i className="bg-[#ff6159]" />
-              <i className="bg-[#ffbd2e]" />
-              <i className="bg-[#28c840]" />
-              <span className="ml-2">Kchel Dialer</span>
-            </div>
-            <div className="ks-win-body">
-              <div className="ks-win-side">
-                <b />
-                <b />
-                <b />
-                <b />
-              </div>
-              <div className="ks-win-main">
-                <div className="ks-win-card">
-                  <div className="num">+1 866 787 9664</div>
-                  <div className="k">
-                    {Array.from({ length: 12 }).map((_, i) => (
-                      <i key={i} />
-                    ))}
-                  </div>
-                  <div className="go" />
-                </div>
-                <div className="ks-win-list">
-                  {["var(--g)", "var(--b)", "var(--y)", "var(--g)", "var(--b)"].map((c, i) => (
-                    <div key={i} className="ks-win-row">
-                      <i style={{ background: c }} />
-                      <u />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="mx-auto mt-10 flex max-w-6xl flex-wrap items-center justify-between gap-4 rounded-xl border border-dashed border-border px-6 py-5">
-          <div>
-            <p className="text-sm font-semibold">Just want a taskbar shortcut? That's free.</p>
-            <p className="text-sm text-muted-foreground">
-              Kchel Desktop is the plain website in its own window — same features, no native
-              calling engine, no charge.
-            </p>
-          </div>
-          <Button variant="outline" asChild>
-            <a href="/dl/downloads/Kchel-Desktop-Setup-1.0.0.exe">
-              <Download className="size-4" /> Download Kchel Desktop — free
-            </a>
-          </Button>
-        </div>
-      </section>
-
-      {/* ---------- closing CTA ---------- */}
-      <section className="ks-ground">
-        <div className="relative mx-auto flex max-w-6xl flex-col items-start gap-6 px-6 py-24 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h2 className="text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
-              Put your team on the phone <span className="ks-grad">today</span>
-            </h2>
-            <p className="mt-3 max-w-xl text-white/70">
-              Fourteen days free. Bring your own SIP trunk and you can be dialling within the hour.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <Button size="lg" asChild className="ks-glow h-12 px-7 text-base">
-              <Link to="/signup">
-                Create your workspace <ArrowRight className="size-4" />
-              </Link>
-            </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              asChild
-              className="h-12 border-white/25 bg-white/5 px-7 text-base text-white hover:bg-white/10 hover:text-white"
-            >
-              <Link to="/login">Sign in</Link>
-            </Button>
-          </div>
-        </div>
-      </section>
-
-      <SiteFooter />
+        <Visual name={product.heroVisual} />
+      </div>
     </div>
   );
 }
 
-/** A limit rendered as a benefit — "Up to 25 agents", "Unlimited contacts". */
-function PlanLine({ value, one, many }: { value: number | null; one: string; many: string }) {
-  const text =
-    value === null
-      ? `Unlimited ${many}`
-      : `Up to ${value.toLocaleString()} ${value === 1 ? one : many}`;
-  return <Line on text={text} />;
-}
+const STEPS = [
+  { n: "1", title: "Connect your line", body: "Enter your SIP provider's details, or ask for a managed line. The app tells you when it is registered." },
+  { n: "2", title: "Bring in your list", body: "Upload a spreadsheet of up to 10,000 contacts, check the preview, and you have a campaign." },
+  { n: "3", title: "Start calling", body: "Work the list with the power dialer, or let the AI voice agent make the first pass for you." },
+];
 
-function Line({ on, text }: { on: boolean; text: string }) {
+function HomePage() {
+  const analytics = PRODUCTS.find((p) => p.slug === "analytics")!;
+  const team = PRODUCTS.find((p) => p.slug === "team")!;
+  const ai = PRODUCTS.find((p) => p.slug === "ai-voice-agent")!;
   return (
-    <li className="flex items-start gap-2.5">
-      <Check
-        className={`mt-0.5 size-4 shrink-0 ${on ? "text-primary" : "text-muted-foreground/35"}`}
-      />
-      <span className={on ? "" : "text-muted-foreground/60 line-through"}>{text}</span>
-    </li>
-  );
-}
+    <SiteLayout>
+      {/* Hero */}
+      <section className="border-b border-rule bg-mist">
+        <Container className="grid items-center gap-12 py-14 sm:py-20 lg:grid-cols-[1.02fr_1fr] lg:gap-14 lg:py-24">
+          <div>
+            <Eyebrow>Calling · Campaigns · AI</Eyebrow>
+            <h1 className="mt-4 text-[2.6rem] leading-[1.05] font-extrabold tracking-tight sm:text-[3.6rem] xl:text-[4.1rem]">
+              The phone system your sales floor actually dials with.
+            </h1>
+            <p className="mt-6 max-w-xl text-[19px] leading-relaxed text-slate">
+              Place calls, run campaigns, put an AI voice agent on your list and manage your team, all in one workspace. Bring your own phone line, or have one supplied.
+            </p>
+            <div className="mt-9 flex flex-wrap gap-3">
+              <CtaLink to="/signup">Start free trial</CtaLink>
+              <CtaLink to="/pricing" kind="secondary">
+                See pricing
+              </CtaLink>
+            </div>
+            <p className="mt-5 text-sm text-slate">Free for 7 days · No card needed · Most teams make a first call the same afternoon</p>
+          </div>
+          <Visual name="dialer" />
+        </Container>
+      </section>
 
-function SiteHeader() {
-  return (
-    <header className="ks-header">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
-        <Link to="/" className="flex items-center gap-2.5">
-          <LogoMark className="size-9" />
-          <span className="font-bold tracking-tight text-white">Kchel Dialer</span>
-        </Link>
+      {/* Facts */}
+      <section className="bg-white">
+        <Container className="py-12">
+          <Facts
+            items={[
+              { value: "10,000", label: "contacts imported in a single upload" },
+              { value: "12", label: "AI voices to choose from, in three quality tiers" },
+              { value: "7 days", label: "free trial, with no card needed" },
+              { value: "1", label: "workspace for calls, texts, AI agents and your team" },
+            ]}
+          />
+        </Container>
+      </section>
 
-        <nav className="hidden items-center gap-8 md:flex">
-          <a href="#features" className="text-sm font-medium text-white/70 hover:text-white">
-            Features
-          </a>
-          <a href="#pricing" className="text-sm font-medium text-white/70 hover:text-white">
-            Pricing
-          </a>
-        </nav>
-
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" asChild className="text-white hover:bg-white/10 hover:text-white">
-            <Link to="/login">Sign in</Link>
-          </Button>
-          <Button asChild>
-            <Link to="/signup">Start free</Link>
-          </Button>
+      {/* Product tour */}
+      <Section id="tour" tone="white" className="pt-0">
+        <SectionHead eyebrow="What you get" title="Everything a calling team needs, without five tools stitched together." />
+        <div className="mt-10">
+          <ProductTabs />
         </div>
-      </div>
-    </header>
-  );
-}
+      </Section>
 
-function SiteFooter() {
-  return (
-    <footer className="ks-foot">
-      <div className="mx-auto flex max-w-6xl flex-col gap-6 border-t border-white/10 px-6 py-10 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2.5">
-          <LogoMark className="size-8" />
-          <span className="text-sm font-semibold text-white">Kchel Dialer</span>
+      {/* Solutions */}
+      <Section tone="mist">
+        <SectionHead eyebrow="Solutions" title="Built around how your team actually works." lede="Pick the one that sounds like you and see which parts of Kchel it leans on." />
+        <div className="mt-12 grid gap-px overflow-hidden rounded-2xl border border-rule bg-rule md:grid-cols-2">
+          {SOLUTIONS.map((s) => (
+            <SLink key={s.slug} to={`/solutions/${s.slug}`} className="group flex items-start justify-between gap-6 bg-white p-8 hover:bg-white/60">
+              <div>
+                <h3 className="text-[1.4rem] font-extrabold tracking-tight">{s.name}</h3>
+                <p className="mt-2 max-w-md text-[16px] leading-relaxed text-slate">{s.short}</p>
+              </div>
+              <ArrowUpRight className="mt-1 size-6 shrink-0 text-leaf transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+            </SLink>
+          ))}
         </div>
+      </Section>
 
-        <p className="flex items-center gap-2 text-xs text-white/50">
-          <ShieldCheck className="size-3.5" />
-          Credentials encrypted at rest · Every workspace isolated
-        </p>
+      {/* AI spotlight */}
+      <Section tone="navy">
+        <SectionHead
+          onDark
+          eyebrow="AI voice agent"
+          title="The first pass on a long list, made by an agent that doesn't get tired."
+          lede="It speaks first, handles voicemail, writes down how each call went, and hands the good ones to your team."
+        />
+        <div className="mt-14">
+          <Split tone="navy" block={ai.blocks[1]!} />
+        </div>
+        <div className="mt-10">
+          <TextLink onDark to="/product/ai-voice-agent">
+            See everything the AI voice agent does
+          </TextLink>
+        </div>
+      </Section>
 
-        <p className="text-xs text-white/50">
-          © {new Date().getFullYear()} Kchel Dialer. All rights reserved.
+      {/* Analytics + team */}
+      <Section tone="white">
+        <div className="space-y-24">
+          <Split block={analytics.blocks[0]!} />
+          <Split block={team.blocks[0]!} flip />
+        </div>
+      </Section>
+
+      {/* How it works */}
+      <Section tone="mist">
+        <SectionHead eyebrow="How it works" title="From sign-up to first call in an afternoon." />
+        <ol className="mt-12 grid gap-10 md:grid-cols-3">
+          {STEPS.map((s) => (
+            <li key={s.n} className="border-t-2 border-ink pt-5">
+              <span className="text-sm font-bold tracking-widest text-leaf">STEP {s.n}</span>
+              <h3 className="mt-2 text-[1.35rem] font-extrabold tracking-tight">{s.title}</h3>
+              <p className="mt-2 text-[16px] leading-relaxed text-slate">{s.body}</p>
+            </li>
+          ))}
+        </ol>
+        <div className="mt-10">
+          <TextLink to="/resources/get-started">Read the full getting-started guide</TextLink>
+        </div>
+      </Section>
+
+      {/* Pricing */}
+      <Section tone="white" id="pricing" wide>
+        <SectionHead
+          center
+          eyebrow="Pricing"
+          title="Per agent while you grow. One flat price when you have a team."
+          lede="Bring your own phone line on Starter, Professional and Business, and your call minutes stay on your carrier bill. Managed Enterprise includes the line."
+        />
+        <div className="mt-12">
+          <PlanCards />
+        </div>
+        <div className="mt-8">
+          <TrialStrip />
+        </div>
+        <p className="mt-6 text-center text-sm text-slate">
+          Annual billing includes two months free.{" "}
+          <SLink to="/pricing" className="font-bold text-leaf hover:underline">
+            Compare every plan
+          </SLink>
         </p>
-      </div>
-    </footer>
+      </Section>
+
+      {/* Guides */}
+      <Section tone="mist">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <SectionHead eyebrow="Resources" title="Short guides for the things you'll do first." />
+          <TextLink to="/resources">All guides</TextLink>
+        </div>
+        <div className="mt-10 grid gap-6 md:grid-cols-3">
+          {GUIDES.slice(0, 3).map((g) => (
+            <SLink key={g.slug} to={`/resources/${g.slug}`} className="group flex flex-col rounded-xl border border-rule bg-white p-7 hover:border-leaf">
+              <span className="text-[12px] font-bold tracking-[0.12em] text-slate uppercase">{g.minutes} minute read</span>
+              <h3 className="mt-3 text-[1.3rem] leading-snug font-extrabold tracking-tight group-hover:text-leaf">{g.title}</h3>
+              <p className="mt-2 flex-1 text-[15.5px] leading-relaxed text-slate">{g.summary}</p>
+              <span className="mt-5 text-[15px] font-bold text-leaf">Read the guide</span>
+            </SLink>
+          ))}
+        </div>
+      </Section>
+
+      {/* FAQ */}
+      <Section tone="white">
+        <div className="grid gap-12 lg:grid-cols-[0.8fr_1.4fr]">
+          <div>
+            <SectionHead eyebrow="Questions" title="Things people ask before they start." />
+            <div className="mt-6">
+              <TextLink to="/faq">See all questions</TextLink>
+            </div>
+          </div>
+          <FaqList items={[FAQS[0]!.items[0]!, FAQS[1]!.items[0]!, FAQS[2]!.items[1]!, FAQS[3]!.items[0]!, FAQS[1]!.items[2]!]} />
+        </div>
+      </Section>
+
+      <CtaBand />
+    </SiteLayout>
   );
 }

@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AboutRouteImport } from './routes/about'
 import { Route as AgentRouteImport } from './routes/agent'
 import { Route as AgentsRouteImport } from './routes/agents'
 import { Route as AnalyticsRouteImport } from './routes/analytics'
@@ -17,12 +18,17 @@ import { Route as AutomationsRouteImport } from './routes/automations'
 import { Route as BillingRouteImport } from './routes/billing'
 import { Route as CallHistoryRouteImport } from './routes/call-history'
 import { Route as CampaignsRouteImport } from './routes/campaigns'
+import { Route as ContactRouteImport } from './routes/contact'
 import { Route as ContactsRouteImport } from './routes/contacts'
 import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as DownloadRouteImport } from './routes/download'
+import { Route as FaqRouteImport } from './routes/faq'
 import { Route as LiveCallsRouteImport } from './routes/live-calls'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as PhoneSystemRouteImport } from './routes/phone-system'
+import { Route as PricingRouteImport } from './routes/pricing'
 import { Route as RecordingsRouteImport } from './routes/recordings'
+import { Route as SecurityRouteImport } from './routes/security'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as SmsRouteImport } from './routes/sms'
@@ -36,10 +42,23 @@ import { Route as AdminRevenueRouteImport } from './routes/admin.revenue'
 import { Route as AdminSupportRouteImport } from './routes/admin.support'
 import { Route as AdminSystemHealthRouteImport } from './routes/admin.system-health'
 import { Route as AdminTenantsRouteImport } from './routes/admin.tenants'
+import { Route as LegalPrivacyRouteImport } from './routes/legal.privacy'
+import { Route as LegalTermsRouteImport } from './routes/legal.terms'
+import { Route as ProductIndexRouteImport } from './routes/product.index'
+import { Route as ProductSlugRouteImport } from './routes/product.$slug'
+import { Route as ResourcesIndexRouteImport } from './routes/resources.index'
+import { Route as ResourcesSlugRouteImport } from './routes/resources.$slug'
+import { Route as SolutionsIndexRouteImport } from './routes/solutions.index'
+import { Route as SolutionsSlugRouteImport } from './routes/solutions.$slug'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AboutRoute = AboutRouteImport.update({
+  id: '/about',
+  path: '/about',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AgentRoute = AgentRouteImport.update({
@@ -77,6 +96,11 @@ const CampaignsRoute = CampaignsRouteImport.update({
   path: '/campaigns',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ContactRoute = ContactRouteImport.update({
+  id: '/contact',
+  path: '/contact',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ContactsRoute = ContactsRouteImport.update({
   id: '/contacts',
   path: '/contacts',
@@ -85,6 +109,16 @@ const ContactsRoute = ContactsRouteImport.update({
 const DashboardRoute = DashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DownloadRoute = DownloadRouteImport.update({
+  id: '/download',
+  path: '/download',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FaqRoute = FaqRouteImport.update({
+  id: '/faq',
+  path: '/faq',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LiveCallsRoute = LiveCallsRouteImport.update({
@@ -102,9 +136,19 @@ const PhoneSystemRoute = PhoneSystemRouteImport.update({
   path: '/phone-system',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PricingRoute = PricingRouteImport.update({
+  id: '/pricing',
+  path: '/pricing',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RecordingsRoute = RecordingsRouteImport.update({
   id: '/recordings',
   path: '/recordings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SecurityRoute = SecurityRouteImport.update({
+  id: '/security',
+  path: '/security',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SettingsRoute = SettingsRouteImport.update({
@@ -172,9 +216,50 @@ const AdminTenantsRoute = AdminTenantsRouteImport.update({
   path: '/admin/tenants',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LegalPrivacyRoute = LegalPrivacyRouteImport.update({
+  id: '/legal/privacy',
+  path: '/legal/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LegalTermsRoute = LegalTermsRouteImport.update({
+  id: '/legal/terms',
+  path: '/legal/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProductIndexRoute = ProductIndexRouteImport.update({
+  id: '/product/',
+  path: '/product/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProductSlugRoute = ProductSlugRouteImport.update({
+  id: '/product/$slug',
+  path: '/product/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResourcesIndexRoute = ResourcesIndexRouteImport.update({
+  id: '/resources/',
+  path: '/resources/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResourcesSlugRoute = ResourcesSlugRouteImport.update({
+  id: '/resources/$slug',
+  path: '/resources/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SolutionsIndexRoute = SolutionsIndexRouteImport.update({
+  id: '/solutions/',
+  path: '/solutions/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SolutionsSlugRoute = SolutionsSlugRouteImport.update({
+  id: '/solutions/$slug',
+  path: '/solutions/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
   '/agent': typeof AgentRoute
   '/agents': typeof AgentsRoute
   '/analytics': typeof AnalyticsRoute
@@ -182,12 +267,17 @@ export interface FileRoutesByFullPath {
   '/billing': typeof BillingRoute
   '/call-history': typeof CallHistoryRoute
   '/campaigns': typeof CampaignsRoute
+  '/contact': typeof ContactRoute
   '/contacts': typeof ContactsRoute
   '/dashboard': typeof DashboardRoute
+  '/download': typeof DownloadRoute
+  '/faq': typeof FaqRoute
   '/live-calls': typeof LiveCallsRoute
   '/login': typeof LoginRoute
   '/phone-system': typeof PhoneSystemRoute
+  '/pricing': typeof PricingRoute
   '/recordings': typeof RecordingsRoute
+  '/security': typeof SecurityRoute
   '/settings': typeof SettingsRoute
   '/signup': typeof SignupRoute
   '/sms': typeof SmsRoute
@@ -200,10 +290,19 @@ export interface FileRoutesByFullPath {
   '/admin/support': typeof AdminSupportRoute
   '/admin/system-health': typeof AdminSystemHealthRoute
   '/admin/tenants': typeof AdminTenantsRoute
+  '/legal/privacy': typeof LegalPrivacyRoute
+  '/legal/terms': typeof LegalTermsRoute
+  '/product/$slug': typeof ProductSlugRoute
+  '/resources/$slug': typeof ResourcesSlugRoute
+  '/solutions/$slug': typeof SolutionsSlugRoute
   '/admin/': typeof AdminIndexRoute
+  '/product/': typeof ProductIndexRoute
+  '/resources/': typeof ResourcesIndexRoute
+  '/solutions/': typeof SolutionsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
   '/agent': typeof AgentRoute
   '/agents': typeof AgentsRoute
   '/analytics': typeof AnalyticsRoute
@@ -211,12 +310,17 @@ export interface FileRoutesByTo {
   '/billing': typeof BillingRoute
   '/call-history': typeof CallHistoryRoute
   '/campaigns': typeof CampaignsRoute
+  '/contact': typeof ContactRoute
   '/contacts': typeof ContactsRoute
   '/dashboard': typeof DashboardRoute
+  '/download': typeof DownloadRoute
+  '/faq': typeof FaqRoute
   '/live-calls': typeof LiveCallsRoute
   '/login': typeof LoginRoute
   '/phone-system': typeof PhoneSystemRoute
+  '/pricing': typeof PricingRoute
   '/recordings': typeof RecordingsRoute
+  '/security': typeof SecurityRoute
   '/settings': typeof SettingsRoute
   '/signup': typeof SignupRoute
   '/sms': typeof SmsRoute
@@ -229,11 +333,20 @@ export interface FileRoutesByTo {
   '/admin/support': typeof AdminSupportRoute
   '/admin/system-health': typeof AdminSystemHealthRoute
   '/admin/tenants': typeof AdminTenantsRoute
+  '/legal/privacy': typeof LegalPrivacyRoute
+  '/legal/terms': typeof LegalTermsRoute
+  '/product/$slug': typeof ProductSlugRoute
+  '/resources/$slug': typeof ResourcesSlugRoute
+  '/solutions/$slug': typeof SolutionsSlugRoute
   '/admin': typeof AdminIndexRoute
+  '/product': typeof ProductIndexRoute
+  '/resources': typeof ResourcesIndexRoute
+  '/solutions': typeof SolutionsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
   '/agent': typeof AgentRoute
   '/agents': typeof AgentsRoute
   '/analytics': typeof AnalyticsRoute
@@ -241,12 +354,17 @@ export interface FileRoutesById {
   '/billing': typeof BillingRoute
   '/call-history': typeof CallHistoryRoute
   '/campaigns': typeof CampaignsRoute
+  '/contact': typeof ContactRoute
   '/contacts': typeof ContactsRoute
   '/dashboard': typeof DashboardRoute
+  '/download': typeof DownloadRoute
+  '/faq': typeof FaqRoute
   '/live-calls': typeof LiveCallsRoute
   '/login': typeof LoginRoute
   '/phone-system': typeof PhoneSystemRoute
+  '/pricing': typeof PricingRoute
   '/recordings': typeof RecordingsRoute
+  '/security': typeof SecurityRoute
   '/settings': typeof SettingsRoute
   '/signup': typeof SignupRoute
   '/sms': typeof SmsRoute
@@ -259,12 +377,21 @@ export interface FileRoutesById {
   '/admin/support': typeof AdminSupportRoute
   '/admin/system-health': typeof AdminSystemHealthRoute
   '/admin/tenants': typeof AdminTenantsRoute
+  '/legal/privacy': typeof LegalPrivacyRoute
+  '/legal/terms': typeof LegalTermsRoute
+  '/product/$slug': typeof ProductSlugRoute
+  '/resources/$slug': typeof ResourcesSlugRoute
+  '/solutions/$slug': typeof SolutionsSlugRoute
   '/admin/': typeof AdminIndexRoute
+  '/product/': typeof ProductIndexRoute
+  '/resources/': typeof ResourcesIndexRoute
+  '/solutions/': typeof SolutionsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/about'
     | '/agent'
     | '/agents'
     | '/analytics'
@@ -272,12 +399,17 @@ export interface FileRouteTypes {
     | '/billing'
     | '/call-history'
     | '/campaigns'
+    | '/contact'
     | '/contacts'
     | '/dashboard'
+    | '/download'
+    | '/faq'
     | '/live-calls'
     | '/login'
     | '/phone-system'
+    | '/pricing'
     | '/recordings'
+    | '/security'
     | '/settings'
     | '/signup'
     | '/sms'
@@ -290,10 +422,19 @@ export interface FileRouteTypes {
     | '/admin/support'
     | '/admin/system-health'
     | '/admin/tenants'
+    | '/legal/privacy'
+    | '/legal/terms'
+    | '/product/$slug'
+    | '/resources/$slug'
+    | '/solutions/$slug'
     | '/admin/'
+    | '/product/'
+    | '/resources/'
+    | '/solutions/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/about'
     | '/agent'
     | '/agents'
     | '/analytics'
@@ -301,12 +442,17 @@ export interface FileRouteTypes {
     | '/billing'
     | '/call-history'
     | '/campaigns'
+    | '/contact'
     | '/contacts'
     | '/dashboard'
+    | '/download'
+    | '/faq'
     | '/live-calls'
     | '/login'
     | '/phone-system'
+    | '/pricing'
     | '/recordings'
+    | '/security'
     | '/settings'
     | '/signup'
     | '/sms'
@@ -319,10 +465,19 @@ export interface FileRouteTypes {
     | '/admin/support'
     | '/admin/system-health'
     | '/admin/tenants'
+    | '/legal/privacy'
+    | '/legal/terms'
+    | '/product/$slug'
+    | '/resources/$slug'
+    | '/solutions/$slug'
     | '/admin'
+    | '/product'
+    | '/resources'
+    | '/solutions'
   id:
     | '__root__'
     | '/'
+    | '/about'
     | '/agent'
     | '/agents'
     | '/analytics'
@@ -330,12 +485,17 @@ export interface FileRouteTypes {
     | '/billing'
     | '/call-history'
     | '/campaigns'
+    | '/contact'
     | '/contacts'
     | '/dashboard'
+    | '/download'
+    | '/faq'
     | '/live-calls'
     | '/login'
     | '/phone-system'
+    | '/pricing'
     | '/recordings'
+    | '/security'
     | '/settings'
     | '/signup'
     | '/sms'
@@ -348,11 +508,20 @@ export interface FileRouteTypes {
     | '/admin/support'
     | '/admin/system-health'
     | '/admin/tenants'
+    | '/legal/privacy'
+    | '/legal/terms'
+    | '/product/$slug'
+    | '/resources/$slug'
+    | '/solutions/$slug'
     | '/admin/'
+    | '/product/'
+    | '/resources/'
+    | '/solutions/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AboutRoute: typeof AboutRoute
   AgentRoute: typeof AgentRoute
   AgentsRoute: typeof AgentsRoute
   AnalyticsRoute: typeof AnalyticsRoute
@@ -360,12 +529,17 @@ export interface RootRouteChildren {
   BillingRoute: typeof BillingRoute
   CallHistoryRoute: typeof CallHistoryRoute
   CampaignsRoute: typeof CampaignsRoute
+  ContactRoute: typeof ContactRoute
   ContactsRoute: typeof ContactsRoute
   DashboardRoute: typeof DashboardRoute
+  DownloadRoute: typeof DownloadRoute
+  FaqRoute: typeof FaqRoute
   LiveCallsRoute: typeof LiveCallsRoute
   LoginRoute: typeof LoginRoute
   PhoneSystemRoute: typeof PhoneSystemRoute
+  PricingRoute: typeof PricingRoute
   RecordingsRoute: typeof RecordingsRoute
+  SecurityRoute: typeof SecurityRoute
   SettingsRoute: typeof SettingsRoute
   SignupRoute: typeof SignupRoute
   SmsRoute: typeof SmsRoute
@@ -378,7 +552,15 @@ export interface RootRouteChildren {
   AdminSupportRoute: typeof AdminSupportRoute
   AdminSystemHealthRoute: typeof AdminSystemHealthRoute
   AdminTenantsRoute: typeof AdminTenantsRoute
+  LegalPrivacyRoute: typeof LegalPrivacyRoute
+  LegalTermsRoute: typeof LegalTermsRoute
+  ProductSlugRoute: typeof ProductSlugRoute
+  ResourcesSlugRoute: typeof ResourcesSlugRoute
+  SolutionsSlugRoute: typeof SolutionsSlugRoute
   AdminIndexRoute: typeof AdminIndexRoute
+  ProductIndexRoute: typeof ProductIndexRoute
+  ResourcesIndexRoute: typeof ResourcesIndexRoute
+  SolutionsIndexRoute: typeof SolutionsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -388,6 +570,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/about': {
+      id: '/about'
+      path: '/about'
+      fullPath: '/about'
+      preLoaderRoute: typeof AboutRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/agent': {
@@ -439,6 +628,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CampaignsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/contact': {
+      id: '/contact'
+      path: '/contact'
+      fullPath: '/contact'
+      preLoaderRoute: typeof ContactRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/contacts': {
       id: '/contacts'
       path: '/contacts'
@@ -451,6 +647,20 @@ declare module '@tanstack/react-router' {
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/download': {
+      id: '/download'
+      path: '/download'
+      fullPath: '/download'
+      preLoaderRoute: typeof DownloadRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/faq': {
+      id: '/faq'
+      path: '/faq'
+      fullPath: '/faq'
+      preLoaderRoute: typeof FaqRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/live-calls': {
@@ -474,11 +684,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PhoneSystemRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/pricing': {
+      id: '/pricing'
+      path: '/pricing'
+      fullPath: '/pricing'
+      preLoaderRoute: typeof PricingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/recordings': {
       id: '/recordings'
       path: '/recordings'
       fullPath: '/recordings'
       preLoaderRoute: typeof RecordingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/security': {
+      id: '/security'
+      path: '/security'
+      fullPath: '/security'
+      preLoaderRoute: typeof SecurityRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/settings': {
@@ -572,11 +796,68 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminTenantsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/legal/privacy': {
+      id: '/legal/privacy'
+      path: '/legal/privacy'
+      fullPath: '/legal/privacy'
+      preLoaderRoute: typeof LegalPrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/legal/terms': {
+      id: '/legal/terms'
+      path: '/legal/terms'
+      fullPath: '/legal/terms'
+      preLoaderRoute: typeof LegalTermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/product/': {
+      id: '/product/'
+      path: '/product'
+      fullPath: '/product/'
+      preLoaderRoute: typeof ProductIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/product/$slug': {
+      id: '/product/$slug'
+      path: '/product/$slug'
+      fullPath: '/product/$slug'
+      preLoaderRoute: typeof ProductSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/resources/': {
+      id: '/resources/'
+      path: '/resources'
+      fullPath: '/resources/'
+      preLoaderRoute: typeof ResourcesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/resources/$slug': {
+      id: '/resources/$slug'
+      path: '/resources/$slug'
+      fullPath: '/resources/$slug'
+      preLoaderRoute: typeof ResourcesSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/solutions/': {
+      id: '/solutions/'
+      path: '/solutions'
+      fullPath: '/solutions/'
+      preLoaderRoute: typeof SolutionsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/solutions/$slug': {
+      id: '/solutions/$slug'
+      path: '/solutions/$slug'
+      fullPath: '/solutions/$slug'
+      preLoaderRoute: typeof SolutionsSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AboutRoute: AboutRoute,
   AgentRoute: AgentRoute,
   AgentsRoute: AgentsRoute,
   AnalyticsRoute: AnalyticsRoute,
@@ -584,12 +865,17 @@ const rootRouteChildren: RootRouteChildren = {
   BillingRoute: BillingRoute,
   CallHistoryRoute: CallHistoryRoute,
   CampaignsRoute: CampaignsRoute,
+  ContactRoute: ContactRoute,
   ContactsRoute: ContactsRoute,
   DashboardRoute: DashboardRoute,
+  DownloadRoute: DownloadRoute,
+  FaqRoute: FaqRoute,
   LiveCallsRoute: LiveCallsRoute,
   LoginRoute: LoginRoute,
   PhoneSystemRoute: PhoneSystemRoute,
+  PricingRoute: PricingRoute,
   RecordingsRoute: RecordingsRoute,
+  SecurityRoute: SecurityRoute,
   SettingsRoute: SettingsRoute,
   SignupRoute: SignupRoute,
   SmsRoute: SmsRoute,
@@ -602,7 +888,15 @@ const rootRouteChildren: RootRouteChildren = {
   AdminSupportRoute: AdminSupportRoute,
   AdminSystemHealthRoute: AdminSystemHealthRoute,
   AdminTenantsRoute: AdminTenantsRoute,
+  LegalPrivacyRoute: LegalPrivacyRoute,
+  LegalTermsRoute: LegalTermsRoute,
+  ProductSlugRoute: ProductSlugRoute,
+  ResourcesSlugRoute: ResourcesSlugRoute,
+  SolutionsSlugRoute: SolutionsSlugRoute,
   AdminIndexRoute: AdminIndexRoute,
+  ProductIndexRoute: ProductIndexRoute,
+  ResourcesIndexRoute: ResourcesIndexRoute,
+  SolutionsIndexRoute: SolutionsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

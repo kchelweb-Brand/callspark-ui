@@ -64,6 +64,7 @@ import { listAgents, createAgent, updateAgent, deleteAgent } from "./agents.serv
 import { listCalls } from "./calls.server";
 import { listPlans, getPlanUsage } from "./billing.server";
 import { claimPayment, deletePaymentLink, listPaymentLinks, savePaymentLink } from "./payments.server";
+import { escalateHelp, helpChat } from "./help-chat.server";
 import { getAddonStatus, requestDialerAddon, requestSipAddon, setDialerAddon, setSipAddon } from "./addons.server";
 import {
   getPlatformOverview,
@@ -503,6 +504,15 @@ export async function handleNativeApi(request: Request, pathname: string): Promi
         return jsonOk(await requestPlanUpgrade(await readJson(request)));
       case "billing/claim-payment":
         return jsonOk(await claimPayment(await readJson(request)));
+
+      // ---------- help assistant (open to visitors and agents; counted per person) ----------
+      case "help/chat": {
+        const body = await readJson<{ token?: string; messages: unknown; page?: string }>(request);
+        const clientKey = request.headers.get("cf-connecting-ip") ?? request.headers.get("x-forwarded-for") ?? "";
+        return jsonOk(await helpChat({ ...body, clientKey }));
+      }
+      case "help/escalate":
+        return jsonOk(await escalateHelp(await readJson(request)));
 
       // ---------- super admin ----------
       // A founder's tenant login isn't always flagged super-admin, so the app
