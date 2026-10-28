@@ -4,8 +4,15 @@
 // idempotent and run once per worker isolate, the first time a feature that
 // needs them is used. Everything is `if not exists` — safe to run any number of
 // times, in parallel, against a database that already has it.
+//
+// Cloudflare caps how many outside requests one Worker invocation may make (50
+// on the free plan), and every database statement is one request. So the
+// statements below are not sent one by one: they are collected and sent as ONE
+// block, which also makes the whole upgrade all-or-nothing. Adding a table here
+// costs nothing against that limit; only a statement that needs a value does not
+// belong here.
 
-import { sql } from "./db";
+import { sqlQuery } from "./db";
 
 let ready: Promise<void> | null = null;
 
@@ -21,6 +28,14 @@ export function ensureSchema(): Promise<void> {
 }
 
 async function apply(): Promise<void> {
+  const statements: string[] = [];
+  // Inside this function, `sql` collects a statement instead of running it.
+  const sql = (strings: TemplateStringsArray, ...values: unknown[]): Promise<Record<string, unknown>[]> => {
+    if (values.length > 0) throw new Error("Schema statements cannot take values.");
+    statements.push(strings.join("").trim().replace(/;+\s*$/, ""));
+    return Promise.resolve([]);
+  };
+
   // ---------- support conversations ----------
   await sql`
     create table if not exists support_messages (
@@ -241,4 +256,10 @@ async function apply(): Promise<void> {
       created_at timestamptz not null default now()
     )
   `;
+
+  // One request for everything. The advisory lock makes two workers that start
+  // at once take turns instead of racing to create the same table.
+  await sqlQuery(
+    `do $schema$ begin perform pg_advisory_xact_lock(7241001); ${statements.map((s) => `${s};`).join("\n")} end $schema$`,
+  );
 }
