@@ -14,8 +14,7 @@ import {
   type AccountType,
 } from "@/lib/auth-api";
 import { COUNTRIES, countryByCode } from "@/backend/countries";
-import { LogoMark } from "@/components/brand/Logo";
-import { AuthArt } from "@/components/auth/AuthArt";
+import { AuthShell } from "@/components/auth/AuthShell";
 
 export const Route = createFileRoute("/signup")({
   head: () => ({
@@ -154,27 +153,19 @@ function SignupPage() {
   }
 
   return (
-    <div className="grid min-h-screen w-full lg:grid-cols-2">
-      <AuthArt
-        headline="Start dialing"
-        accent="in minutes."
-        body="Outbound campaigns, inbound routing, recordings and US SMS — for solo operators and full call floors alike."
-        points={["Set up your workspace in about a minute", "Bring your own SIP line, or let us manage it", "No password to remember"]}
-        footnote="No password to remember — we sign you in with a one-time code."
-      />
-
-      <div className="ks-mesh flex items-center justify-center px-5 py-12">
+    <AuthShell
+      headline="Start dialing"
+      accent="in minutes."
+      body="Calling, campaigns, AI voice agents and a team workspace, for solo operators and full call floors alike."
+      points={["Set up your workspace in about a minute", "Bring your own SIP line, or let us supply one", "No password to remember"]}
+      visual="aicall"
+      footnote="Free for 7 days. No card needed. We sign you in with a one-time code."
+    >
+      <div className="[&_button[type=submit]]:h-12 [&_button[type=submit]]:text-[15px] [&_button[type=submit]]:font-bold [&_input]:text-[16px] [&_input:not([type=checkbox])]:h-12 [&_label]:text-[15px] [&_label]:font-bold [&_select]:h-12">
         {step === "details" && (
-          <form className="w-full max-w-sm" onSubmit={handleSubmitDetails}>
-            <div className="mb-8 flex items-center gap-3 lg:hidden">
-              <LogoMark className="size-9" />
-              <span className="font-bold tracking-tight">Kchel Dialer</span>
-            </div>
-
-            <h1 className="text-2xl font-bold tracking-tight">Create your account</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Set up your workspace — takes about a minute.
-            </p>
+          <form className="w-full" onSubmit={handleSubmitDetails}>
+            <h1 className="text-[2rem] leading-[1.1] font-extrabold tracking-tight">Create your account</h1>
+            <p className="mt-3 text-[16px] leading-relaxed text-slate">Set up your workspace. It takes about a minute.</p>
 
             <div className="mt-7 flex flex-col gap-4">
               <div className="flex flex-col gap-2">
@@ -373,7 +364,7 @@ function SignupPage() {
         )}
 
         {step === "code" && (
-          <form className="w-full max-w-sm" onSubmit={handleVerify}>
+          <form className="w-full" onSubmit={handleVerify}>
             <h1 className="text-2xl font-bold tracking-tight">{phoneCodeSent ? "Verify your email and phone" : "Verify your email"}</h1>
             <p className="mt-1 text-sm text-muted-foreground">
               We sent a 6-digit code to <span className="font-medium">{email}</span>
@@ -458,6 +449,6 @@ function SignupPage() {
           </div>
         )}
       </div>
-    </div>
+    </AuthShell>
   );
 }

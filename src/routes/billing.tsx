@@ -602,9 +602,10 @@ function BillingPage() {
           {/* Paying does not grant the plan — activation is manual, so say so
               here rather than letting a customer wonder why nothing changed. */}
           <p className="text-xs text-muted-foreground">
-            After you pay, we verify the payment and activate your account — you&apos;ll get an
-            email confirming it, usually within a few hours. Need a different seat count, or
-            Managed Enterprise? Contact us and we&apos;ll send a link.
+            Pay by card with the email you sign in with, and your plan switches on by itself within
+            a minute or two, with a confirmation email. Crypto, gift card and bank payments are
+            confirmed by our team: press I&apos;ve paid and add the reference. Need a different seat
+            count, or Managed Enterprise? Contact us and we&apos;ll send a link.
           </p>
 
           <DialogFooter>

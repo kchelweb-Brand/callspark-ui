@@ -110,7 +110,7 @@ function PaymentsPage() {
     <Shell scope="admin" title="Payment links" description="Regional prices, and ways to pay beyond cards: crypto, gift cards and bank transfer.">
       <Panel
         title="How this works"
-        description="Each link is a fixed-amount payment page you create at your payment provider. Customers see the links for their own region, and a regional link replaces the standard one for the same plan, seats, interval and method. Paying activates nothing by itself: you confirm the money and activate the plan, and customers tell you they've paid from the Billing page."
+        description="Each link is a fixed-amount payment page you create at your payment provider. Customers see the links for their own region, and a regional link replaces the standard one for the same plan, seats, interval and method. Card payments through Flutterwave switch the plan on by themselves and you are emailed about each one. Crypto, gift card and bank payments are confirmed by you: customers tell you they've paid from Billing, and it arrives in Support."
       >
         <p className="text-sm text-muted-foreground">
           To offer a regional price, create a payment link for the lower amount, then add it here for the

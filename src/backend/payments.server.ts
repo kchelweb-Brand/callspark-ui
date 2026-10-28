@@ -118,6 +118,23 @@ export async function checkoutFor(tenantId: string | null): Promise<{ region: Pr
   return { region, options: [...best.values()] };
 }
 
+/** Every price a customer could have paid, in every region, for matching a payment to a plan. */
+export async function knownPaidOptions(): Promise<{ planId: PlanId; seats: number; interval: BillingInterval; amountUsd: number }[]> {
+  await ensureSchema();
+  const rows = await sql`select plan_id, seats, interval, amount_usd::float as amount_usd from payment_links where active = true`;
+  return [
+    ...CHECKOUT_OPTIONS.map((o) => ({ planId: o.planId, seats: o.seats, interval: o.interval, amountUsd: o.amountUsd })),
+    ...rows
+      .filter((r) => isPlanId(String(r["plan_id"])))
+      .map((r) => ({
+        planId: r["plan_id"] as PlanId,
+        seats: Number(r["seats"]),
+        interval: r["interval"] as BillingInterval,
+        amountUsd: Number(r["amount_usd"]),
+      })),
+  ];
+}
+
 // ---------------------------------------------------------------------------
 // The owner's side: manage the links
 // ---------------------------------------------------------------------------

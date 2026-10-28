@@ -3,12 +3,10 @@ import { Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { requestLoginCode, verifyLoginCode, saveSession } from "@/lib/auth-api";
-import { LogoMark } from "@/components/brand/Logo";
-import { AuthArt } from "@/components/auth/AuthArt";
+import { AuthHeading, AuthShell, authButton, authField } from "@/components/auth/AuthShell";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
@@ -90,114 +88,109 @@ function LoginPage() {
   }
 
   return (
-    <div className="grid min-h-screen w-full lg:grid-cols-2">
-      <AuthArt
-        headline="Your whole call floor,"
-        accent="one workspace."
-        body="Power dialing, live call monitoring, recordings, analytics and US SMS — built for outbound teams."
-        points={["Crystal-clear calling over your own SIP line", "AI-agent campaigns with full call logs", "IVR menus, extensions and voicemail"]}
-        footnote="Sign in with a one-time code sent to your email — no password needed."
-      />
+    <AuthShell
+      headline="Your whole call floor,"
+      accent="one workspace."
+      body="Power dialing, AI voice agents, live call monitoring, recordings, analytics and text messaging, in one place built for teams that live on the phone."
+      points={["Call over your own SIP line, from a browser or Windows", "AI voice agents work your list and tag every call", "Menus, extensions and voicemail you control"]}
+      visual="queue"
+      footnote="Sign in with a one-time code sent to your email. There is no password to remember."
+    >
+      {step === "email" ? (
+        <form onSubmit={handleSendCode} noValidate>
+          <AuthHeading title="Sign in to your workspace" lede="We'll email you a one-time code. No password needed." />
 
-      <div className="ks-mesh flex items-center justify-center px-5 py-12">
-        {step === "email" ? (
-          <form className="w-full max-w-sm" onSubmit={handleSendCode}>
-            <div className="mb-8 flex items-center gap-3 lg:hidden">
-              <LogoMark className="size-9" />
-              <span className="font-bold tracking-tight">Kchel Dialer</span>
-            </div>
-
-            <h1 className="text-2xl font-bold tracking-tight">Sign in to your workspace</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              We'll email you a one-time code — no password required.
-            </p>
-
-            <div className="mt-7 flex flex-col gap-4">
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="workspace">Workspace</Label>
-                <div className="flex items-center rounded-md border border-input bg-background pr-3 focus-within:ring-1 focus-within:ring-ring">
-                  <Input
-                    id="workspace"
-                    value={workspace}
-                    onChange={(e) => setWorkspace(e.target.value)}
-                    className="border-0 shadow-none focus-visible:ring-0"
-                  />
-                  <span className="shrink-0 font-mono text-xs text-muted-foreground">
-                    .kchel.app
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="email">Work email</Label>
+          <div className="mt-8 space-y-5">
+            <div>
+              <Label htmlFor="workspace" className="text-[15px] font-bold">
+                Workspace
+              </Label>
+              <div className="mt-2 flex h-12 items-center rounded-md border border-ink/25 bg-white pr-3.5 focus-within:border-leaf focus-within:ring-2 focus-within:ring-leaf/25">
                 <Input
-                  id="email"
-                  type="email"
-                  autoComplete="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value.toLowerCase())}
+                  id="workspace"
+                  value={workspace}
+                  autoComplete="organization"
+                  onChange={(e) => setWorkspace(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
+                  className="h-full flex-1 border-0 bg-transparent px-3.5 text-[16px] shadow-none focus-visible:ring-0"
                 />
+                <span className="shrink-0 font-mono text-[13px] text-slate">.kchel.app</span>
               </div>
-
-              <Button type="submit" className="w-full" disabled={busy}>
-                {busy ? <Loader2 className="size-4 animate-spin" /> : null}
-                Send login code
-              </Button>
             </div>
 
-            <p className="mt-6 text-center text-sm text-muted-foreground">
-              New here?{" "}
-              <Link to="/signup" className="font-semibold text-primary hover:underline">
-                Create an account
-              </Link>
-            </p>
-          </form>
-        ) : (
-          <form className="w-full max-w-sm" onSubmit={handleVerifyCode}>
-            <div className="mb-8 flex items-center gap-3 lg:hidden">
-              <LogoMark className="size-9" />
-              <span className="font-bold tracking-tight">Kchel Dialer</span>
+            <div>
+              <Label htmlFor="email" className="text-[15px] font-bold">
+                Work email
+              </Label>
+              <Input
+                id="email"
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value.toLowerCase())}
+                className={authField}
+              />
             </div>
 
-            <h1 className="text-2xl font-bold tracking-tight">Enter your code</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              We sent a 6-digit code to <span className="font-medium">{email}</span>.
-            </p>
+            <button type="submit" className={authButton} disabled={busy}>
+              {busy ? <Loader2 className="size-4 animate-spin" /> : null}
+              Send login code
+            </button>
+          </div>
 
-            <div className="mt-7 flex flex-col gap-4">
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="code">Login code</Label>
-                <Input
-                  id="code"
-                  inputMode="numeric"
-                  maxLength={6}
-                  placeholder="123456"
-                  value={code}
-                  onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
-                  className="font-mono tracking-[0.3em]"
-                  autoFocus
-                />
-              </div>
+          <p className="mt-8 text-center text-[15px] text-slate">
+            New to Kchel?{" "}
+            <Link to="/signup" className="font-bold text-leaf hover:underline">
+              Start your free trial
+            </Link>
+          </p>
+        </form>
+      ) : (
+        <form onSubmit={handleVerifyCode} noValidate>
+          <AuthHeading
+            title="Enter your code"
+            lede={
+              <>
+                We sent a 6-digit code to <span className="font-bold text-ink">{email}</span>.
+              </>
+            }
+          />
 
-              <Button type="submit" className="w-full" disabled={busy}>
-                {busy ? <Loader2 className="size-4 animate-spin" /> : null}
-                Verify & sign in
-              </Button>
-
-              <button
-                type="button"
-                className="text-center text-sm text-muted-foreground hover:underline"
-                onClick={() => {
-                  setStep("email");
-                  setCode("");
-                }}
-              >
-                Use a different email
-              </button>
+          <div className="mt-8 space-y-5">
+            <div>
+              <Label htmlFor="code" className="text-[15px] font-bold">
+                Login code
+              </Label>
+              <Input
+                id="code"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={6}
+                placeholder="123456"
+                value={code}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
+                className={`${authField} text-center font-mono text-[22px] tracking-[0.4em]`}
+                autoFocus
+              />
             </div>
-          </form>
-        )}
-      </div>
-    </div>
+
+            <button type="submit" className={authButton} disabled={busy}>
+              {busy ? <Loader2 className="size-4 animate-spin" /> : null}
+              Verify and sign in
+            </button>
+
+            <button
+              type="button"
+              className="block w-full text-center text-[15px] font-semibold text-slate hover:text-ink hover:underline"
+              onClick={() => {
+                setStep("email");
+                setCode("");
+              }}
+            >
+              Use a different email
+            </button>
+          </div>
+        </form>
+      )}
+    </AuthShell>
   );
 }

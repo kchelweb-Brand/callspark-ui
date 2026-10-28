@@ -1,11 +1,11 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { ShieldCheck, Loader2, Lock } from "lucide-react";
+import { Loader2, Lock } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { AuthHeading, AuthShell, authButton, authField } from "@/components/auth/AuthShell";
 import { requestLoginCode, verifyLoginCode, saveSession } from "@/lib/auth-api";
 
 export const Route = createFileRoute("/admin/login")({
@@ -22,6 +22,7 @@ export const Route = createFileRoute("/admin/login")({
         property: "og:description",
         content: "Platform owner entry point for the Kchel Dialer admin console.",
       },
+      { name: "robots", content: "noindex" },
     ],
   }),
   component: AdminLoginPage,
@@ -72,88 +73,76 @@ function AdminLoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen w-full items-center justify-center bg-sidebar px-5 py-12">
-      <form
-        className="w-full max-w-md rounded-xl border border-sidebar-border bg-sidebar-accent/50 p-7 shadow-lift"
-        onSubmit={step === "email" ? handleSendCode : handleVerifyCode}
-      >
-        <div className="flex items-center gap-3">
-          <span className="flex size-10 items-center justify-center rounded-lg bg-warning/20 text-warning-foreground">
-            <ShieldCheck className="size-5" />
-          </span>
-          <div>
-            <p className="text-sm font-bold tracking-tight text-sidebar-accent-foreground">
-              Kchel Dialer
-            </p>
-            <span className="mt-0.5 inline-flex items-center gap-1 rounded-full border border-warning/40 bg-warning/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.16em] text-warning-foreground">
-              <Lock className="size-3" /> Platform admin
-            </span>
-          </div>
-        </div>
+    <AuthShell
+      headline="The platform console,"
+      accent="for owners only."
+      body="Workspaces, revenue, system health, support conversations, announcements and payment links for the whole platform."
+      points={["Every workspace, plan and payment in one view", "Reply to customers from the support inbox", "Announce updates to all users at once"]}
+      visual="analytics"
+      footnote="Restricted to platform owners. Every sign-in uses a one-time code."
+    >
+      <form onSubmit={step === "email" ? handleSendCode : handleVerifyCode} noValidate>
+        <span className="mb-5 inline-flex items-center gap-1.5 rounded-full bg-brand-yellow/30 px-3 py-1 text-[12px] font-bold tracking-wider text-[#6d5600] uppercase">
+          <Lock className="size-3.5" /> Platform admin
+        </span>
 
         {step === "email" ? (
           <>
-            <h1 className="mt-6 text-2xl font-bold tracking-tight text-sidebar-accent-foreground">
-              Super admin sign in
-            </h1>
-            <p className="mt-1 text-sm text-sidebar-foreground/70">
-              Restricted to platform owners. We'll email you a one-time code.
-            </p>
-
-            <div className="mt-7 flex flex-col gap-4">
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="admin-email" className="text-sidebar-foreground/80">
+            <AuthHeading title="Super admin sign in" lede="We'll email you a one-time code." />
+            <div className="mt-8 space-y-5">
+              <div>
+                <Label htmlFor="admin-email" className="text-[15px] font-bold">
                   Admin email
                 </Label>
                 <Input
                   id="admin-email"
                   type="email"
+                  autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value.toLowerCase())}
-                  className="border-sidebar-border bg-sidebar text-sidebar-accent-foreground"
+                  className={authField}
                 />
               </div>
-
-              <Button type="submit" className="w-full" disabled={busy}>
+              <button type="submit" className={authButton} disabled={busy}>
                 {busy ? <Loader2 className="size-4 animate-spin" /> : null}
                 Send login code
-              </Button>
+              </button>
             </div>
           </>
         ) : (
           <>
-            <h1 className="mt-6 text-2xl font-bold tracking-tight text-sidebar-accent-foreground">
-              Enter your code
-            </h1>
-            <p className="mt-1 text-sm text-sidebar-foreground/70">
-              We sent a 6-digit code to <span className="font-medium">{email}</span>.
-            </p>
-
-            <div className="mt-7 flex flex-col gap-4">
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="admin-code" className="text-sidebar-foreground/80">
+            <AuthHeading
+              title="Enter your code"
+              lede={
+                <>
+                  We sent a 6-digit code to <span className="font-bold text-ink">{email}</span>.
+                </>
+              }
+            />
+            <div className="mt-8 space-y-5">
+              <div>
+                <Label htmlFor="admin-code" className="text-[15px] font-bold">
                   Login code
                 </Label>
                 <Input
                   id="admin-code"
                   inputMode="numeric"
+                  autoComplete="one-time-code"
                   maxLength={6}
                   placeholder="123456"
                   value={code}
                   onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
-                  className="border-sidebar-border bg-sidebar font-mono tracking-[0.3em] text-sidebar-accent-foreground"
+                  className={`${authField} text-center font-mono text-[22px] tracking-[0.4em]`}
                   autoFocus
                 />
               </div>
-
-              <Button type="submit" className="w-full" disabled={busy}>
+              <button type="submit" className={authButton} disabled={busy}>
                 {busy ? <Loader2 className="size-4 animate-spin" /> : null}
-                Verify & enter console
-              </Button>
-
+                Verify and enter console
+              </button>
               <button
                 type="button"
-                className="text-center text-sm text-sidebar-foreground/70 hover:underline"
+                className="block w-full text-center text-[15px] font-semibold text-slate hover:text-ink hover:underline"
                 onClick={() => {
                   setStep("email");
                   setCode("");
@@ -165,13 +154,13 @@ function AdminLoginPage() {
           </>
         )}
 
-        <p className="mt-6 text-center text-sm text-sidebar-foreground/70">
+        <p className="mt-8 text-center text-[15px] text-slate">
           Looking for your call floor?{" "}
-          <Link to="/login" className="font-semibold text-sidebar-primary-foreground underline">
-            Tenant sign in
+          <Link to="/login" className="font-bold text-leaf hover:underline">
+            Workspace sign in
           </Link>
         </p>
       </form>
-    </div>
+    </AuthShell>
   );
 }

@@ -29,16 +29,16 @@ export function StatCard({
   }[tone];
 
   return (
-    <div className="card-surface p-5">
+    <div className="card-surface p-6">
       <div className="flex items-start justify-between gap-3">
-        <p className="text-sm font-medium text-muted-foreground">{label}</p>
+        <p className="text-[13px] font-bold tracking-[0.08em] text-muted-foreground uppercase">{label}</p>
         {Icon ? (
           <span className={cn("flex size-9 items-center justify-center rounded-lg", toneClass)}>
             <Icon className="size-4.5" />
           </span>
         ) : null}
       </div>
-      <p className="mt-3 text-3xl font-bold tracking-tight">{value}</p>
+      <p className="mt-3 text-[2.1rem] leading-none font-extrabold tracking-tight">{value}</p>
       <div className="mt-1.5 flex items-center gap-2 text-xs">
         {delta ? (
           <span
@@ -74,17 +74,17 @@ export function Panel({
   return (
     <section className={cn("card-surface flex flex-col", className)}>
       {title ? (
-        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-4">
+        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-6 py-4">
           <div>
-            <h2 className="text-sm font-bold tracking-tight">{title}</h2>
+            <h2 className="text-[16px] font-extrabold tracking-tight">{title}</h2>
             {description ? (
-              <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
+              <p className="mt-1 max-w-3xl text-[13.5px] leading-relaxed text-muted-foreground">{description}</p>
             ) : null}
           </div>
           {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
         </header>
       ) : null}
-      <div className={cn("p-5", bodyClassName)}>{children}</div>
+      <div className={cn("p-6", bodyClassName)}>{children}</div>
     </section>
   );
 }

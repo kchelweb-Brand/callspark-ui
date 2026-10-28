@@ -171,7 +171,7 @@
       body.innerHTML = `
         <div class="panel stack">
           <p class="eyebrow">How this works</p>
-          <p class="hint">Each link is a fixed-amount payment page you create at your payment provider. Customers see the links for their own region, and a regional link replaces the standard one for the same plan, seats, interval and method. Paying activates nothing by itself: you confirm the money and activate the plan. Customers tell you they've paid from Billing, and it arrives in Support.</p>
+          <p class="hint">Each link is a fixed-amount payment page you create at your payment provider. Customers see the links for their own region, and a regional link replaces the standard one for the same plan, seats, interval and method. Card payments through Flutterwave switch the plan on by themselves and you are emailed about each one. Crypto, gift card and bank payments are confirmed by you: customers tell you they've paid from Billing, and it arrives in Support.</p>
         </div>
         <div class="panel stack" id="pl-form">
           <p class="eyebrow" id="pl-title">Add link</p>

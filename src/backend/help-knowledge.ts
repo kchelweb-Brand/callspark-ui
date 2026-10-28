@@ -218,7 +218,7 @@ export const ARTICLES: HelpArticle[] = [
     keywords: ["billing", "price", "pricing", "plan", "plans", "pay", "payment", "upgrade", "cost", "how much", "crypto", "gift card", "bank", "card", "invoice", "annual", "yearly", "regional", "discount", "activate"],
     body:
       "Open Billing to see your plan, usage and ways to pay. Press upgrade, pick a plan and a number of seats, and pay with the link shown (card or bank; some regions also have crypto or gift card links, and some countries have regional prices). " +
-      "Annual billing gives two months free. Paying does not switch the plan on by itself: the team checks the payment and activates your account, usually within a few hours, and emails you. " +
+      "Annual billing gives two months free. A card payment made with the same email you sign in with switches the plan on by itself within a minute or two, and you get a confirmation email; other methods are confirmed by the team. " +
       "After you pay, use I've paid and add a transaction ID, receipt number or the name you paid with so the payment can be found. Never type a card or gift card number. " +
       "If your plan has no payment link (for example Managed Enterprise), request it from Billing and the team replies in Support.",
   },

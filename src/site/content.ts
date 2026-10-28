@@ -558,7 +558,7 @@ export const FAQS: { group: string; items: Faq[] }[] = [
   {
     group: "Plans and billing",
     items: [
-      { q: "How do I pay?", a: "Open Billing, choose a plan and pay with the link shown. Depending on your country there may also be bank, crypto or gift card options and regional prices. After paying, tell us from the same page and we activate your plan." },
+      { q: "How do I pay?", a: "Open Billing, choose a plan and pay with the link shown. Depending on your country there may also be bank, crypto or gift card options and regional prices. Pay by card with the email you sign in with and your plan switches on by itself within a minute or two. Other methods are confirmed by our team after you tell us from the same page." },
       { q: "Is there an annual discount?", a: "Yes. Annual billing includes two months free." },
       { q: "What happens to my data if I cancel?", a: "It stays yours and remains exportable." },
     ],

@@ -191,6 +191,27 @@ async function apply(): Promise<void> {
     )
   `;
 
+  // ---------- payments received (one row per provider transaction, so none is handled twice) ----------
+  await sql`
+    create table if not exists payments (
+      id uuid primary key default gen_random_uuid(),
+      provider text not null,
+      provider_tx_id text not null,
+      tx_ref text,
+      tenant_id uuid references tenants(id) on delete set null,
+      email text,
+      amount numeric(12,2) not null default 0,
+      currency text,
+      plan_id text,
+      seats int,
+      interval text,
+      status text not null default 'received',
+      note text,
+      created_at timestamptz not null default now(),
+      unique (provider, provider_tx_id)
+    )
+  `;
+
   // ---------- messages from the public contact form ----------
   await sql`
     create table if not exists contact_requests (

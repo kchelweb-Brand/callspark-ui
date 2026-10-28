@@ -24,23 +24,47 @@ import {
 
 export type NavItem = { label: string; to: string; icon: LucideIcon };
 
-export const tenantNav: NavItem[] = [
-  { label: "Overview", to: "/dashboard", icon: LayoutDashboard },
-  { label: "Campaigns", to: "/campaigns", icon: Megaphone },
-  { label: "Contacts", to: "/contacts", icon: Users },
-  { label: "SMS", to: "/sms", icon: MessageSquare },
-  { label: "Live Calls", to: "/live-calls", icon: PhoneCall },
-  { label: "Agents", to: "/agents", icon: Headset },
-  { label: "Team", to: "/team", icon: ListChecks },
-  { label: "Call History", to: "/call-history", icon: History },
-  { label: "Recordings", to: "/recordings", icon: AudioLines },
-  { label: "Analytics", to: "/analytics", icon: BarChart3 },
-  { label: "Phone System", to: "/phone-system", icon: Workflow },
-  { label: "Automations", to: "/automations", icon: Zap },
-  { label: "Settings", to: "/settings", icon: Settings },
-  { label: "Billing", to: "/billing", icon: CreditCard },
-  { label: "Support", to: "/support", icon: LifeBuoy },
+export type NavGroup = { label: string; items: NavItem[] };
+
+export const tenantNavGroups: NavGroup[] = [
+  {
+    label: "Workspace",
+    items: [
+      { label: "Overview", to: "/dashboard", icon: LayoutDashboard },
+      { label: "Live Calls", to: "/live-calls", icon: PhoneCall },
+      { label: "Agents", to: "/agents", icon: Headset },
+      { label: "Team", to: "/team", icon: ListChecks },
+      { label: "Analytics", to: "/analytics", icon: BarChart3 },
+    ],
+  },
+  {
+    label: "Calling",
+    items: [
+      { label: "Campaigns", to: "/campaigns", icon: Megaphone },
+      { label: "Contacts", to: "/contacts", icon: Users },
+      { label: "SMS", to: "/sms", icon: MessageSquare },
+      { label: "Call History", to: "/call-history", icon: History },
+      { label: "Recordings", to: "/recordings", icon: AudioLines },
+    ],
+  },
+  {
+    label: "Phone system",
+    items: [
+      { label: "Phone System", to: "/phone-system", icon: Workflow },
+      { label: "Automations", to: "/automations", icon: Zap },
+    ],
+  },
+  {
+    label: "Account",
+    items: [
+      { label: "Settings", to: "/settings", icon: Settings },
+      { label: "Billing", to: "/billing", icon: CreditCard },
+      { label: "Support", to: "/support", icon: LifeBuoy },
+    ],
+  },
 ];
+
+export const tenantNav: NavItem[] = tenantNavGroups.flatMap((g) => g.items);
 
 export const agentNav: NavItem[] = [{ label: "My day", to: "/agent", icon: House }];
 

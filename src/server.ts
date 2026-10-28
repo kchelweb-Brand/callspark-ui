@@ -7,6 +7,7 @@ import { handleTelnyxVoiceWebhook } from "./backend/inbound";
 import { handleSignalWireVoiceWebhook } from "./backend/inbound-signalwire";
 import { CAMPAIGN_AI_WEBHOOK_PATH, handleCampaignAiWebhook } from "./backend/campaign-dialer";
 import { AI_ACTIONS_PATH, handleAiFunction } from "./backend/ai-agent.server";
+import { FLUTTERWAVE_WEBHOOK_PATH, handleFlutterwaveWebhook } from "./backend/payment-webhook.server";
 import { NATIVE_API_PREFIX, handleNativeApi } from "./backend/native-api";
 
 /**
@@ -158,6 +159,14 @@ export default {
           return new Response("Method not allowed", { status: 405 });
         }
         return await handleCampaignAiWebhook(request);
+      }
+
+      // Flutterwave tells us a payment cleared; the plan is switched on from here.
+      if (url.pathname === FLUTTERWAVE_WEBHOOK_PATH) {
+        if (request.method !== "POST") {
+          return new Response("Method not allowed", { status: 405 });
+        }
+        return await handleFlutterwaveWebhook(request);
       }
 
       // What the AI agent asks us to do mid-call (tag the call, note a booking,

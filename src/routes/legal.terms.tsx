@@ -29,7 +29,7 @@ const SECTIONS: { title: string; body: string[] }[] = [
   {
     title: "3. Plans, trials and payment",
     body: [
-      "A new workspace starts with a free trial. When it ends the workspace is paused until you choose a plan. Plans, limits and prices are shown on the pricing page. You pay using the payment options shown in Billing, and your plan is activated after we confirm the payment. Annual billing is available at the discount shown. Prices may change for new purchases; we will not change what you have already paid for.",
+      "A new workspace starts with a free trial. When it ends the workspace is paused until you choose a plan. Plans, limits and prices are shown on the pricing page. You pay using the payment options shown in Billing, and your plan is activated automatically once a card payment is confirmed, or after we confirm any other payment. Annual billing is available at the discount shown. Prices may change for new purchases; we will not change what you have already paid for.",
     ],
   },
   {

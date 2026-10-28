@@ -21,7 +21,7 @@ export const Route = createFileRoute("/pricing")({
 const PRICING_FAQ = [
   { q: "Do I pay for call minutes through Kchel?", a: "Not on Starter, Professional or Business. You bring your own SIP line, so call charges stay on your carrier bill at your own rates. Managed Enterprise includes the line." },
   { q: "What happens when the free trial ends?", a: "The workspace pauses until you choose a plan. Nothing is deleted, and your data stays exportable." },
-  { q: "How do I pay, and when is my plan switched on?", a: "Open Billing, choose a plan and pay with the link shown. Depending on your country there may be bank, crypto or gift card options and regional prices. Once you tell us you have paid, we confirm it and activate your account, usually within a few hours." },
+  { q: "How do I pay, and when is my plan switched on?", a: "Open Billing, choose a plan and pay with the link shown. Depending on your country there may be bank, crypto or gift card options and regional prices. Pay by card with the same email you sign in with and your plan switches on by itself within a minute or two. Other methods are confirmed by our team after you tell us you have paid." },
   { q: "Is there a discount for paying yearly?", a: "Yes. Annual billing includes two months free." },
   { q: "Can I change plans later?", a: "Yes. Move up when you need more agents, contacts or features. Nothing you have built is lost." },
   { q: "What does the Windows app cost?", a: "The desktop app is an add-on with a one-time payment, and it is included free on Managed Enterprise." },
