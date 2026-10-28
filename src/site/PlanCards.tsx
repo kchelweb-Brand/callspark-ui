@@ -71,7 +71,7 @@ export function PlanCards() {
           >
             <div className="flex h-7 items-center justify-between">
               <h3 className="text-xl font-extrabold tracking-tight">{p.name}</h3>
-              {featured && <span className="rounded-full bg-leaf px-3 py-1 text-[11px] font-bold tracking-wide text-white uppercase">Most popular</span>}
+              {featured && <span className="rounded-full bg-leaf px-3 py-1 text-[11px] font-bold tracking-wide text-white uppercase">Best value</span>}
             </div>
             <p className="mt-3 min-h-[5rem] text-[15.5px] leading-relaxed text-slate">{TAGLINE[id] ?? p.blurb}</p>
 

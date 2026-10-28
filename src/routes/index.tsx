@@ -101,7 +101,7 @@ function HomePage() {
                 See pricing
               </CtaLink>
             </div>
-            <p className="mt-5 text-sm text-slate">Free for 7 days · No card needed · Most teams make a first call the same afternoon</p>
+            <p className="mt-5 text-sm text-slate">Free for 7 days · No card needed · Set up in an afternoon</p>
           </div>
           <Visual name="dialer" />
         </Container>

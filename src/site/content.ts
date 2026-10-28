@@ -536,7 +536,7 @@ export const FAQS: { group: string; items: Faq[] }[] = [
     items: [
       { q: "How does the free trial work?", a: "Every new workspace starts a 7-day free trial the moment you verify your email. You don't need to add a card to start. When the trial ends the workspace pauses until you choose a plan, and your data stays safe." },
       { q: "Do I need a password?", a: "No. You sign in with your email and a six-digit code, every time." },
-      { q: "How long does setup take?", a: "Most people connect a line, import a list and make a first call in an afternoon." },
+      { q: "How long does setup take?", a: "Connecting a line, importing a list and making a first call is designed to fit in an afternoon." },
     ],
   },
   {

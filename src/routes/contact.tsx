@@ -54,7 +54,7 @@ function ContactPage() {
       <TextPageHead
         trail={[{ label: "Home", to: "/" }, { label: "Contact" }]}
         title="Talk to a person."
-        lede="Tell us about your team and what you want your phones to do. We reply by email, usually within one working day."
+        lede="Tell us about your team and what you want your phones to do. We reply by email."
       />
       <Container className="grid gap-14 py-14 lg:grid-cols-[1.25fr_1fr] lg:py-20">
         {sent ? (
