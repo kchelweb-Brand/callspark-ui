@@ -19,7 +19,7 @@ import { sqlQuery } from "./db";
 import { ensureSchema } from "./schema.server";
 import { parsePhone } from "./contact-import";
 import { workspaceDialCode } from "./contacts.server";
-import { buildAiVerb, campaignGreeting, contactBrief, summaryPrompt, tagCall } from "./ai-agent.server";
+import { buildAiVerb, buildScriptDoc, campaignGreeting, contactBrief, summaryPrompt, tagCall } from "./ai-agent.server";
 import {
   AI_OUTCOMES,
   aiOutcomeLabel,
@@ -261,6 +261,17 @@ async function handleAnswer(campaignCallId: string, params: Record<string, strin
     return swml({ version: "1.0.0", sections: { main: [{ hangup: {} }] } });
   }
 
+  // A script campaign reads the script aloud and, if asked to, offers to connect the person. No AI.
+  if (settings.delivery === "script") {
+    let fromNumber: string | null = null;
+    if (row.call_id) {
+      const [call] = await sql`select from_number from calls where id = ${row.call_id as string} limit 1`;
+      fromNumber = (call?.["from_number"] as string | null) ?? null;
+    }
+    console.log(`[campaign-script] answered ${campaignCallId}: AnsweredBy=${params["AnsweredBy"] ?? "(not checked)"} voice=${settings.voice} press1=${settings.pressToConnect}`);
+    return swml(buildScriptDoc({ script: interpolate(row.ai_prompt as string, person), settings, fromNumber }));
+  }
+
   const brief = await contactBrief(row.tenant_id as string, row.contact_id as string);
   const ai = await buildAiVerb({
     kind: "campaign",
@@ -457,6 +468,8 @@ const SAMPLE_GREETING =
   "Hi, this is how I sound on a call. If you like this voice, you can use it for your calls. " +
   "Go ahead and say something back, and I will answer.";
 
+const SAMPLE_SCRIPT = "Hello. This is how your script will sound when it is read to someone. If you like this voice, you can use it for your calls.";
+
 /** Rings the given number with the chosen voice and style, so it can be judged by ear before it is used on real people. */
 export async function sampleAiCall(data: { token: string; settings: unknown; to: string; origin: string }) {
   const tenantId = await requireTenant(data.token);
@@ -504,6 +517,9 @@ export const sampleAiCallFn = createServerFn({ method: "POST" })
 async function handleSampleAnswer(callId: string, origin: string): Promise<Response> {
   const [call] = await sql`select ai_settings from calls where id = ${callId} and handled_by = 'ai_sample' limit 1`;
   if (!call) return swml({ version: "1.0.0", sections: { main: [{ hangup: {} }] } });
+  if (sanitizeAiSettings(call["ai_settings"]).delivery === "script") {
+    return swml(buildScriptDoc({ script: SAMPLE_SCRIPT, settings: sanitizeAiSettings(call["ai_settings"]) }));
+  }
   const ai = await buildAiVerb({
     kind: "sample",
     settings: sanitizeAiSettings(call["ai_settings"]),

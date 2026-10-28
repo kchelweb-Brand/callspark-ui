@@ -50,6 +50,14 @@ export const AI_MODELS: { id: AiModel; label: string; hint: string; model: strin
   { id: "smart", label: "Smarter", hint: "Handles harder conversations a little better, slightly slower.", model: "gpt-4.1-mini" },
 ];
 
+/** Whether a campaign has a conversation (AI) or just reads a script to whoever answers. */
+export type AiDelivery = "ai" | "script";
+
+export const AI_DELIVERY: { id: AiDelivery; label: string; hint: string }[] = [
+  { id: "ai", label: "Have a conversation (AI)", hint: "An AI voice talks with the person, answers questions and can tag how the call went." },
+  { id: "script", label: "Read my script aloud (no AI)", hint: "A voice reads your script word for word to whoever picks up, then ends the call. Optionally offers \"press 1\" to be connected to you." },
+];
+
 export type AiVoicemail = "hangup" | "message" | "talk";
 
 export const AI_VOICEMAIL: { id: AiVoicemail; label: string }[] = [
@@ -82,6 +90,9 @@ export function isAiOutcome(value: unknown): value is AiOutcomeId {
 }
 
 export interface AiAgentSettings {
+  delivery: AiDelivery;
+  /** Script mode: after reading, offer "press 1 to speak with someone" and connect to the transfer number. */
+  pressToConnect: boolean;
   voice: string;
   style: AiStyle;
   model: AiModel;
@@ -102,6 +113,8 @@ export interface AiAgentSettings {
 }
 
 export const DEFAULT_AI_SETTINGS: AiAgentSettings = {
+  delivery: "ai",
+  pressToConnect: false,
   voice: "ella",
   style: "natural",
   model: "fast",
@@ -128,6 +141,8 @@ export function sanitizeAiSettings(raw: unknown, base: AiAgentSettings = DEFAULT
   const flag = (key: keyof AiAgentSettings["actions"]) => (typeof a[key] === "boolean" ? (a[key] as boolean) : base.actions[key]);
   const transfer = typeof r["transferNumber"] === "string" ? r["transferNumber"].trim().slice(0, 24) : base.transferNumber;
   return {
+    delivery: clean(r["delivery"], AI_DELIVERY.map((d) => d.id), base.delivery),
+    pressToConnect: typeof r["pressToConnect"] === "boolean" ? (r["pressToConnect"] as boolean) : base.pressToConnect,
     voice: clean(r["voice"], AI_VOICES.map((v) => v.id), base.voice),
     style: clean(r["style"], AI_STYLES.map((s) => s.id), base.style),
     model: clean(r["model"], AI_MODELS.map((m) => m.id), base.model),

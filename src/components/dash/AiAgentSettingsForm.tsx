@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  AI_DELIVERY,
   AI_MODELS,
   AI_STYLES,
   AI_TIER_NOTE,
@@ -66,6 +67,9 @@ export function AiAgentSettingsForm({
   const style = AI_STYLES.find((s) => s.id === value.style);
   const model = AI_MODELS.find((m) => m.id === value.model);
   const set = (patch: Partial<AiAgentSettings>) => onChange({ ...value, ...patch });
+  // Only a campaign can read a script instead of holding a conversation.
+  const script = showVoicemail && value.delivery === "script";
+  const delivery = AI_DELIVERY.find((d) => d.id === value.delivery);
 
   async function hearIt() {
     setCalling(true);
@@ -81,6 +85,25 @@ export function AiAgentSettingsForm({
 
   return (
     <div className="flex flex-col gap-4">
+      {showVoicemail && (
+        <div className="flex flex-col gap-2">
+          <Label>How should it talk?</Label>
+          <Select value={value.delivery} disabled={disabled} onValueChange={(v) => set({ delivery: v as AiAgentSettings["delivery"] })}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {AI_DELIVERY.map((d) => (
+                <SelectItem key={d.id} value={d.id}>
+                  {d.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">{delivery?.hint}</p>
+        </div>
+      )}
+
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-2">
           <Label>Voice</Label>
@@ -104,6 +127,7 @@ export function AiAgentSettingsForm({
           <p className="text-xs text-muted-foreground">{AI_TIER_NOTE[voice.tier]}</p>
         </div>
 
+        {!script && (
         <div className="flex flex-col gap-2">
           <Label>Speaking style</Label>
           <Select value={value.style} disabled={disabled} onValueChange={(v) => set({ style: v as AiAgentSettings["style"] })}>
@@ -120,7 +144,9 @@ export function AiAgentSettingsForm({
           </Select>
           <p className="text-xs text-muted-foreground">{style?.hint}</p>
         </div>
+        )}
 
+        {!script && (
         <div className="flex flex-col gap-2">
           <Label>Thinking</Label>
           <Select value={value.model} disabled={disabled} onValueChange={(v) => set({ model: v as AiAgentSettings["model"] })}>
@@ -137,6 +163,7 @@ export function AiAgentSettingsForm({
           </Select>
           <p className="text-xs text-muted-foreground">{model?.hint}</p>
         </div>
+        )}
 
         <div className="flex flex-col gap-2">
           <Label htmlFor="ai-sample-phone">Hear it on your phone</Label>
@@ -191,6 +218,26 @@ export function AiAgentSettingsForm({
         </div>
       )}
 
+      {script && (
+        <div className="flex flex-col gap-3 rounded-md border border-border p-3">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex flex-col gap-0.5">
+              <span className="text-sm font-medium">Offer "press 1" to speak with someone</span>
+              <span className="text-xs text-muted-foreground">After the script, the person can press 1 to be connected to the number below. Everyone else hears the script and the call ends.</span>
+            </div>
+            <Switch checked={value.pressToConnect} disabled={disabled} onCheckedChange={(on) => set({ pressToConnect: on })} />
+          </div>
+          {value.pressToConnect && (
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="ai-press-number">Connect them to</Label>
+              <Input id="ai-press-number" placeholder="+14155550134" disabled={disabled} value={value.transferNumber} onChange={(e) => set({ transferNumber: e.target.value })} />
+              <p className="text-xs text-muted-foreground">Your own phone number, with the country code. If it is empty, the offer is skipped.</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {!script && (
       <div className="flex flex-col gap-3">
         <Label>What it can do during a call</Label>
         {ACTIONS.map((a) => (
@@ -220,6 +267,7 @@ export function AiAgentSettingsForm({
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }

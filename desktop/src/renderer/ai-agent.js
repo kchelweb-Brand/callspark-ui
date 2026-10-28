@@ -43,17 +43,25 @@
     const style = o.styles.find((x) => x.id === s.style);
     const model = o.models.find((x) => x.id === s.model);
 
+    const script = voicemail && s.delivery === "script";
+    const deliveryRow = voicemail
+      ? `<label>How should it talk?
+          ${choose(`${p}-delivery`, (o.delivery || []).map((x) => opt(x.id, x.label)).join(""), s.delivery || "ai")}
+          <span class="hint" id="${p}-delivery-hint">${U.esc(((o.delivery || []).find((x) => x.id === (s.delivery || "ai")) || {}).hint || "")}</span>
+        </label>`
+      : "";
     return `
       <div class="ai-form stack">
+        ${deliveryRow}
         <label>Voice
           ${choose(`${p}-voice`, voiceOptions, s.voice)}
           <span class="hint" id="${p}-voice-hint">${U.esc(o.tierNotes[voice.tier])}</span>
         </label>
-        <label>Speaking style
+        <label data-ai-only class="${script ? "hidden" : ""}">Speaking style
           ${choose(`${p}-style`, o.styles.map((x) => opt(x.id, x.label)).join(""), s.style)}
           <span class="hint" id="${p}-style-hint">${U.esc(style ? style.hint : "")}</span>
         </label>
-        <label>Thinking
+        <label data-ai-only class="${script ? "hidden" : ""}">Thinking
           ${choose(`${p}-model`, o.models.map((x) => opt(x.id, x.label)).join(""), s.model)}
           <span class="hint" id="${p}-model-hint">${U.esc(model ? model.hint : "")}</span>
         </label>
@@ -75,6 +83,17 @@
               </label>`
             : ""
         }
+        ${voicemail
+          ? `<div data-script-only class="stack ${script ? "" : "hidden"}">
+              <div class="switch-row"><div><h3>Offer "press 1" to speak with someone</h3><p class="hint">After the script, the person can press 1 to be connected to the number below. Everyone else hears the script and the call ends.</p></div>
+                <label class="switch"><input type="checkbox" id="${p}-press" ${s.pressToConnect ? "checked" : ""} ${disabled ? "disabled" : ""} /><span></span></label></div>
+              <label id="${p}-press-row" class="${s.pressToConnect ? "" : "hidden"}">Connect them to
+                <input id="${p}-press-number" type="text" placeholder="+14155550134" value="${U.esc(s.transferNumber || "")}" ${disabled ? "disabled" : ""} />
+                <span class="hint">Your own phone number, with the country code.</span>
+              </label>
+            </div>`
+          : ""}
+        <div data-ai-only class="stack ${script ? "hidden" : ""}">
         <p class="eyebrow">What it can do during a call</p>
         ${ACTIONS.map(
           ([key, title, sub]) => `<div class="switch-row"><div><h3>${U.esc(title)}</h3><p class="hint">${U.esc(sub)}</p></div>
@@ -88,6 +107,7 @@
               </label>`
             : ""
         }
+        </div>
       </div>`;
   }
 
@@ -106,6 +126,18 @@
       const v = o.models.find((x) => x.id === $("model").value);
       $("model-hint").textContent = v ? v.hint : "";
     });
+    const delivery = $("delivery");
+    if (delivery) {
+      delivery.addEventListener("change", () => {
+        const script = delivery.value === "script";
+        root.querySelectorAll(`[data-ai-only]`).forEach((el) => el.classList.toggle("hidden", script));
+        root.querySelectorAll(`[data-script-only]`).forEach((el) => el.classList.toggle("hidden", !script));
+        const d = (o.delivery || []).find((x) => x.id === delivery.value);
+        $("delivery-hint").textContent = d ? d.hint : "";
+      });
+    }
+    const press = $("press");
+    if (press) press.addEventListener("change", () => root.querySelector(`#${p}-press-row`).classList.toggle("hidden", !press.checked));
     const vm = $("vm");
     if (vm) {
       vm.addEventListener("change", () => root.querySelector(`#${p}-vm-msg-row`).classList.toggle("hidden", vm.value !== "message"));
@@ -129,12 +161,14 @@
     const $ = (id) => root.querySelector(`#${p}-${id}`);
     const b = base || options.defaults;
     return {
+      delivery: $("delivery") ? $("delivery").value : b.delivery || "ai",
+      pressToConnect: $("press") ? $("press").checked : !!b.pressToConnect,
       voice: $("voice").value,
       style: $("style").value,
       model: $("model").value,
       voicemail: $("vm") ? $("vm").value : b.voicemail,
       voicemailMessage: $("vm-msg") ? $("vm-msg").value : b.voicemailMessage,
-      transferNumber: $("transfer") ? $("transfer").value : b.transferNumber,
+      transferNumber: $("press-number") && $("delivery") && $("delivery").value === "script" ? $("press-number").value : $("transfer") ? $("transfer").value : b.transferNumber,
       actions: {
         outcome: $("act-outcome").checked,
         book: $("act-book").checked,

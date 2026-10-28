@@ -37,6 +37,7 @@ import {
   AI_OUTCOMES,
   AI_STYLES,
   AI_TIER_NOTE,
+  AI_DELIVERY,
   AI_VOICEMAIL,
   AI_VOICES,
   DEFAULT_AI_SETTINGS,
@@ -342,6 +343,7 @@ export async function handleNativeApi(request: Request, pathname: string): Promi
         return jsonOk({
           voices: AI_VOICES,
           tierNotes: AI_TIER_NOTE,
+          delivery: AI_DELIVERY,
           styles: AI_STYLES,
           models: AI_MODELS,
           voicemail: AI_VOICEMAIL,

@@ -35,6 +35,10 @@ const DEFAULT_AI_PROMPT =
   "Hi {{first_name}}, this is an automated assistant calling on behalf of [Your Business]. " +
   "I'm reaching out about [reason for the call]. Is now an okay time to talk?";
 
+const DEFAULT_SCRIPT_TEXT =
+  "Hi {{first_name}}, this is an automated message from [Your Business]. We are calling about [reason for the call]. " +
+  "To speak with us, call [your phone number]. Thank you, and have a great day.";
+
 export function CreateCampaignDialog({
   trigger,
   onCreated,
@@ -209,7 +213,7 @@ export function CreateCampaignDialog({
           ) : (
             <>
               <div className="flex flex-col gap-2">
-                <Label htmlFor="camp-ai-prompt">AI prompt</Label>
+                <Label htmlFor="camp-ai-prompt">{aiSettings.delivery === "script" ? "Script to read aloud" : "AI prompt"}</Label>
                 <Textarea
                   id="camp-ai-prompt"
                   rows={6}
@@ -217,7 +221,9 @@ export function CreateCampaignDialog({
                   onChange={(e) => setAiPrompt(e.target.value)}
                 />
                 <p className="text-xs text-muted-foreground">
-                  This is read to the AI agent for every call — keep the disclosure line at the start.
+                  {aiSettings.delivery === "script"
+                    ? "This is read word for word to everyone who answers. Use {{first_name}} and {{company}}. Keep the disclosure that it is an automated call at the start."
+                    : "This is read to the AI agent for every call — keep the disclosure line at the start."}
                 </p>
               </div>
 
@@ -225,7 +231,18 @@ export function CreateCampaignDialog({
 
               <div className="flex flex-col gap-3 rounded-lg border border-border p-3">
                 <p className="text-sm font-medium">Voice and behaviour</p>
-                <AiAgentSettingsForm value={aiSettings} onChange={setAiSettings} showVoicemail showTransfer />
+                <AiAgentSettingsForm
+                  value={aiSettings}
+                  onChange={(next) => {
+                    // Switching how it talks swaps the starting text, unless it has been rewritten.
+                    if (next.delivery !== aiSettings.delivery && (aiPrompt.trim() === DEFAULT_AI_PROMPT.trim() || aiPrompt.trim() === DEFAULT_SCRIPT_TEXT.trim())) {
+                      setAiPrompt(next.delivery === "script" ? DEFAULT_SCRIPT_TEXT : DEFAULT_AI_PROMPT);
+                    }
+                    setAiSettings(next);
+                  }}
+                  showVoicemail
+                  showTransfer
+                />
               </div>
 
               <div className="flex items-start gap-2.5 rounded-lg border border-border bg-muted/40 p-3">

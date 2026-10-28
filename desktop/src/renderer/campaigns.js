@@ -268,7 +268,7 @@
             </label>
             <p class="hint" id="nc-list-hint">Choose a list to power-dial it from the Dialer, one contact after another.</p>
             <div id="nc-ai-fields" class="hidden">
-              <label>AI prompt / opening script
+              <label><span id="nc-prompt-label">AI prompt / opening script</span>
                 <textarea id="nc-prompt" rows="5"></textarea>
               </label>
               <button type="button" id="nc-check-script">Check script</button>
@@ -301,6 +301,21 @@
     document.getElementById("nc-mode-ai").addEventListener("click", () => setMode("ai_agent"));
     document.getElementById("nc-cancel").addEventListener("click", closeModal);
     window.KchelAi.bindForm(els.modalRoot, "nc");
+
+    // "Read my script aloud" changes what the text box is for, and what it starts with.
+    const SCRIPT_DEFAULT =
+      "Hi {{first_name}}, this is an automated message from [Your Business]. We are calling about [reason for the call]. To speak with us, call [your phone number]. Thank you, and have a great day.";
+    const deliverySelect = document.getElementById("nc-delivery");
+    if (deliverySelect) {
+      deliverySelect.addEventListener("change", () => {
+        const script = deliverySelect.value === "script";
+        const box = document.getElementById("nc-prompt");
+        document.getElementById("nc-prompt-label").textContent = script
+          ? "Script to read aloud (use {{first_name}} and {{company}})"
+          : "AI prompt / opening script";
+        if (!box.value.trim() || box.value === SCRIPT_DEFAULT) box.value = script ? SCRIPT_DEFAULT : "";
+      });
+    }
 
     document.getElementById("nc-check-script").addEventListener("click", async () => {
       const prompt = document.getElementById("nc-prompt").value.trim();

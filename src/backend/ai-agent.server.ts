@@ -128,7 +128,7 @@ function actionGuide(s: AiAgentSettings): string {
   return lines.join("\n");
 }
 
-function transferTarget(s: AiAgentSettings): string | null {
+export function transferTarget(s: AiAgentSettings): string | null {
   const digits = s.transferNumber.replace(/[^\d]/g, "");
   return digits.length >= 7 && digits.length <= 15 ? `+${digits}` : null;
 }
@@ -201,6 +201,43 @@ export async function buildAiVerb(input: BuildAiInput): Promise<Record<string, u
     ai["post_prompt_url"] = doneUrl.toString();
   }
   return ai;
+}
+
+/** The longest script that is read aloud. */
+export const MAX_SCRIPT_CHARS = 2000;
+
+/**
+ * The call instructions for a campaign that reads a script instead of holding a conversation: wait a
+ * moment after the person picks up, read the script in the chosen voice, optionally offer "press 1" to
+ * be connected to a person, then hang up. No AI is involved, so there is no AI cost per call.
+ */
+export function buildScriptDoc(input: { script: string; settings: AiAgentSettings; fromNumber?: string | null }): Record<string, unknown> {
+  const voice = findAiVoice(input.settings.voice);
+  const say = { say_voice: voice.voice, say_language: voice.lang };
+  const text = input.script.replace(/\s+/g, " ").trim().slice(0, MAX_SCRIPT_CHARS);
+  const target = transferTarget(input.settings);
+
+  const main: Record<string, unknown>[] = [{ answer: {} }, { sleep: 800 }, { play: { url: `say:${text}`, ...say } }];
+
+  if (input.settings.pressToConnect && target && input.fromNumber) {
+    main.push({
+      prompt: { play: "say:To speak with someone now, press 1.", max_digits: 1, initial_timeout: 6, digit_timeout: 3, ...say },
+    });
+    main.push({
+      switch: {
+        variable: "prompt_value",
+        case: {
+          "1": [
+            { play: { url: "say:Connecting you now. Please hold.", ...say } },
+            { connect: { to: target, from: input.fromNumber, timeout: 30 } },
+          ],
+        },
+        default: [{ hangup: {} }],
+      },
+    });
+  }
+  main.push({ sleep: 600 }, { hangup: {} });
+  return { version: "1.0.0", sections: { main } };
 }
 
 export function summaryPrompt(audience: string): string {
