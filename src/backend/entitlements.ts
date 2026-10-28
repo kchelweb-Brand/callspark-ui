@@ -55,17 +55,17 @@ export async function getTenantPlan(tenantId: string): Promise<TenantPlan> {
   // paid_until is added by the one-time schema upgrade, so it must have run before it is read.
   await ensureSchema();
   const rows = await sql`
-    select plan, trial_ends_at, paid_until, status from tenants where id = ${tenantId} limit 1
+    select plan, trial_ends_at, paid_until, held_at, status from tenants where id = ${tenantId} limit 1
   `;
   const row = rows[0] as
-    | { plan: string | null; trial_ends_at: string | null; paid_until: string | null; status: string | null }
+    | { plan: string | null; trial_ends_at: string | null; paid_until: string | null; held_at: string | null; status: string | null }
     | undefined;
 
   const plan = getPlan(row?.plan);
   const trialEndsAt = row?.trial_ends_at ?? null;
   const trialExpired = isTrialExpired(plan.id, trialEndsAt);
   const paidUntil = row?.paid_until ?? null;
-  const lifecycle = lifecycleOf({ plan: plan.id, trialEndsAt, paidUntil });
+  const lifecycle = lifecycleOf({ plan: plan.id, trialEndsAt, paidUntil, heldAt: row?.held_at ?? null });
 
   return {
     plan,
@@ -148,7 +148,7 @@ export async function requireActivePlan(tenantId: string): Promise<void> {
   const { plan, onHold, lifecycle } = await getTenantPlan(tenantId);
   if (onHold) {
     throw new PlanLimitError(
-      lifecycle.state === "hold" && lifecycle.reason === "plan_expired"
+      lifecycle.state === "hold" && lifecycle.reason !== "trial_ended"
         ? `Your ${plan.name} plan ended and the account is on hold. Renew it in Billing to start working again. Your data is safe.`
         : `Your ${plan.name} has ended. Your data is safe and still exportable. Choose a plan in Billing to start working again.`,
     );

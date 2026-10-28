@@ -36,7 +36,7 @@ export type Lifecycle =
   | { state: "ok"; endsAt: Date; daysLeft: number }
   | { state: "upcoming"; endsAt: Date; daysLeft: number }
   | { state: "grace"; endsAt: Date; holdAt: Date; daysToHold: number }
-  | { state: "hold"; endsAt: Date; since: Date; reason: "trial_ended" | "plan_expired" };
+  | { state: "hold"; endsAt: Date; since: Date; reason: "trial_ended" | "plan_expired" | "admin" };
 
 function asDate(v: string | Date | null | undefined): Date | null {
   if (!v) return null;
@@ -47,10 +47,23 @@ function asDate(v: string | Date | null | undefined): Date | null {
 const daysBetween = (later: Date, earlier: Date) => Math.ceil((later.getTime() - earlier.getTime()) / DAY);
 
 export function lifecycleOf(
-  input: { plan: string | null | undefined; trialEndsAt?: string | Date | null; paidUntil?: string | Date | null },
+  input: {
+    plan: string | null | undefined;
+    trialEndsAt?: string | Date | null | undefined;
+    paidUntil?: string | Date | null | undefined;
+    /** When the platform owner put the account on hold by hand. */
+    heldAt?: string | Date | null | undefined;
+  },
   now: Date = new Date(),
 ): Lifecycle {
   const planId = getPlan(input.plan).id;
+
+  // A hold set by hand stands until someone lifts it, whatever the dates say.
+  const held = asDate(input.heldAt);
+  if (held) {
+    const when = asDate(planId === "trial" ? input.trialEndsAt : input.paidUntil) ?? held;
+    return { state: "hold", endsAt: when, since: held, reason: "admin" };
+  }
 
   if (planId === "trial") {
     const ends = asDate(input.trialEndsAt);
@@ -69,6 +82,15 @@ export function lifecycleOf(
   const holdAt = new Date(ends.getTime() + GRACE_DAYS * DAY);
   if (now.getTime() <= holdAt.getTime()) return { state: "grace", endsAt: ends, holdAt, daysToHold: daysBetween(holdAt, now) };
   return { state: "hold", endsAt: ends, since: holdAt, reason: "plan_expired" };
+}
+
+/** Whether the plan has run out by its dates, even if it is still in its grace period. */
+export function hasExpired(
+  input: { plan: string | null | undefined; trialEndsAt?: string | Date | null | undefined; paidUntil?: string | Date | null | undefined },
+  now: Date = new Date(),
+): boolean {
+  const end = asDate(getPlan(input.plan).id === "trial" ? input.trialEndsAt : input.paidUntil);
+  return end !== null && now.getTime() > end.getTime();
 }
 
 export function isOnHold(l: Lifecycle): boolean {
@@ -94,6 +116,8 @@ export function renewalNotice(
       return { title: `Your plan has ended: renew within ${days(d.daysToHold)}`, body: `Renew by ${d.holdOn} or the account is put on hold.` };
     case "hold":
       return { title: "Your account is on hold", body: "Renew in Billing to start working again. Your data is safe." };
+    case "held":
+      return { title: "Your account has expired and is on hold", body: "Renew in Billing to start working again. Your data is safe." };
     default:
       return { title: "Your free trial has ended", body: "Choose a plan in Billing to pick up where you left off." };
   }

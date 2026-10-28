@@ -8,6 +8,7 @@ import { callingCodeFromE164 } from "./phone-numbers";
 import { PLANS } from "./plans";
 import { signToken, verifyToken } from "./tokens";
 import { ensureSchema } from "./schema.server";
+import { hasExpired, lifecycleOf } from "./billing-lifecycle";
 import { parsePhone } from "./contact-import";
 import { sendSms } from "./signalwire-rest";
 import { countryByCode } from "./countries";
@@ -68,6 +69,8 @@ interface TenantRow {
   created_at: string;
   plan?: string | null;
   trial_ends_at?: string | null;
+  paid_until?: string | null;
+  held_at?: string | null;
   dialer_addon_enabled?: boolean;
   sip_addon_enabled?: boolean;
 }
@@ -584,15 +587,21 @@ function toAdminTenant(row: TenantRow & { user_count: number | string; owner_ema
     trial_ends_at: row.trial_ends_at ?? null,
     dialer_addon_enabled: row.dialer_addon_enabled ?? false,
     sip_addon_enabled: row.sip_addon_enabled ?? false,
+    paid_until: row.paid_until ?? null,
+    // Where its plan stands, and whether the platform owner put it on hold by hand.
+    renewal_state: lifecycleOf({ plan: row.plan, trialEndsAt: row.trial_ends_at, paidUntil: row.paid_until, heldAt: row.held_at }).state,
+    held_by_admin: Boolean(row.held_at),
+    plan_expired: hasExpired({ plan: row.plan, trialEndsAt: row.trial_ends_at, paidUntil: row.paid_until }),
   };
 }
 
 export async function listTenants(data: { token: string; status?: string }) {
     await requireSuperAdmin(data.token);
+    await ensureSchema();
 
     const rows = data.status
       ? await sql`
-          select t.id, t.name, t.workspace_slug, t.status, t.created_at, t.plan, t.trial_ends_at, t.dialer_addon_enabled, t.sip_addon_enabled,
+          select t.id, t.name, t.workspace_slug, t.status, t.created_at, t.plan, t.trial_ends_at, t.paid_until, t.held_at, t.dialer_addon_enabled, t.sip_addon_enabled,
             (select count(*) from users u where u.tenant_id = t.id) as user_count,
             (select u.email from users u where u.tenant_id = t.id order by (u.role = 'tenant_owner') desc, u.created_at asc limit 1) as owner_email
           from tenants t
@@ -600,7 +609,7 @@ export async function listTenants(data: { token: string; status?: string }) {
           order by t.created_at desc
         `
       : await sql`
-          select t.id, t.name, t.workspace_slug, t.status, t.created_at, t.plan, t.trial_ends_at, t.dialer_addon_enabled, t.sip_addon_enabled,
+          select t.id, t.name, t.workspace_slug, t.status, t.created_at, t.plan, t.trial_ends_at, t.paid_until, t.held_at, t.dialer_addon_enabled, t.sip_addon_enabled,
             (select count(*) from users u where u.tenant_id = t.id) as user_count,
             (select u.email from users u where u.tenant_id = t.id order by (u.role = 'tenant_owner') desc, u.created_at asc limit 1) as owner_email
           from tenants t
@@ -619,6 +628,7 @@ export const listTenantsFn = createServerFn({ method: "POST" })
 
 export async function setTenantStatus(data: { token: string; id: string; status: "active" | "suspended" | "pending" }) {
     await requireSuperAdmin(data.token);
+    await ensureSchema();
 
     const updated = await sql`
       update tenants set status = ${data.status} where id = ${data.id} returning id
@@ -626,7 +636,7 @@ export async function setTenantStatus(data: { token: string; id: string; status:
     if (updated.length === 0) throw new Error("Could not find that tenant.");
 
     const rows = await sql`
-      select t.id, t.name, t.workspace_slug, t.status, t.created_at, t.plan, t.trial_ends_at, t.dialer_addon_enabled, t.sip_addon_enabled,
+      select t.id, t.name, t.workspace_slug, t.status, t.created_at, t.plan, t.trial_ends_at, t.paid_until, t.held_at, t.dialer_addon_enabled, t.sip_addon_enabled,
         (select count(*) from users u where u.tenant_id = t.id) as user_count,
         (select u.email from users u where u.tenant_id = t.id order by (u.role = 'tenant_owner') desc, u.created_at asc limit 1) as owner_email
       from tenants t where t.id = ${data.id}

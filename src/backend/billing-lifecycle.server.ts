@@ -50,7 +50,7 @@ export async function runRenewalSweep(options: { now?: Date; limit?: number } = 
 
   const due = await sql`
     select id, name, plan, trial_ends_at, paid_until, renewal_stage from tenants
-    where status = 'active'
+    where status = 'active' and held_at is null
       and (renewal_checked_on is null or renewal_checked_on < ${today}::date)
       and (
         (plan = 'trial' and trial_ends_at is not null
@@ -112,7 +112,85 @@ export async function extendPaidPeriod(tenantId: string, interval: "monthly" | "
   await sql`
     update tenants set
       paid_until = greatest(now(), coalesce(paid_until, now())) + (${addMonths} || ' months')::interval,
-      renewal_stage = null, renewal_checked_on = null
+      renewal_stage = null, renewal_checked_on = null, held_at = null, held_notified_at = null
     where id = ${tenantId}
   `;
+}
+
+/** Tells the owners their account is on hold: an email each, and a notice in the app. */
+async function announceHold(tenantId: string, name: string, planId: string | null, endsOn: string): Promise<number> {
+  const who = await owners(tenantId);
+  const isTrial = getPlan(planId).id === "trial";
+  const detail = { planName: isTrial ? "free trial" : getPlan(planId).name, daysLeft: 0, endsOn, holdOn: null, daysToHold: 0 };
+  for (const o of who) await sendRenewalEmail(o.email, { workspaceName: name, kind: "held", ...detail });
+  if (who.length > 0) {
+    const notice = renewalNotice("held", detail);
+    await sqlQuery(
+      `insert into notifications (user_id, tenant_id, kind, title, body, link)
+       select unnest($1::uuid[]), $2::uuid, 'system', $3, $4, '/billing'`,
+      [who.map((o) => o.id), tenantId, notice.title, notice.body],
+    );
+  }
+  return who.length;
+}
+
+/**
+ * Puts an account on hold, or lifts the hold. On hold stops new work but leaves sign-in,
+ * Billing and Support open, so the owner can still get in to pay. Putting on hold tells the
+ * owners by email and in the app (unless told not to); a verified payment lifts it again.
+ */
+export async function setTenantHold(data: { tenantId: string; hold: boolean; notify?: boolean }) {
+  await ensureSchema();
+  if (!data.hold) {
+    const lifted = await sql`update tenants set held_at = null, held_notified_at = null where id = ${data.tenantId} returning id`;
+    if (lifted.length === 0) throw new Error("Could not find that tenant.");
+    return { ok: true as const, held: false, notified: 0 };
+  }
+  const rows = await sql`
+    update tenants set held_at = coalesce(held_at, now()) where id = ${data.tenantId}
+    returning name, plan, paid_until, trial_ends_at
+  `;
+  const t = rows[0] as { name: string; plan: string | null; paid_until: string | null; trial_ends_at: string | null } | undefined;
+  if (!t) throw new Error("Could not find that tenant.");
+
+  let notified = 0;
+  if (data.notify !== false) {
+    const ends = new Date(String((getPlan(t.plan).id === "trial" ? t.trial_ends_at : t.paid_until) ?? new Date().toISOString()));
+    notified = await announceHold(data.tenantId, t.name, t.plan, pretty(ends));
+    await sql`update tenants set held_notified_at = now() where id = ${data.tenantId}`;
+  }
+  return { ok: true as const, held: true, notified };
+}
+
+const EXPIRED_NOT_HELD = `
+  status = 'active' and held_at is null and held_notified_at is null and (
+    (plan = 'trial' and trial_ends_at is not null and trial_ends_at < now())
+    or (plan <> 'trial' and paid_until is not null and paid_until < now())
+  )`;
+
+/**
+ * Puts every account whose plan has already expired on hold now, skipping the grace
+ * period, and tells its owners. It does a few accounts per call, because one call may
+ * only make about 50 outside requests, and says how many are still waiting; the admin
+ * screen calls it again until none are. Accounts with no end date are never touched.
+ */
+export async function holdExpiredBatch(options: { limit?: number } = {}) {
+  await ensureSchema();
+  const limit = options.limit ?? 5;
+  const rows = await sqlQuery(`select id from tenants where ${EXPIRED_NOT_HELD} order by coalesce(paid_until, trial_ends_at) asc limit $1`, [limit]);
+  let processed = 0;
+  let failed = 0;
+  for (const r of rows) {
+    try {
+      await setTenantHold({ tenantId: String(r["id"]), hold: true, notify: true });
+      processed++;
+    } catch (err) {
+      failed++;
+      console.error("[hold] could not hold", r["id"], err);
+      // Marked, so one bad account can't block the rest of the queue.
+      await sql`update tenants set held_at = coalesce(held_at, now()), held_notified_at = now() where id = ${String(r["id"])}`;
+    }
+  }
+  const left = await sqlQuery(`select count(*)::int as n from tenants where ${EXPIRED_NOT_HELD}`);
+  return { ok: true as const, processed, failed, remaining: Number((left[0] as { n: number }).n) };
 }

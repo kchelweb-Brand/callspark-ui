@@ -324,7 +324,7 @@ export async function sendTeamAlertEmail(to: string, subject: string, data: Team
 
 // ---------- plan renewal ----------
 
-export type RenewalKind = "ending" | "trial_ending" | "grace" | "hold" | "trial_ended";
+export type RenewalKind = "ending" | "trial_ending" | "grace" | "hold" | "trial_ended" | "held";
 
 export interface RenewalEmailData {
   workspaceName: string;
@@ -370,6 +370,11 @@ export async function sendRenewalEmail(to: string, d: RenewalEmailData): Promise
       subject = `${d.workspaceName} is on hold`;
       heading = "Your account is on hold";
       lead = `Your ${d.planName} plan for ${d.workspaceName} ended on ${d.endsOn} and wasn't renewed, so the account is now on hold. You can't place calls, run campaigns or add contacts until it is renewed.`;
+      break;
+    case "held":
+      subject = `${d.workspaceName} has expired and is on hold`;
+      heading = "Your account has expired and is on hold";
+      lead = `Your ${label} for ${d.workspaceName} has expired, so the account is on hold. You can still sign in, but you can't place calls, run campaigns or add contacts until it is renewed.`;
       break;
     default:
       subject = "Your free trial has ended";

@@ -56,7 +56,9 @@ export function PlanBanner() {
     text =
       renewal.reason === "trial_ended"
         ? "Your free trial has ended and the account is on hold. Choose a plan to start working again. Your data is safe."
-        : "Your plan ended and the account is on hold. Renew to start working again. Your data is safe.";
+        : renewal.reason === "admin"
+          ? "Your account is on hold. Contact support or complete your payment to start working again. Your data is safe."
+          : "Your plan ended and the account is on hold. Renew to start working again. Your data is safe.";
   }
 
   return (

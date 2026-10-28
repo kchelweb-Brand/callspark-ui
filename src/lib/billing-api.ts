@@ -1,6 +1,8 @@
 // Client wrappers around src/backend/billing.server.ts.
 import {
   activateTenantFn,
+  adminHoldExpiredFn,
+  adminSetTenantHoldFn,
   getPlanUsageFn,
   listPlansFn,
   requestPlanUpgradeFn,
@@ -42,6 +44,16 @@ export function setTenantPlan(tenantId: string, plan: string, trialDays?: number
   return setTenantPlanFn({
     data: { token: requireToken(), tenantId, plan, ...(trialDays ? { trialDays } : {}) },
   });
+}
+
+/** Platform owner: put one account on hold (and email its owners), or lift the hold. */
+export function setTenantHold(tenantId: string, hold: boolean, notify = true) {
+  return adminSetTenantHoldFn({ data: { token: requireToken(), tenantId, hold, notify } });
+}
+
+/** Platform owner: hold the next few expired accounts. Call again until `remaining` is 0. */
+export function holdExpiredBatch() {
+  return adminHoldExpiredFn({ data: { token: requireToken() } });
 }
 
 /** "5 of 25" / "1,204 of unlimited" — one place so every readout matches. */

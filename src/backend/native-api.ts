@@ -62,7 +62,7 @@ import {
 import { getOverview, getAnalytics, getLiveFloor, listRecordings } from "./metrics.server";
 import { listAgents, createAgent, updateAgent, deleteAgent } from "./agents.server";
 import { listCalls } from "./calls.server";
-import { listPlans, getPlanUsage } from "./billing.server";
+import { listPlans, getPlanUsage, adminHoldExpired, adminSetTenantHold } from "./billing.server";
 import { claimPayment, deletePaymentLink, listPaymentLinks, savePaymentLink } from "./payments.server";
 import { escalateHelp, helpChat } from "./help-chat.server";
 import { getAddonStatus, requestDialerAddon, requestSipAddon, setDialerAddon, setSipAddon } from "./addons.server";
@@ -545,6 +545,10 @@ export async function handleNativeApi(request: Request, pathname: string): Promi
         return jsonOk(await sendBroadcast(await readJson(request)));
       case "admin/broadcasts":
         return jsonOk(await listBroadcasts(await readJson(request)));
+      case "admin/tenant-hold":
+        return jsonOk(await adminSetTenantHold(await readJson(request)));
+      case "admin/hold-expired":
+        return jsonOk(await adminHoldExpired(await readJson(request)));
       case "admin/payment-links":
         return jsonOk(await listPaymentLinks(await readJson(request)));
       case "admin/payment-link-save":

@@ -175,6 +175,14 @@ export interface AdminTenant {
   trial_ends_at: string | null;
   dialer_addon_enabled: boolean;
   sip_addon_enabled: boolean;
+  /** When the paid period ends; null means it never expires. */
+  paid_until: string | null;
+  /** none | ok | upcoming | grace | hold — where the plan stands today. */
+  renewal_state: "none" | "ok" | "upcoming" | "grace" | "hold";
+  /** True when the platform owner put the account on hold by hand. */
+  held_by_admin: boolean;
+  /** The plan's end date has passed (a payment, not lifting a hold, is what reopens it). */
+  plan_expired: boolean;
 }
 
 export async function listTenants(status?: string) {

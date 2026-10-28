@@ -209,7 +209,10 @@ async function apply(): Promise<void> {
   // ---------- plan expiry and renewal reminders ----------
   await sql`alter table tenants add column if not exists paid_until timestamptz`;
   await sql`alter table tenants add column if not exists renewal_stage text`;
-  await sql`alter table tenants add column if not exists renewal_checked_on date`;
+  await sql`alter table tenants add column if not exists renewal_checked_on date`
+  // An account the platform owner has put on hold by hand, and when its owners were told.
+  await sql`alter table tenants add column if not exists held_at timestamptz`
+  await sql`alter table tenants add column if not exists held_notified_at timestamptz`;
   await sql`create table if not exists app_flags (name text primary key, done_at timestamptz not null default now())`;
   // Trials that ran out used to be suspended outright, which locked the owner out of
   // the very page they need to pay. They are now simply on hold, so reopen them, once.

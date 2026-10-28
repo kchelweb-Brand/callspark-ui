@@ -5,7 +5,7 @@ import { verifyToken } from "./tokens";
 import { getUsageSummary } from "./entitlements";
 import { PLANS, getPlan, isPlanId, type PlanId } from "./plans";
 import { checkoutFor } from "./payments.server";
-import { extendPaidPeriod } from "./billing-lifecycle.server";
+import { extendPaidPeriod, holdExpiredBatch, setTenantHold } from "./billing-lifecycle.server";
 import type { Lifecycle } from "./billing-lifecycle";
 import { sendAccountActivatedEmail } from "./email";
 import { createMyTicket } from "./workspace.server";
@@ -99,6 +99,31 @@ function renewalView(l: Lifecycle) {
     reason: l.state === "hold" ? l.reason : null,
   };
 }
+
+/**
+ * Platform owner only: put a workspace on hold, or lift the hold. The owner can still sign
+ * in and open Billing; new work is refused until a payment is verified (or the hold is lifted).
+ */
+export async function adminSetTenantHold(data: { token: string; tenantId: string; hold: boolean; notify?: boolean }) {
+  await requireSuperAdmin(data.token);
+  const { token: _token, ...rest } = data;
+  void _token;
+  return setTenantHold(rest);
+}
+
+export const adminSetTenantHoldFn = createServerFn({ method: "POST" })
+  .validator((data: Parameters<typeof adminSetTenantHold>[0]) => data)
+  .handler(async ({ data }) => adminSetTenantHold(data));
+
+/** Platform owner only: hold every account whose plan has already expired, a few at a time. */
+export async function adminHoldExpired(data: { token: string }) {
+  await requireSuperAdmin(data.token);
+  return holdExpiredBatch();
+}
+
+export const adminHoldExpiredFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string }) => data)
+  .handler(async ({ data }) => adminHoldExpired(data));
 
 /** Current plan plus real usage, for the Billing page. */
 export async function getPlanUsage(data: { token: string }) {
@@ -209,7 +234,7 @@ export const activateTenantFn = createServerFn({ method: "POST" })
     if (plan.id !== "trial") {
       const months = Math.max(0, Math.min(60, Math.round(data.months ?? 1)));
       if (months === 0) {
-        await sql`update tenants set paid_until = null, renewal_stage = null, renewal_checked_on = null where id = ${data.tenantId}`;
+        await sql`update tenants set paid_until = null, renewal_stage = null, renewal_checked_on = null, held_at = null, held_notified_at = null where id = ${data.tenantId}`;
       } else {
         await extendPaidPeriod(data.tenantId, "monthly", months);
       }
