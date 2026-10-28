@@ -31,6 +31,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -43,12 +44,17 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { CreateCampaignDialog } from "@/components/dash/CreateCampaignDialog";
+import { AiAgentSettingsForm } from "@/components/dash/AiAgentSettingsForm";
+import { Checkbox } from "@/components/ui/checkbox";
+import { DEFAULT_AI_SETTINGS, sanitizeAiSettings, type AiAgentSettings } from "@/backend/ai-agent-options";
 import {
   deleteCampaign,
   duplicateCampaign,
   getCampaignCallLog,
   listCampaigns,
+  getCampaignOutcomes,
   pauseCampaignDialing,
+  recallCampaign,
   reconcileCampaign,
   startCampaignDialing,
   updateCampaign,
@@ -96,6 +102,7 @@ interface Campaign {
   queueTotal: number;
   queueCompleted: number;
   queueFailed: number;
+  aiSettings: AiAgentSettings;
 }
 
 function toRow(record: CampaignRecord): Campaign {
@@ -111,6 +118,7 @@ function toRow(record: CampaignRecord): Campaign {
     queueTotal: record.queue_total ?? 0,
     queueCompleted: record.queue_completed ?? 0,
     queueFailed: record.queue_failed ?? 0,
+    aiSettings: sanitizeAiSettings(record.ai_settings, DEFAULT_AI_SETTINGS),
   };
 }
 
@@ -125,6 +133,13 @@ function CampaignsPage() {
   const [logTarget, setLogTarget] = useState<Campaign | null>(null);
   const [logRows, setLogRows] = useState<CampaignCallLogRow[]>([]);
   const [logLoading, setLogLoading] = useState(false);
+  const [voiceTarget, setVoiceTarget] = useState<Campaign | null>(null);
+  const [voiceDraft, setVoiceDraft] = useState<AiAgentSettings>(DEFAULT_AI_SETTINGS);
+  const [voiceSaving, setVoiceSaving] = useState(false);
+  const [recallTarget, setRecallTarget] = useState<Campaign | null>(null);
+  const [recallOptions, setRecallOptions] = useState<{ key: string; label: string; count: number }[]>([]);
+  const [recallPicked, setRecallPicked] = useState<Set<string>>(new Set());
+  const [recallBusy, setRecallBusy] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -164,6 +179,56 @@ function CampaignsPage() {
       toast.success(`${c.name} is dialing`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not start dialing.");
+    }
+  }
+
+  function openVoice(c: Campaign) {
+    setVoiceDraft(c.aiSettings);
+    setVoiceTarget(c);
+  }
+
+  async function saveVoice() {
+    if (!voiceTarget) return;
+    setVoiceSaving(true);
+    try {
+      const result = await updateCampaign(voiceTarget.id, { aiSettings: voiceDraft });
+      setRows((prev) => prev.map((r) => (r.id === voiceTarget.id ? toRow(result.campaign) : r)));
+      toast.success("Voice and behaviour saved", { description: "Applies to the next call placed." });
+      setVoiceTarget(null);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not save that.");
+    } finally {
+      setVoiceSaving(false);
+    }
+  }
+
+  async function openRecall(c: Campaign) {
+    setRecallTarget(c);
+    setRecallOptions([]);
+    setRecallPicked(new Set());
+    try {
+      const result = await getCampaignOutcomes(c.id);
+      setRecallOptions(result.outcomes);
+      setRecallPicked(new Set(result.outcomes.filter((o) => ["no_answer", "voicemail", "call_back"].includes(o.key)).map((o) => o.key)));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not load the results.");
+    }
+  }
+
+  async function runRecall() {
+    if (!recallTarget) return;
+    setRecallBusy(true);
+    try {
+      const result = await recallCampaign(recallTarget.id, [...recallPicked]);
+      toast.success(`${result.requeued} ${result.requeued === 1 ? "contact" : "contacts"} queued again`, {
+        description: "Press Start dialing to call them.",
+      });
+      setRecallTarget(null);
+      await load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not queue them again.");
+    } finally {
+      setRecallBusy(false);
     }
   }
 
@@ -407,6 +472,16 @@ function CampaignsPage() {
                             <List className="size-3.5" /> View call log
                           </DropdownMenuItem>
                         )}
+                        {c.mode === "ai_agent" && c.queueTotal > 0 && (
+                          <DropdownMenuItem onClick={() => void openRecall(c)}>
+                            <Play className="size-3.5" /> Call people again…
+                          </DropdownMenuItem>
+                        )}
+                        {c.mode === "ai_agent" && (
+                          <DropdownMenuItem onClick={() => openVoice(c)}>
+                            <List className="size-3.5" /> Voice and behaviour…
+                          </DropdownMenuItem>
+                        )}
                         <DropdownMenuItem onClick={() => void handleDuplicate(c)}>
                           <Copy className="size-3.5" /> Duplicate
                         </DropdownMenuItem>
@@ -444,6 +519,67 @@ function CampaignsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={!!voiceTarget} onOpenChange={(open) => !open && setVoiceTarget(null)}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{voiceTarget?.name} — voice and behaviour</DialogTitle>
+            <DialogDescription>How the agent sounds and what it can do. Applies to the next call placed.</DialogDescription>
+          </DialogHeader>
+          <AiAgentSettingsForm value={voiceDraft} onChange={setVoiceDraft} showVoicemail showTransfer />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setVoiceTarget(null)}>
+              Cancel
+            </Button>
+            <Button onClick={() => void saveVoice()} disabled={voiceSaving}>
+              {voiceSaving ? <Loader2 className="size-4 animate-spin" /> : null}
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!recallTarget} onOpenChange={(open) => !open && setRecallTarget(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Call people again</DialogTitle>
+            <DialogDescription>
+              Choose who goes back in the queue of {recallTarget?.name}. Do-not-call contacts, wrong numbers and
+              transferred calls are never included.
+            </DialogDescription>
+          </DialogHeader>
+          {recallOptions.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No finished calls to choose from yet.</p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {recallOptions.map((o) => (
+                <label key={o.key} className="flex items-center gap-3 rounded-md border border-border p-3 text-sm">
+                  <Checkbox
+                    checked={recallPicked.has(o.key)}
+                    onCheckedChange={(on) => {
+                      const next = new Set(recallPicked);
+                      if (on === true) next.add(o.key);
+                      else next.delete(o.key);
+                      setRecallPicked(next);
+                    }}
+                  />
+                  <span className="flex-1">{o.label}</span>
+                  <span className="text-muted-foreground">{o.count}</span>
+                </label>
+              ))}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRecallTarget(null)}>
+              Cancel
+            </Button>
+            <Button onClick={() => void runRecall()} disabled={recallBusy || recallPicked.size === 0}>
+              {recallBusy ? <Loader2 className="size-4 animate-spin" /> : null}
+              Queue them again
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!logTarget} onOpenChange={(open) => !open && setLogTarget(null)}>
         <DialogContent className="max-w-2xl">

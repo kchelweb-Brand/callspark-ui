@@ -14,6 +14,7 @@ import { ensureSchema } from "./schema.server";
 import { getTenantPlan, requireFeature, tenantHasFeature } from "./entitlements";
 import { findContactByPhone } from "./phone-numbers";
 import { sendSms } from "./signalwire-rest";
+import { aiSettingsProblem, sanitizeAiSettings, type AiAgentSettings } from "./ai-agent-options";
 
 export type ReceptionistMode = "after_hours" | "unanswered" | "always";
 
@@ -25,6 +26,8 @@ export interface Automations {
     businessName: string;
     about: string;
     transferNumber: string;
+    /** How it sounds and what it can do mid-call. */
+    agent: AiAgentSettings;
   };
   numberRotation: { enabled: boolean; dailyCap: number };
 }
@@ -63,6 +66,7 @@ export function normalizeAutomations(raw: unknown, tenantName: string): Automati
       businessName: str(ai["businessName"]).trim() || tenantName,
       about: str(ai["about"]).trim(),
       transferNumber: str(ai["transferNumber"]).trim(),
+      agent: sanitizeAiSettings(ai["agent"]),
     },
     numberRotation: {
       enabled: nr["enabled"] === true,
@@ -103,6 +107,9 @@ export async function saveAutomations(data: { token: string; automations: unknow
   if (next.aiReceptionist.transferNumber && !/^\+?[0-9]{7,15}$/.test(next.aiReceptionist.transferNumber.replace(/[\s()-]/g, ""))) {
     throw new Error("The transfer number should be a phone number, e.g. +14155550134.");
   }
+
+  const agentProblem = aiSettingsProblem({ ...next.aiReceptionist.agent, transferNumber: next.aiReceptionist.transferNumber });
+  if (agentProblem) throw new Error(agentProblem);
 
   // Turning something off is always allowed; turning it on needs the plan for it.
   if (next.missedCallTextBack.enabled) await requireFeature(user.tenantId, "missedCallTextBack");

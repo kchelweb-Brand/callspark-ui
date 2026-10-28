@@ -144,4 +144,27 @@ async function apply(): Promise<void> {
     )
   `;
   await sql`create index if not exists idx_auto_texts_lookup on auto_texts (tenant_id, to_number, created_at desc)`;
+
+  // ---------- AI agent: tags, settings snapshot, appointments ----------
+  await sql`alter table calls add column if not exists ai_outcome text`;
+  await sql`alter table calls add column if not exists ai_note text`;
+  await sql`alter table calls add column if not exists ai_settings jsonb`;
+  await sql`alter table calls add column if not exists ai_text_sent_at timestamptz`;
+  await sql`alter table campaigns add column if not exists ai_settings jsonb`;
+  await sql`
+    create table if not exists appointments (
+      id uuid primary key default gen_random_uuid(),
+      tenant_id uuid not null references tenants(id) on delete cascade,
+      call_id uuid references calls(id) on delete set null,
+      contact_id uuid references contacts(id) on delete set null,
+      name text,
+      phone text,
+      when_text text not null,
+      reason text,
+      status text not null default 'requested' check (status in ('requested','confirmed','dismissed')),
+      created_at timestamptz not null default now()
+    )
+  `;
+  await sql`create index if not exists idx_appointments_tenant on appointments (tenant_id, created_at desc)`;
+  await sql`create index if not exists idx_calls_ai_outcome on calls (tenant_id, ai_outcome) where ai_outcome is not null`;
 }

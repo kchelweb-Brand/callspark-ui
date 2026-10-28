@@ -20,6 +20,13 @@ export async function originateAiCall(input: {
   from: string;
   webhookUrl: string;
   statusCallbackUrl: string;
+  /**
+   * Ask the carrier whether a person or an answering machine picked up, and
+   * pass the answer to the webhook as AnsweredBy. "Enable" decides as soon as
+   * it can; "DetectMessageEnd" waits for the greeting and beep so a message can
+   * be left.
+   */
+  machineDetection?: "Enable" | "DetectMessageEnd";
 }): Promise<SignalwireResult> {
   const { projectId, apiToken, spaceName } = signalwireCredentials();
   if (!projectId || !apiToken || !spaceName) {
@@ -33,6 +40,10 @@ export async function originateAiCall(input: {
     Url: input.webhookUrl,
     StatusCallback: input.statusCallbackUrl,
   });
+  if (input.machineDetection) {
+    body.set("MachineDetection", input.machineDetection);
+    body.set("MachineDetectionTimeout", input.machineDetection === "DetectMessageEnd" ? "30" : "12");
+  }
 
   return signalwireFetch(url, body, projectId, apiToken);
 }

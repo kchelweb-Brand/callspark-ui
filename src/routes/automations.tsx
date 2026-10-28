@@ -34,6 +34,8 @@ import {
 } from "@/backend/automation.server";
 import { getNumberHealthFn, restNumberFn } from "@/backend/reputation.server";
 import { getSessionToken } from "@/lib/auth-api";
+import { AiAgentSettingsForm } from "@/components/dash/AiAgentSettingsForm";
+import { listAppointments, setAppointmentStatus, type AppointmentRow } from "@/lib/workspace-api";
 
 export const Route = createFileRoute("/automations")({
   head: () => ({
@@ -273,12 +275,27 @@ function AutomationsPage() {
               onChange={(e) => setAuto({ ...auto, aiReceptionist: { ...auto.aiReceptionist, transferNumber: e.target.value } })}
             />
           </div>
+          <div className="flex flex-col gap-3 rounded-lg border border-border p-3">
+            <p className="text-sm font-medium">Voice and behaviour</p>
+            <AiAgentSettingsForm
+              value={auto.aiReceptionist.agent}
+              disabled={!features.aiReceptionist}
+              onChange={(agent) => setAuto({ ...auto, aiReceptionist: { ...auto.aiReceptionist, agent } })}
+            />
+          </div>
           <p className="text-xs text-muted-foreground">
             It always says it is an automated assistant, only answers from the description above, and never asks
-            for card numbers or passwords. If you set an urgent line, it tells callers to use that number for
-            emergencies.
+            for card numbers or passwords. Your urgent line is where a call is connected when someone asks for a
+            person, if handover is on.
           </p>
         </div>
+      </Panel>
+
+      <Panel
+        title="Appointment requests"
+        description="Times people asked for on AI calls. The agent never promises a slot: confirm each one with them."
+      >
+        <AppointmentList />
       </Panel>
 
       <Panel
@@ -416,5 +433,71 @@ function AutomationsPage() {
         </div>
       </Panel>
     </Shell>
+  );
+}
+
+/** What the AI agent noted: times people asked for, waiting for a human to confirm them. */
+function AppointmentList() {
+  const [rows, setRows] = useState<AppointmentRow[] | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      setRows(await listAppointments());
+    } catch {
+      setRows([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  async function mark(id: string, status: "confirmed" | "dismissed") {
+    try {
+      await setAppointmentStatus(id, status);
+      await load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not update that.");
+    }
+  }
+
+  if (rows === null) {
+    return (
+      <p className="flex items-center gap-2 text-sm text-muted-foreground">
+        <Loader2 className="size-4 animate-spin" /> Loading…
+      </p>
+    );
+  }
+  if (rows.length === 0) {
+    return <p className="text-sm text-muted-foreground">No requests yet. They appear here when the AI agent notes one.</p>;
+  }
+  return (
+    <div className="flex flex-col gap-2">
+      {rows.map((a) => (
+        <div key={a.id} className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border p-3">
+          <div className="flex flex-col gap-0.5">
+            <span className="text-sm font-medium">
+              {a.when_text}
+              {a.name ? ` · ${a.name}` : ""}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              {[a.phone, a.reason].filter(Boolean).join(" · ") || "No details"}
+            </span>
+          </div>
+          {a.status === "requested" ? (
+            <div className="flex gap-2">
+              <Button size="sm" onClick={() => void mark(a.id, "confirmed")}>
+                Confirmed with them
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => void mark(a.id, "dismissed")}>
+                Dismiss
+              </Button>
+            </div>
+          ) : (
+            <span className="text-xs text-muted-foreground">{a.status === "confirmed" ? "Confirmed" : "Dismissed"}</span>
+          )}
+        </div>
+      ))}
+    </div>
   );
 }

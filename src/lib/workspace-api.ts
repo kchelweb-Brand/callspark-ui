@@ -10,11 +10,18 @@ import {
 } from "@/backend/campaigns.server";
 import {
   getCampaignCallLogFn,
+  getCampaignOutcomesFn,
+  listAppointmentsFn,
   pauseCampaignDialingFn,
   reconcileCampaignFn,
+  recallCampaignFn,
+  sampleAiCallFn,
+  setAppointmentStatusFn,
   startCampaignDialingFn,
+  type AppointmentRow,
   type CampaignCallLogRow,
 } from "@/backend/campaign-dialer";
+import type { AiAgentSettings } from "@/backend/ai-agent-options";
 import {
   createAgentFn,
   deleteAgentFn,
@@ -71,6 +78,7 @@ export function createCampaign(input: {
   status?: string;
   mode?: "manual" | "ai_agent";
   aiPrompt?: string;
+  aiSettings?: AiAgentSettings;
   complianceAck?: boolean;
 }) {
   return createCampaignFn({ data: { token: requireToken(), ...input } });
@@ -78,7 +86,14 @@ export function createCampaign(input: {
 
 export function updateCampaign(
   id: string,
-  changes: { name?: string; status?: string; listId?: string; aiPrompt?: string; complianceAck?: boolean },
+  changes: {
+    name?: string;
+    status?: string;
+    listId?: string;
+    aiPrompt?: string;
+    aiSettings?: AiAgentSettings;
+    complianceAck?: boolean;
+  },
 ) {
   return updateCampaignFn({ data: { token: requireToken(), id, ...changes } });
 }
@@ -108,7 +123,29 @@ export function reconcileCampaign(campaignId: string, origin: string) {
   return reconcileCampaignFn({ data: { token: requireToken(), campaignId, origin } });
 }
 
-export type { CampaignCallLogRow };
+export type { AppointmentRow, CampaignCallLogRow };
+
+/** Rings `to` with this voice and style so it can be judged by ear. */
+export function sampleAiCall(settings: AiAgentSettings, to: string) {
+  return sampleAiCallFn({ data: { token: requireToken(), settings, to, origin: window.location.origin } });
+}
+
+/** How a campaign's calls ended so far, for choosing who to call again. */
+export function getCampaignOutcomes(campaignId: string) {
+  return getCampaignOutcomesFn({ data: { token: requireToken(), campaignId } });
+}
+
+export function recallCampaign(campaignId: string, outcomes: string[]) {
+  return recallCampaignFn({ data: { token: requireToken(), campaignId, outcomes } });
+}
+
+export async function listAppointments() {
+  return (await listAppointmentsFn({ data: { token: requireToken() } })).appointments;
+}
+
+export function setAppointmentStatus(id: string, status: "requested" | "confirmed" | "dismissed") {
+  return setAppointmentStatusFn({ data: { token: requireToken(), id, status } });
+}
 
 export async function getCampaignCallLog(campaignId: string) {
   const result = await getCampaignCallLogFn({ data: { token: requireToken(), campaignId } });

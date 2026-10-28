@@ -26,6 +26,21 @@
       <label class="switch"><input type="checkbox" id="${id}" ${on ? "checked" : ""} ${locked ? "disabled" : ""} /><span></span></label></div>`;
   }
 
+  /** What the AI agent noted: times people asked for, waiting for a person to confirm them. */
+  function apptRows(list) {
+    if (!list.length) return '<p class="hint">No requests yet. They appear here when the AI agent notes one.</p>';
+    return list
+      .map((a) => {
+        const detail = [a.phone, a.reason].filter(Boolean).join(" · ") || "No details";
+        const right =
+          a.status === "requested"
+            ? `<span><button data-appt="${a.id}" data-status="confirmed">Confirmed with them</button> <button data-appt="${a.id}" data-status="dismissed">Dismiss</button></span>`
+            : `<span class="hint">${a.status === "confirmed" ? "Confirmed" : "Dismissed"}</span>`;
+        return `<div class="switch-row"><div><h3>${U.esc(a.when_text)}${a.name ? " · " + U.esc(a.name) : ""}</h3><p class="hint">${U.esc(detail)}</p></div>${right}</div>`;
+      })
+      .join("");
+  }
+
   // ---------- Automations ----------
   const automations = (() => {
     const root = $("view-automations");
@@ -33,7 +48,12 @@
 
     async function load() {
       try {
-        const [d, t] = await Promise.all([api("automations/get"), api("automations/texts").catch(() => ({ texts: [] }))]);
+        const [d, t, appts] = await Promise.all([
+          api("automations/get"),
+          api("automations/texts").catch(() => ({ texts: [] })),
+          api("ai/appointments").catch(() => ({ appointments: [] })),
+          window.KchelAi.ensureOptions(),
+        ]);
         const a = d.automations;
         const f = d.features;
         root.querySelector("[data-body]").innerHTML = `
@@ -59,7 +79,15 @@
               <textarea id="ai-about" rows="5" maxlength="1500" placeholder="Hours, services, prices you're happy to share, address, how to book…" ${f.aiReceptionist ? "" : "disabled"}>${U.esc(a.aiReceptionist.about)}</textarea>
             </label>
             <label>Urgent line (optional)<input id="ai-urgent" type="text" placeholder="+14155550134" value="${U.esc(a.aiReceptionist.transferNumber)}" ${f.aiReceptionist ? "" : "disabled"} /></label>
-            <p class="hint">It always says it is an automated assistant, only answers from the description above, and never asks for card numbers or passwords. If you set an urgent line, it tells callers to use that number for emergencies.</p>
+            <p class="eyebrow">Voice and behaviour</p>
+            ${window.KchelAi.formHtml("rcp", a.aiReceptionist.agent, { voicemail: false, transfer: false, disabled: !f.aiReceptionist })}
+            <p class="hint">It always says it is an automated assistant, only answers from the description above, and never asks for card numbers or passwords. Your urgent line is where a call is connected when someone asks for a person, if handover is on.</p>
+          </div>
+
+          <div class="panel stack">
+            <p class="eyebrow">Appointment requests</p>
+            <p class="hint">Times people asked for on AI calls. The agent never promises a slot: confirm each one with them.</p>
+            <div id="appt-list">${apptRows(appts.appointments || [])}</div>
           </div>
 
           <div class="panel stack">
@@ -84,6 +112,19 @@
             )}
           </div>`;
 
+        window.KchelAi.bindForm(root, "rcp");
+        root.querySelector("#appt-list").addEventListener("click", async (e) => {
+          const btn = e.target.closest("button[data-appt]");
+          if (!btn) return;
+          try {
+            await api("ai/appointment-status", { id: btn.dataset.appt, status: btn.dataset.status });
+            const fresh = await api("ai/appointments");
+            root.querySelector("#appt-list").innerHTML = apptRows(fresh.appointments || []);
+          } catch (err) {
+            U.toast(err.message, "error");
+          }
+        });
+
         $("auto-save").addEventListener("click", async () => {
           const hint = $("auto-hint");
           hint.textContent = "Saving…";
@@ -97,6 +138,7 @@
                   businessName: $("ai-name").value,
                   about: $("ai-about").value,
                   transferNumber: $("ai-urgent").value,
+                  agent: window.KchelAi.readForm(root, "rcp", a.aiReceptionist.agent),
                 },
                 numberRotation: { enabled: $("nr-on").checked, dailyCap: Number($("nr-cap").value) },
               },

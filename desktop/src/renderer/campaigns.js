@@ -59,6 +59,8 @@
                     : ""
                 }
                 ${c.mode === "ai_agent" && c.queue_total > 0 ? `<button data-action="log" data-id="${c.id}" data-name="${escapeHtml(c.name)}" data-status="${c.status}">Log</button>` : ""}
+                ${c.mode === "ai_agent" && c.queue_total > 0 ? `<button data-action="again" data-id="${c.id}" data-name="${escapeHtml(c.name)}">Call again</button>` : ""}
+                ${c.mode === "ai_agent" ? `<button data-action="voice" data-id="${c.id}" data-name="${escapeHtml(c.name)}">Voice</button>` : ""}
               </td>
             </tr>
           `,
@@ -75,8 +77,82 @@
         if (action === "pause") void pauseCampaign(id);
         if (action === "log") openLog(id, name, status);
         if (action === "power") void window.KchelPower.start({ id, name });
+        if (action === "voice") void openVoice(id, name);
+        if (action === "again") void openRecall(id, name);
       });
     });
+  }
+
+  /** How the agent sounds and what it may do, for one campaign. */
+  async function openVoice(id, name) {
+    try {
+      await window.KchelAi.ensureOptions();
+      const list = await window.kchel.api("campaigns/list", {});
+      const campaign = list.campaigns.find((c) => c.id === id);
+      const settings = Object.assign({}, window.KchelAi.defaults(), campaign && campaign.ai_settings);
+      const m = window.KchelUi.modal({
+        title: name + " · voice and behaviour",
+        wide: true,
+        html:
+          window.KchelAi.formHtml("cv", settings, { voicemail: true, transfer: true }) +
+          '<div class="modal-actions" style="margin-top:12px"><button id="cv-save">Save</button></div><p class="hint" id="cv-hint"></p>',
+      });
+      window.KchelAi.bindForm(m.el, "cv");
+      m.el.querySelector("#cv-save").addEventListener("click", async () => {
+        const hint = m.el.querySelector("#cv-hint");
+        hint.textContent = "Saving…";
+        try {
+          await window.kchel.api("campaigns/update", { id, aiSettings: window.KchelAi.readForm(m.el, "cv", settings) });
+          m.close();
+          window.KchelUi.toast("Saved. Applies to the next call placed.", "info");
+        } catch (err) {
+          hint.textContent = err.message;
+        }
+      });
+    } catch (err) {
+      window.KchelUi.toast(err.message, "error");
+    }
+  }
+
+  /** Put the people whose last call ended a certain way back in the queue. */
+  async function openRecall(id, name) {
+    try {
+      const result = await window.kchel.api("campaigns/outcomes", { campaignId: id });
+      const U = window.KchelUi;
+      const preset = ["no_answer", "voicemail", "call_back"];
+      const body = result.outcomes.length
+        ? result.outcomes
+            .map(
+              (o) =>
+                `<label class="checkbox-row"><input type="checkbox" data-key="${U.esc(o.key)}" ${preset.includes(o.key) ? "checked" : ""} /> ${U.esc(o.label)} <span class="hint">${o.count}</span></label>`,
+            )
+            .join("")
+        : '<p class="hint">No finished calls to choose from yet.</p>';
+      const m = U.modal({
+        title: "Call people again · " + name,
+        html:
+          '<p class="hint">Choose who goes back in the queue. Do-not-call contacts, wrong numbers and transferred calls are never included.</p>' +
+          body +
+          (result.outcomes.length ? '<div class="modal-actions" style="margin-top:12px"><button id="rc-go">Queue them again</button></div>' : "") +
+          '<p class="hint" id="rc-hint"></p>',
+      });
+      const go = m.el.querySelector("#rc-go");
+      if (!go) return;
+      go.addEventListener("click", async () => {
+        const keys = [...m.el.querySelectorAll("input[data-key]:checked")].map((x) => x.dataset.key);
+        const hint = m.el.querySelector("#rc-hint");
+        try {
+          const done = await window.kchel.api("campaigns/recall", { campaignId: id, outcomes: keys });
+          m.close();
+          U.toast(done.requeued + " queued again. Press Resume to call them.", "info");
+          await load();
+        } catch (err) {
+          hint.textContent = err.message;
+        }
+      });
+    } catch (err) {
+      window.KchelUi.toast(err.message, "error");
+    }
   }
 
   async function startCampaign(id) {
@@ -161,6 +237,12 @@
   async function openNewCampaignModal() {
     let lists = [];
     try {
+      await window.KchelAi.ensureOptions();
+    } catch (err) {
+      window.KchelUi.toast(err.message, "error");
+      return;
+    }
+    try {
       const meta = await window.kchel.api("contacts/meta", {});
       lists = meta.lists;
     } catch {
@@ -191,6 +273,8 @@
               </label>
               <button type="button" id="nc-check-script">Check script</button>
               <div id="nc-check-result"></div>
+              <p class="eyebrow">Voice and behaviour</p>
+              ${window.KchelAi.formHtml("nc", window.KchelAi.defaults(), { voicemail: true, transfer: true })}
               <div class="checkbox-row">
                 <input id="nc-compliance" type="checkbox" />
                 <label for="nc-compliance">I confirm this script discloses it's an automated call and complies with outbound calling rules</label>
@@ -216,6 +300,7 @@
     document.getElementById("nc-mode-manual").addEventListener("click", () => setMode("manual"));
     document.getElementById("nc-mode-ai").addEventListener("click", () => setMode("ai_agent"));
     document.getElementById("nc-cancel").addEventListener("click", closeModal);
+    window.KchelAi.bindForm(els.modalRoot, "nc");
 
     document.getElementById("nc-check-script").addEventListener("click", async () => {
       const prompt = document.getElementById("nc-prompt").value.trim();
@@ -248,6 +333,7 @@
           listId,
           aiPrompt: mode === "ai_agent" ? document.getElementById("nc-prompt").value.trim() : undefined,
           complianceAck: mode === "ai_agent" ? document.getElementById("nc-compliance").checked : undefined,
+          aiSettings: mode === "ai_agent" ? window.KchelAi.readForm(els.modalRoot, "nc") : undefined,
         });
         closeModal();
         await load();

@@ -4,6 +4,8 @@ import { sql } from "./db";
 import { verifyToken } from "./tokens";
 import { requireCanCreate } from "./entitlements";
 import { reviewCampaignPrompt } from "./prompt-review";
+import { ensureSchema } from "./schema.server";
+import { aiSettingsProblem, sanitizeAiSettings, type AiAgentSettings } from "./ai-agent-options";
 
 async function requireTenant(token: string): Promise<string> {
   const payload = await verifyToken(token);
@@ -21,6 +23,8 @@ export interface CampaignRecord {
   script: string | null;
   mode: "manual" | "ai_agent";
   ai_prompt: string | null;
+  /** Voice, style, voicemail and actions for an AI campaign. */
+  ai_settings: AiAgentSettings | null;
   compliance_ack: boolean;
   contacts_loaded: number;
   calls_made: number;
@@ -34,8 +38,9 @@ export interface CampaignRecord {
 
 export async function listCampaigns(data: { token: string }) {
   const tenantId = await requireTenant(data.token);
+  await ensureSchema();
   const rows = await sql`
-    select c.id, c.name, c.status, c.list_name, c.list_id, c.owner, c.script, c.mode, c.ai_prompt, c.compliance_ack,
+    select c.id, c.name, c.status, c.list_name, c.list_id, c.owner, c.script, c.mode, c.ai_prompt, c.ai_settings, c.compliance_ack,
            c.contacts_loaded, c.calls_made, c.connect_rate, c.created_at,
            count(cc.id)::int as queue_total,
            count(cc.id) filter (where cc.status = 'completed')::int as queue_completed,
@@ -63,27 +68,32 @@ export async function createCampaign(data: {
   status?: string;
   mode?: "manual" | "ai_agent";
   aiPrompt?: string;
+  aiSettings?: AiAgentSettings;
   complianceAck?: boolean;
 }) {
   const tenantId = await requireTenant(data.token);
+  await ensureSchema();
   const name = data.name.trim();
   if (!name) throw new Error("Give the campaign a name.");
   await requireCanCreate(tenantId, "campaigns");
 
   const mode = data.mode ?? "manual";
+  const aiSettings = data.aiSettings === undefined ? null : sanitizeAiSettings(data.aiSettings);
+  const aiProblem = aiSettings ? aiSettingsProblem(aiSettings) : null;
+  if (aiProblem) throw new Error(aiProblem);
   // An AI campaign always starts Draft — it's only allowed to go Active
   // through startCampaignDialingFn, which gates on the prompt and the
   // compliance acknowledgment existing first.
   const status = mode === "ai_agent" ? "Draft" : data.status ?? "Draft";
 
   const rows = await sql`
-    insert into campaigns (tenant_id, name, status, list_name, list_id, owner, script, mode, ai_prompt, compliance_ack)
+    insert into campaigns (tenant_id, name, status, list_name, list_id, owner, script, mode, ai_prompt, ai_settings, compliance_ack)
     values (
       ${tenantId}, ${name}, ${status},
       ${data.listName ?? null}, ${data.listId ?? null}, ${data.owner ?? null}, ${data.script ?? null},
-      ${mode}, ${data.aiPrompt ?? null}, ${data.complianceAck ?? false}
+      ${mode}, ${data.aiPrompt ?? null}, ${aiSettings ? JSON.stringify(aiSettings) : null}::jsonb, ${data.complianceAck ?? false}
     )
-    returning id, name, status, list_name, list_id, owner, script, mode, ai_prompt, compliance_ack,
+    returning id, name, status, list_name, list_id, owner, script, mode, ai_prompt, ai_settings, compliance_ack,
               contacts_loaded, calls_made, connect_rate, created_at
   `;
   return { ok: true as const, campaign: rows[0] as unknown as CampaignRecord };
@@ -101,6 +111,7 @@ export const createCampaignFn = createServerFn({ method: "POST" })
       status?: string;
       mode?: "manual" | "ai_agent";
       aiPrompt?: string;
+      aiSettings?: AiAgentSettings;
       complianceAck?: boolean;
     }) => data,
   )
@@ -113,9 +124,14 @@ export async function updateCampaign(data: {
   status?: string;
   listId?: string;
   aiPrompt?: string;
+  aiSettings?: AiAgentSettings;
   complianceAck?: boolean;
 }) {
   const tenantId = await requireTenant(data.token);
+  await ensureSchema();
+  const aiSettings = data.aiSettings === undefined ? null : sanitizeAiSettings(data.aiSettings);
+  const aiProblem = aiSettings ? aiSettingsProblem(aiSettings) : null;
+  if (aiProblem) throw new Error(aiProblem);
 
   if (data.status === "Active") {
     const [existing] = await sql`select mode from campaigns where id = ${data.id} and tenant_id = ${tenantId}`;
@@ -132,10 +148,11 @@ export async function updateCampaign(data: {
       status = coalesce(${data.status ?? null}, status),
       list_id = coalesce(${data.listId ?? null}, list_id),
       ai_prompt = coalesce(${data.aiPrompt ?? null}, ai_prompt),
+      ai_settings = coalesce(${aiSettings ? JSON.stringify(aiSettings) : null}::jsonb, ai_settings),
       compliance_ack = coalesce(${data.complianceAck ?? null}, compliance_ack),
       updated_at = now()
     where id = ${data.id} and tenant_id = ${tenantId}
-    returning id, name, status, list_name, list_id, owner, script, mode, ai_prompt, compliance_ack,
+    returning id, name, status, list_name, list_id, owner, script, mode, ai_prompt, ai_settings, compliance_ack,
               contacts_loaded, calls_made, connect_rate, created_at
   `;
   if (rows.length === 0) throw new Error("Campaign not found.");
@@ -151,6 +168,7 @@ export const updateCampaignFn = createServerFn({ method: "POST" })
       status?: string;
       listId?: string;
       aiPrompt?: string;
+      aiSettings?: AiAgentSettings;
       complianceAck?: boolean;
     }) => data,
   )
@@ -158,6 +176,7 @@ export const updateCampaignFn = createServerFn({ method: "POST" })
 
 export async function duplicateCampaign(data: { token: string; id: string }) {
   const tenantId = await requireTenant(data.token);
+  await ensureSchema();
 
   // A duplicate is still a new campaign as far as the plan is concerned.
   await requireCanCreate(tenantId, "campaigns");
@@ -166,10 +185,10 @@ export async function duplicateCampaign(data: { token: string; id: string }) {
   // copy needs its own explicit confirmation, not an inherited one) — a
   // duplicate starts fresh.
   const rows = await sql`
-    insert into campaigns (tenant_id, name, status, list_name, list_id, owner, script, mode, ai_prompt, compliance_ack)
-    select tenant_id, name || ' (copy)', 'Draft', list_name, list_id, owner, script, mode, ai_prompt, false
+    insert into campaigns (tenant_id, name, status, list_name, list_id, owner, script, mode, ai_prompt, ai_settings, compliance_ack)
+    select tenant_id, name || ' (copy)', 'Draft', list_name, list_id, owner, script, mode, ai_prompt, ai_settings, false
     from campaigns where id = ${data.id} and tenant_id = ${tenantId}
-    returning id, name, status, list_name, list_id, owner, script, mode, ai_prompt, compliance_ack,
+    returning id, name, status, list_name, list_id, owner, script, mode, ai_prompt, ai_settings, compliance_ack,
               contacts_loaded, calls_made, connect_rate, created_at
   `;
   if (rows.length === 0) throw new Error("Campaign not found.");

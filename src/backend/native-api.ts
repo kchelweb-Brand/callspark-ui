@@ -26,6 +26,22 @@ import {
 } from "./campaigns.server";
 import { reviewCampaignPrompt } from "./prompt-review";
 import {
+  getCampaignOutcomes,
+  recallCampaign,
+  sampleAiCall,
+  listAppointments,
+  setAppointmentStatus,
+} from "./campaign-dialer";
+import {
+  AI_MODELS,
+  AI_OUTCOMES,
+  AI_STYLES,
+  AI_TIER_NOTE,
+  AI_VOICEMAIL,
+  AI_VOICES,
+  DEFAULT_AI_SETTINGS,
+} from "./ai-agent-options";
+import {
   startCampaignDialing,
   pauseCampaignDialing,
   reconcileCampaign,
@@ -310,6 +326,35 @@ export async function handleNativeApi(request: Request, pathname: string): Promi
         return jsonOk(await reconcileCampaign(await readJson(request)));
       case "campaigns/call-log":
         return jsonOk(await getCampaignCallLog(await readJson(request)));
+      case "campaigns/outcomes":
+        return jsonOk(await getCampaignOutcomes(await readJson(request)));
+      case "campaigns/recall":
+        return jsonOk(await recallCampaign(await readJson(request)));
+
+      // ---------- AI voice agent: what can be chosen, hearing a voice, bookings ----------
+      case "ai/options": {
+        // Static, but only for a signed-in owner like every other settings route.
+        const { token } = await readJson<{ token: string }>(request);
+        const payload = await verifyToken(token);
+        if (!payload?.tenantId) throw new Error("Not signed in.");
+        return jsonOk({
+          voices: AI_VOICES,
+          tierNotes: AI_TIER_NOTE,
+          styles: AI_STYLES,
+          models: AI_MODELS,
+          voicemail: AI_VOICEMAIL,
+          outcomes: AI_OUTCOMES,
+          defaults: DEFAULT_AI_SETTINGS,
+        });
+      }
+      case "ai/sample": {
+        const body = await readJson<{ token: string; settings: unknown; to: string }>(request);
+        return jsonOk(await sampleAiCall({ ...body, origin: new URL(request.url).origin }));
+      }
+      case "ai/appointments":
+        return jsonOk(await listAppointments(await readJson(request)));
+      case "ai/appointment-status":
+        return jsonOk(await setAppointmentStatus(await readJson(request)));
 
       // ---------- phone system / IVR (menus live inside the same config) ----------
       case "phone-system/get":

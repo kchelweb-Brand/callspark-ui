@@ -15,6 +15,16 @@ import { originateAiCall } from "./signalwire-rest";
 import { pickOutboundNumber } from "./reputation.server";
 import { verifySignalWireSignature } from "./signalwire";
 import { createServerFn } from "@tanstack/react-start";
+import { sqlQuery } from "./db";
+import { ensureSchema } from "./schema.server";
+import { parsePhone } from "./contact-import";
+import { workspaceDialCode } from "./contacts.server";
+import { buildAiVerb, contactBrief, summaryPrompt, tagCall } from "./ai-agent.server";
+import {
+  AI_OUTCOMES,
+  aiOutcomeLabel,
+  sanitizeAiSettings,
+} from "./ai-agent-options";
 
 export const CAMPAIGN_AI_WEBHOOK_PATH = "/api/voice/signalwire-ai";
 
@@ -30,11 +40,6 @@ async function requireTenant(token: string): Promise<string> {
 }
 
 /** "Hi {{first_name}}" -> "Hi Jordan". Falls back to "there"/"" for missing fields rather than leaving the literal placeholder. */
-const OPENING_INSTRUCTION =
-  "IMPORTANT: You placed this call and the person has just picked up. Do not wait for them to speak. " +
-  "Speak first, right away: say a short greeting, who you are and why you are calling, in one or two sentences, " +
-  "then pause and let them answer. If they say hello first, still introduce yourself straight away.";
-
 function interpolate(template: string, contact: { person: string | null; company: string | null }): string {
   const name = contact.person?.trim() || "";
   const firstName = name.split(/\s+/)[0] || "there";
@@ -77,8 +82,9 @@ export async function dialNextPendingContact(
     return;
   }
 
+  await ensureSchema();
   const [campaign] = await sql`
-    select tenant_id, status, ai_prompt from campaigns where id = ${campaignId} limit 1
+    select tenant_id, status, ai_prompt, ai_settings from campaigns where id = ${campaignId} limit 1
   `;
   if (!campaign || campaign.status !== "Active") return; // paused or gone — stop the chain
 
@@ -125,9 +131,12 @@ export async function dialNextPendingContact(
     return;
   }
 
+  // The settings in force are kept on the call: the action webhooks read them back.
+  const settings = sanitizeAiSettings(campaign.ai_settings);
   const [{ id: callId }] = await sql`
-    insert into calls (tenant_id, campaign_id, direction, to_number, from_number, contact_id, status)
-    values (${tenantId}, ${campaignId}, 'outbound', ${contact.phone}, ${fromNumber}, ${claimed.contact_id}, 'ringing')
+    insert into calls (tenant_id, campaign_id, direction, to_number, from_number, contact_id, status, handled_by, ai_settings)
+    values (${tenantId}, ${campaignId}, 'outbound', ${contact.phone}, ${fromNumber}, ${claimed.contact_id}, 'ringing', 'ai',
+            ${JSON.stringify(settings)}::jsonb)
     returning id
   `;
   await sql`update campaign_calls set call_id = ${callId} where id = ${claimed.id}`;
@@ -137,6 +146,8 @@ export async function dialNextPendingContact(
     from: fromNumber,
     webhookUrl: `${origin}${CAMPAIGN_AI_WEBHOOK_PATH}?campaignCallId=${claimed.id}`,
     statusCallbackUrl: `${origin}${CAMPAIGN_AI_WEBHOOK_PATH}?campaignCallId=${claimed.id}&event=status`,
+    machineDetection:
+      settings.voicemail === "talk" ? undefined : settings.voicemail === "message" ? "DetectMessageEnd" : "Enable",
   });
 
   if (!result.ok) {
@@ -179,6 +190,13 @@ export async function handleCampaignAiWebhook(request: Request): Promise<Respons
     return new Response("Invalid signature", { status: 403 });
   }
 
+  const sampleCallId = url.searchParams.get("sampleCallId");
+  if (sampleCallId) {
+    return url.searchParams.get("event") === "status"
+      ? handleSampleStatus(sampleCallId, params)
+      : handleSampleAnswer(sampleCallId, originForRequest(request));
+  }
+
   const campaignCallId = url.searchParams.get("campaignCallId");
   if (!campaignCallId) return new Response("Missing campaignCallId", { status: 400 });
 
@@ -186,12 +204,19 @@ export async function handleCampaignAiWebhook(request: Request): Promise<Respons
     return handleStatusCallback(campaignCallId, params, originForRequest(request));
   }
 
-  return handleAnswer(campaignCallId);
+  return handleAnswer(campaignCallId, params, originForRequest(request));
 }
 
-async function handleAnswer(campaignCallId: string): Promise<Response> {
+/** True when the carrier says an answering machine (or a fax) picked up rather than a person. */
+function isMachine(answeredBy: string | undefined): boolean {
+  const a = (answeredBy ?? "").toLowerCase();
+  return a.startsWith("machine") || a === "fax";
+}
+
+async function handleAnswer(campaignCallId: string, params: Record<string, string>, origin: string): Promise<Response> {
+  await ensureSchema();
   const [row] = await sql`
-    select cc.campaign_id, ct.person, ct.company, c.ai_prompt
+    select cc.campaign_id, cc.call_id, cc.tenant_id, cc.contact_id, ct.person, ct.company, c.ai_prompt, c.ai_settings
     from campaign_calls cc
     join contacts ct on ct.id = cc.contact_id
     join campaigns c on c.id = cc.campaign_id
@@ -203,25 +228,34 @@ async function handleAnswer(campaignCallId: string): Promise<Response> {
     return swml({ sections: { main: [{ hangup: {} }] } });
   }
 
-  // The model only talks first when told to: with just a role description it
-  // sits silent until the person says "hello", so every campaign prompt gets
-  // the same opening instruction appended.
-  const prompt = `${interpolate(row.ai_prompt, { person: row.person, company: row.company })}\n\n${OPENING_INSTRUCTION}`;
-  return swml({
-    version: "1.0.0",
-    sections: {
-      main: [
-        { answer: {} },
-        {
-          ai: {
-            prompt: { text: prompt },
-            params: { direction: "outbound", wait_for_user: false },
-          },
-        },
-        { hangup: {} },
-      ],
-    },
+  const settings = sanitizeAiSettings(row.ai_settings);
+  const person = { person: row.person as string | null, company: row.company as string | null };
+
+  // A voicemail greeting is not a conversation: hang up, or leave the message once the beep is done.
+  if (isMachine(params["AnsweredBy"])) {
+    if (row.call_id) await tagCall(row.call_id as string, "voicemail");
+    const beepDone = (params["AnsweredBy"] ?? "").toLowerCase().startsWith("machine_end");
+    if (settings.voicemail === "message" && settings.voicemailMessage.trim() && beepDone) {
+      const message = interpolate(settings.voicemailMessage, person);
+      return swml({
+        version: "1.0.0",
+        sections: { main: [{ answer: {} }, { sleep: 400 }, { play: { url: `say:${message}` } }, { hangup: {} }] },
+      });
+    }
+    return swml({ version: "1.0.0", sections: { main: [{ hangup: {} }] } });
+  }
+
+  const brief = await contactBrief(row.tenant_id as string, row.contact_id as string);
+  const ai = await buildAiVerb({
+    kind: "campaign",
+    settings,
+    role: interpolate(row.ai_prompt, person),
+    brief,
+    callId: row.call_id as string,
+    origin,
+    postPrompt: summaryPrompt("the person who runs this campaign"),
   });
+  return swml({ version: "1.0.0", sections: { main: [{ answer: {} }, { ai }, { hangup: {} }] } });
 }
 
 async function handleStatusCallback(
@@ -231,7 +265,14 @@ async function handleStatusCallback(
 ): Promise<Response> {
   const callStatus = (params["CallStatus"] ?? "").toLowerCase();
   const duration = Number(params["CallDuration"] ?? 0);
-  const answered = callStatus === "completed" && duration > 0;
+
+  await ensureSchema();
+  const [tagged] = await sql`
+    select c.ai_outcome from campaign_calls cc left join calls c on c.id = cc.call_id where cc.id = ${campaignCallId}
+  `;
+  const aiOutcome = (tagged?.["ai_outcome"] as string | null | undefined) ?? null;
+  // A voicemail greeting is a connected call to the carrier but not a conversation.
+  const answered = callStatus === "completed" && duration > 0 && aiOutcome !== "voicemail";
 
   // A carrier-level failure (rate limited, invalid destination, etc.) is a
   // different thing from a genuine no-answer/busy — worth keeping distinct
@@ -239,8 +280,10 @@ async function handleStatusCallback(
   // same generic label.
   const errorMessage = params["ErrorMessage"];
   const { status: callRowStatus, outcome } = answered
-    ? { status: "completed", outcome: "Connected" }
-    : callStatus === "busy"
+    ? { status: "completed", outcome: aiOutcomeLabel(aiOutcome) ?? "Connected" }
+    : aiOutcome === "voicemail"
+      ? { status: "no_answer", outcome: "Voicemail" }
+      : callStatus === "busy"
       ? { status: "busy", outcome: "Busy" }
       : callStatus === "failed" || callStatus === "canceled"
         ? { status: "failed", outcome: errorMessage ?? "Call failed" }
@@ -384,3 +427,194 @@ export async function pauseCampaignDialing(data: { token: string; campaignId: st
 export const pauseCampaignDialingFn = createServerFn({ method: "POST" })
   .validator((data: { token: string; campaignId: string }) => data)
   .handler(async ({ data }) => pauseCampaignDialing(data));
+
+// ---------------------------------------------------------------------------
+// Hear a voice: a short call to your own phone
+// ---------------------------------------------------------------------------
+
+const SAMPLES_PER_DAY = 5;
+
+const SAMPLE_GREETING =
+  "Hi, this is how I sound on a call. If you like this voice, you can use it for your calls. " +
+  "Go ahead and say something back, and I will answer.";
+
+/** Rings the given number with the chosen voice and style, so it can be judged by ear before it is used on real people. */
+export async function sampleAiCall(data: { token: string; settings: unknown; to: string; origin: string }) {
+  const tenantId = await requireTenant(data.token);
+  await ensureSchema();
+  if (!env.signalwireProjectId || !env.signalwireApiToken || !env.signalwireSpaceName) {
+    throw new Error("AI calling isn't set up yet — SignalWire REST credentials are missing.");
+  }
+
+  const settings = sanitizeAiSettings(data.settings);
+  const parsed = parsePhone(data.to, await workspaceDialCode(tenantId));
+  if ("error" in parsed) throw new Error(`${parsed.error}.`);
+
+  const [{ n }] = (await sql`
+    select count(*)::int as n from calls
+    where tenant_id = ${tenantId} and handled_by = 'ai_sample' and started_at > now() - interval '1 day'
+  `) as unknown as { n: number }[];
+  if (n >= SAMPLES_PER_DAY) throw new Error(`You can place ${SAMPLES_PER_DAY} sample calls a day. Try again tomorrow.`);
+
+  const fromNumber = await pickOutboundNumber(tenantId);
+  if (!fromNumber) throw new Error("Add a phone number first. A sample call needs a number to ring from.");
+
+  const [{ id: callId }] = await sql`
+    insert into calls (tenant_id, direction, to_number, from_number, status, handled_by, ai_settings)
+    values (${tenantId}, 'outbound', ${parsed.phone}, ${fromNumber}, 'ringing', 'ai_sample', ${JSON.stringify(settings)}::jsonb)
+    returning id
+  `;
+  const result = await originateAiCall({
+    to: parsed.phone,
+    from: fromNumber,
+    webhookUrl: `${data.origin}${CAMPAIGN_AI_WEBHOOK_PATH}?sampleCallId=${callId}`,
+    statusCallbackUrl: `${data.origin}${CAMPAIGN_AI_WEBHOOK_PATH}?sampleCallId=${callId}&event=status`,
+  });
+  if (!result.ok) {
+    await sql`update calls set status = 'failed', error = ${result.error ?? "Dial failed"}, ended_at = now() where id = ${callId}`;
+    throw new Error(result.error ?? "The sample call could not be placed.");
+  }
+  return { ok: true as const, to: parsed.phone };
+}
+
+export const sampleAiCallFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string; settings: unknown; to: string; origin: string }) => data)
+  .handler(async ({ data }) => sampleAiCall(data));
+
+async function handleSampleAnswer(callId: string, origin: string): Promise<Response> {
+  const [call] = await sql`select ai_settings from calls where id = ${callId} and handled_by = 'ai_sample' limit 1`;
+  if (!call) return swml({ version: "1.0.0", sections: { main: [{ hangup: {} }] } });
+  const ai = await buildAiVerb({
+    kind: "sample",
+    settings: sanitizeAiSettings(call["ai_settings"]),
+    role:
+      "You are demonstrating your voice to a business owner who is trying voices before choosing one. " +
+      "Chat briefly and naturally with whatever they say. After a few exchanges, say a warm goodbye.",
+    callId,
+    origin,
+    greeting: SAMPLE_GREETING,
+    hardStop: "40s",
+  });
+  return swml({ version: "1.0.0", sections: { main: [{ answer: {} }, { ai }, { hangup: {} }] } });
+}
+
+async function handleSampleStatus(callId: string, params: Record<string, string>): Promise<Response> {
+  const status = (params["CallStatus"] ?? "").toLowerCase();
+  const duration = Number(params["CallDuration"] ?? 0);
+  const answered = status === "completed" && duration > 0;
+  await sql`
+    update calls set
+      status = ${answered ? "completed" : status === "busy" ? "busy" : status === "failed" ? "failed" : "no_answer"},
+      outcome = ${answered ? "Voice sample" : "Voice sample not answered"},
+      answered_at = case when ${answered} then now() else answered_at end,
+      ended_at = now(),
+      duration_seconds = ${Number.isFinite(duration) ? duration : null}
+    where id = ${callId} and handled_by = 'ai_sample'
+  `;
+  return new Response(null, { status: 204 });
+}
+
+// ---------------------------------------------------------------------------
+// Calling people back, by how the last call went
+// ---------------------------------------------------------------------------
+
+/** Outcomes it makes sense to dial again. Do-not-call, wrong numbers and transfers are never offered. */
+const RECALLABLE = ["no_answer", "voicemail", "call_back", "no_decision", "interested", "not_interested", "untagged"] as const;
+
+const RECALL_LABELS: Record<string, string> = {
+  no_answer: "No answer",
+  untagged: "Connected, no tag",
+  ...Object.fromEntries(AI_OUTCOMES.map((o) => [o.id, o.label])),
+};
+
+/** How one queue row ended: the tag the agent gave it, else whether it connected at all. */
+const RESULT_KEY_SQL = `coalesce((select c.ai_outcome from calls c where c.id = cc.call_id), case when cc.status = 'failed' then 'no_answer' else 'untagged' end)`;
+
+/** How the calls so far ended, for choosing who to call again. */
+export async function getCampaignOutcomes(data: { token: string; campaignId: string }) {
+  const tenantId = await requireTenant(data.token);
+  const rows = await sqlQuery(
+    `select ${RESULT_KEY_SQL} as key, count(*)::int as n
+     from campaign_calls cc
+     where cc.campaign_id = $1 and cc.tenant_id = $2 and cc.status in ('completed','failed')
+     group by 1`,
+    [data.campaignId, tenantId],
+  );
+  const [pending] = await sql`
+    select count(*)::int as n from campaign_calls where campaign_id = ${data.campaignId} and tenant_id = ${tenantId} and status = 'pending'
+  `;
+  return {
+    ok: true as const,
+    pending: Number(pending?.["n"] ?? 0),
+    outcomes: rows
+      .map((r) => ({ key: String(r["key"]), label: RECALL_LABELS[String(r["key"])] ?? String(r["key"]), count: Number(r["n"]) }))
+      .filter((o) => (RECALLABLE as readonly string[]).includes(o.key))
+      .sort((a, b) => b.count - a.count),
+  };
+}
+
+export const getCampaignOutcomesFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string; campaignId: string }) => data)
+  .handler(async ({ data }) => getCampaignOutcomes(data));
+
+/** Puts the chosen contacts back in the queue. Press Start dialing to call them. */
+export async function recallCampaign(data: { token: string; campaignId: string; outcomes: string[] }) {
+  const tenantId = await requireTenant(data.token);
+  const keys = (Array.isArray(data.outcomes) ? data.outcomes : []).filter((k) => (RECALLABLE as readonly string[]).includes(k));
+  if (keys.length === 0) throw new Error("Choose who to call again.");
+  const rows = await sqlQuery(
+    `update campaign_calls cc set status = 'pending', updated_at = now()
+     where cc.campaign_id = $1 and cc.tenant_id = $2 and cc.status in ('completed','failed')
+       and ${RESULT_KEY_SQL} = any($3::text[])
+       and exists (select 1 from contacts ct where ct.id = cc.contact_id and ct.do_not_call = false)
+     returning cc.id`,
+    [data.campaignId, tenantId, keys],
+  );
+  return { ok: true as const, requeued: rows.length };
+}
+
+export const recallCampaignFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string; campaignId: string; outcomes: string[] }) => data)
+  .handler(async ({ data }) => recallCampaign(data));
+
+// ---------------------------------------------------------------------------
+// Appointments the agent noted, for the owner to confirm
+// ---------------------------------------------------------------------------
+
+export interface AppointmentRow {
+  id: string;
+  name: string | null;
+  phone: string | null;
+  when_text: string;
+  reason: string | null;
+  status: "requested" | "confirmed" | "dismissed";
+  created_at: string;
+}
+
+export async function listAppointments(data: { token: string }) {
+  const tenantId = await requireTenant(data.token);
+  await ensureSchema();
+  const rows = await sql`
+    select id, name, phone, when_text, reason, status, created_at from appointments
+    where tenant_id = ${tenantId} order by (status = 'requested') desc, created_at desc limit 100
+  `;
+  return { ok: true as const, appointments: rows as unknown as AppointmentRow[] };
+}
+
+export const listAppointmentsFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string }) => data)
+  .handler(async ({ data }) => listAppointments(data));
+
+export async function setAppointmentStatus(data: { token: string; id: string; status: string }) {
+  const tenantId = await requireTenant(data.token);
+  if (data.status !== "confirmed" && data.status !== "dismissed" && data.status !== "requested") {
+    throw new Error("Unknown status.");
+  }
+  await ensureSchema();
+  await sql`update appointments set status = ${data.status} where id = ${data.id} and tenant_id = ${tenantId}`;
+  return { ok: true as const };
+}
+
+export const setAppointmentStatusFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string; id: string; status: string }) => data)
+  .handler(async ({ data }) => setAppointmentStatus(data));

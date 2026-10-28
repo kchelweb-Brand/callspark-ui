@@ -28,6 +28,8 @@ import { getSessionUser } from "@/lib/auth-api";
 import { getContactsMeta } from "@/lib/contacts-api";
 import { createCampaign, type CampaignRecord } from "@/lib/workspace-api";
 import { PromptReviewPanel } from "@/components/dash/PromptReviewPanel";
+import { AiAgentSettingsForm } from "@/components/dash/AiAgentSettingsForm";
+import { DEFAULT_AI_SETTINGS, type AiAgentSettings } from "@/backend/ai-agent-options";
 
 const DEFAULT_AI_PROMPT =
   "Hi {{first_name}}, this is an automated assistant calling on behalf of [Your Business]. " +
@@ -49,6 +51,7 @@ export function CreateCampaignDialog({
   const [mode, setMode] = useState<"manual" | "ai_agent">("manual");
   const [aiPrompt, setAiPrompt] = useState(DEFAULT_AI_PROMPT);
   const [complianceAck, setComplianceAck] = useState(false);
+  const [aiSettings, setAiSettings] = useState<AiAgentSettings>(DEFAULT_AI_SETTINGS);
   const [saving, setSaving] = useState(false);
   const [contactLists, setContactLists] = useState<{ id: string; name: string }[]>([]);
 
@@ -70,7 +73,7 @@ export function CreateCampaignDialog({
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+      <DialogContent className={`max-h-[85vh] overflow-y-auto ${mode === "ai_agent" ? "sm:max-w-2xl" : "sm:max-w-lg"}`}>
         <DialogHeader>
           <DialogTitle>Create campaign</DialogTitle>
           <DialogDescription>
@@ -102,7 +105,7 @@ export function CreateCampaignDialog({
                   mode,
                   ...(mode === "manual"
                     ? { ...(script.trim() ? { script: script.trim() } : {}) }
-                    : { aiPrompt: aiPrompt.trim(), complianceAck }),
+                    : { aiPrompt: aiPrompt.trim(), aiSettings, complianceAck }),
                 });
                 onCreated?.(result.campaign);
                 const listLabel = contactLists.find((l) => l.id === listId)?.name ?? "No list yet";
@@ -116,6 +119,7 @@ export function CreateCampaignDialog({
                 setScript("");
                 setAiPrompt(DEFAULT_AI_PROMPT);
                 setComplianceAck(false);
+                setAiSettings(DEFAULT_AI_SETTINGS);
                 setOpen(false);
               } catch (err) {
                 toast.error(err instanceof Error ? err.message : "Could not create that campaign.");
@@ -218,6 +222,11 @@ export function CreateCampaignDialog({
               </div>
 
               <PromptReviewPanel prompt={aiPrompt} onApply={setAiPrompt} />
+
+              <div className="flex flex-col gap-3 rounded-lg border border-border p-3">
+                <p className="text-sm font-medium">Voice and behaviour</p>
+                <AiAgentSettingsForm value={aiSettings} onChange={setAiSettings} showVoicemail showTransfer />
+              </div>
 
               <div className="flex items-start gap-2.5 rounded-lg border border-border bg-muted/40 p-3">
                 <Checkbox
