@@ -592,7 +592,7 @@ export const pauseCampaignDialingFn = createServerFn({ method: "POST" })
 // Hear a voice: a short call to your own phone
 // ---------------------------------------------------------------------------
 
-const SAMPLES_PER_DAY = 5;
+const SAMPLES_PER_DAY = 15;
 
 const SAMPLE_GREETING =
   "Hi, this is how I sound on a call. If you like this voice, you can use it for your calls. " +
