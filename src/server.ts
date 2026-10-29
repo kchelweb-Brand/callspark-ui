@@ -11,6 +11,8 @@ import { FLUTTERWAVE_WEBHOOK_PATH, handleFlutterwaveWebhook } from "./backend/pa
 import { RECEIPT_PATH, serveReceipt } from "./backend/receipts.server";
 import { setSpeechMaker } from "./backend/campaign-dialer";
 import { speechUrls } from "./backend/tts.server";
+import { setPhoneBrain } from "./backend/ai-phone.server";
+import { phoneBrain } from "./backend/brain.server";
 import { NATIVE_API_PREFIX, handleNativeApi } from "./backend/native-api";
 
 /**
@@ -80,6 +82,8 @@ export const SIGNALWIRE_VOICE_WEBHOOK_PATH = "/api/voice/signalwire";
 
 // The campaign code makes recordings through this, without importing the Cloudflare-only part itself.
 setSpeechMaker(speechUrls);
+// The same for the phone AI's model: the campaign code asks for it through this.
+setPhoneBrain(phoneBrain);
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
