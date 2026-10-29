@@ -23,6 +23,7 @@ import { buildAiVerb, buildScriptDoc, campaignGreeting, contactBrief, summaryPro
 import {
   AI_OUTCOMES,
   aiOutcomeLabel,
+  findAiVoice,
   sanitizeAiSettings,
 } from "./ai-agent-options";
 
@@ -518,7 +519,27 @@ async function handleSampleAnswer(callId: string, origin: string): Promise<Respo
   const [call] = await sql`select ai_settings from calls where id = ${callId} and handled_by = 'ai_sample' limit 1`;
   if (!call) return swml({ version: "1.0.0", sections: { main: [{ hangup: {} }] } });
   if (sanitizeAiSettings(call["ai_settings"]).delivery === "script") {
-    return swml(buildScriptDoc({ script: SAMPLE_SCRIPT, settings: sanitizeAiSettings(call["ai_settings"]) }));
+    // A line check you can hear: a beep (no speech at all), then the carrier's default voice, then the chosen
+    // voice reading a sample. Which of the three is missing says exactly what is not working.
+    const chosen = sanitizeAiSettings(call["ai_settings"]);
+    const voice = findAiVoice(chosen.voice);
+    console.log(`[campaign-script] sample line check, voice=${chosen.voice}`);
+    return swml({
+      version: "1.0.0",
+      sections: {
+        main: [
+          { answer: {} },
+          { sleep: 1000 },
+          { play: { url: `${origin}/line-check.wav` } },
+          { sleep: 700 },
+          { play: { url: "say:One. This is the plain default voice." } },
+          { sleep: 700 },
+          { play: { url: `say:Two. This is your chosen voice. ${SAMPLE_SCRIPT}`, say_voice: voice.voice, say_language: voice.lang } },
+          { sleep: 500 },
+          { hangup: {} },
+        ],
+      },
+    });
   }
   const ai = await buildAiVerb({
     kind: "sample",
