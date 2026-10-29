@@ -18,7 +18,6 @@ import {
 } from "@/components/ui/select";
 import {
   AI_DELIVERY,
-  AI_SPEECH,
   AI_MODELS,
   AI_STYLES,
   AI_TIER_NOTE,
@@ -216,25 +215,6 @@ export function AiAgentSettingsForm({
               </p>
             </>
           )}
-        </div>
-      )}
-
-      {script && (
-        <div className="flex flex-col gap-2">
-          <Label>Voice engine</Label>
-          <Select value={value.speech} disabled={disabled} onValueChange={(v) => set({ speech: v as AiAgentSettings["speech"] })}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {AI_SPEECH.map((d) => (
-                <SelectItem key={d.id} value={d.id}>
-                  {d.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <p className="text-xs text-muted-foreground">{AI_SPEECH.find((d) => d.id === value.speech)?.hint}</p>
         </div>
       )}
 
