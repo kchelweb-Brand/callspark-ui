@@ -354,13 +354,25 @@ async function handleStatusCallback(
   return new Response(null, { status: 204 });
 }
 
+type SpeechMaker = (text: string, origin: string) => Promise<string[] | null>;
+let speechMaker: SpeechMaker | null = null;
+
+/**
+ * The Worker entry hands in the built-in speech maker. It uses Cloudflare-only bindings, so this file
+ * (which browser code also imports) must not import it directly.
+ */
+export function setSpeechMaker(fn: SpeechMaker): void {
+  speechMaker = fn;
+}
+
+const speechUrls: SpeechMaker = async (text, origin) => (speechMaker ? speechMaker(text, origin) : null);
+
 /**
  * Recordings for a script call, when the built-in voice is chosen. Returns null to use the carrier's voice:
  * either that was chosen, or the recordings could not be made (never leave the person in silence for it).
  */
 async function scriptAudio(script: string, settings: ReturnType<typeof sanitizeAiSettings>, origin: string) {
   if (settings.speech !== "built-in") return null;
-  const { speechUrls } = await import("./tts.server");
   const spoken = scriptText(script);
   const [body, press, connecting] = await Promise.all([
     speechUrls(spoken, origin),
@@ -545,7 +557,6 @@ async function handleSampleAnswer(callId: string, origin: string): Promise<Respo
     // voice reading a sample. Which of the three is missing says exactly what is not working.
     const chosen = sanitizeAiSettings(call["ai_settings"]);
     const voice = findAiVoice(chosen.voice);
-    const { speechUrls } = await import("./tts.server");
     const builtIn = await speechUrls("Three. This is the built-in voice. Your script will sound like this when it is played from a recording.", origin);
     console.log(`[campaign-script] sample line check, voice=${chosen.voice}`);
     return swml({
