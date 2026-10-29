@@ -9,8 +9,6 @@ import { CAMPAIGN_AI_WEBHOOK_PATH, handleCampaignAiWebhook } from "./backend/cam
 import { AI_ACTIONS_PATH, handleAiFunction } from "./backend/ai-agent.server";
 import { FLUTTERWAVE_WEBHOOK_PATH, handleFlutterwaveWebhook } from "./backend/payment-webhook.server";
 import { RECEIPT_PATH, serveReceipt } from "./backend/receipts.server";
-import { setSpeechMaker } from "./backend/campaign-dialer";
-import { speechUrls } from "./backend/tts.server";
 import { NATIVE_API_PREFIX, handleNativeApi } from "./backend/native-api";
 
 /**
@@ -77,9 +75,6 @@ async function serveDownload(pathname: string): Promise<Response> {
 export const VOICE_WEBHOOK_PATH = "/api/voice/telnyx";
 /** Paste this one into a SignalWire phone number's "when a call comes in". */
 export const SIGNALWIRE_VOICE_WEBHOOK_PATH = "/api/voice/signalwire";
-
-// The campaign code makes recordings through this, without importing the Cloudflare-only part itself.
-setSpeechMaker(speechUrls);
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
