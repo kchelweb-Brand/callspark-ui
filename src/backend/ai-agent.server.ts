@@ -72,7 +72,7 @@ const STYLE_PARAMS: Record<AiStyle, Record<string, unknown>> = {
   },
 };
 
-export const STYLE_GUIDE: Record<AiStyle, string> = {
+const STYLE_GUIDE: Record<AiStyle, string> = {
   natural:
     "Sound like a relaxed, friendly person on the phone, not a script. Use short sentences and contractions. " +
     "Say one thing at a time and ask only one question at a time. React to what they say the way a person would " +
@@ -85,7 +85,7 @@ export const STYLE_GUIDE: Record<AiStyle, string> = {
 };
 
 /** Told to every agent, whatever the style: people must not be misled about who they are talking to. */
-export const HONESTY =
+const HONESTY =
   "If anyone sincerely asks whether you are a person, a robot or an AI, say honestly that you are an automated assistant. " +
   "Never ask for card numbers, passwords or ID numbers. Never invent prices, availability or promises.";
 

@@ -66,9 +66,6 @@ export const AI_SPEECH: { id: AiSpeech; label: string; hint: string }[] = [
   { id: "carrier", label: "Phone carrier voices (pick one below)", hint: "The carrier reads your script in the voice you pick. This stays silent if the carrier's voices are not working." },
 ];
 
-/** Which call format a campaign uses. "cxml" is the classic one the IVR menu uses, with our own AI model; "swml" is SignalWire's hosted AI agent. */
-export type AiEngine = "cxml" | "swml";
-
 export type AiVoicemail = "hangup" | "message" | "talk";
 
 export const AI_VOICEMAIL: { id: AiVoicemail; label: string }[] = [
@@ -102,7 +99,6 @@ export function isAiOutcome(value: unknown): value is AiOutcomeId {
 
 export interface AiAgentSettings {
   delivery: AiDelivery;
-  engine: AiEngine;
   /** Script mode: who makes the voice. */
   speech: AiSpeech;
   /** Script mode: after reading, offer "press 1 to speak with someone" and connect to the transfer number. */
@@ -128,7 +124,6 @@ export interface AiAgentSettings {
 
 export const DEFAULT_AI_SETTINGS: AiAgentSettings = {
   delivery: "ai",
-  engine: "cxml",
   speech: "built-in",
   pressToConnect: false,
   voice: "ella",
@@ -158,7 +153,6 @@ export function sanitizeAiSettings(raw: unknown, base: AiAgentSettings = DEFAULT
   const transfer = typeof r["transferNumber"] === "string" ? r["transferNumber"].trim().slice(0, 24) : base.transferNumber;
   return {
     delivery: clean(r["delivery"], AI_DELIVERY.map((d) => d.id), base.delivery),
-    engine: clean(r["engine"], ["cxml", "swml"] as const, base.engine),
     speech: clean(r["speech"], AI_SPEECH.map((d) => d.id), base.speech),
     pressToConnect: typeof r["pressToConnect"] === "boolean" ? (r["pressToConnect"] as boolean) : base.pressToConnect,
     voice: clean(r["voice"], AI_VOICES.map((v) => v.id), base.voice),

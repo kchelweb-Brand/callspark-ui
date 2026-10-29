@@ -20,8 +20,6 @@ import { ensureSchema } from "./schema.server";
 import { parsePhone } from "./contact-import";
 import { workspaceDialCode } from "./contacts.server";
 import { buildAiVerb, buildScriptDoc, campaignGreeting, contactBrief, scriptText, summaryPrompt, tagCall } from "./ai-agent.server";
-import { conversationTurn, openConversation, pressStep, scriptCall, summariseCall, type PhoneCtx } from "./ai-phone.server";
-import { cxml, hangup, play, say } from "./signalwire";
 import {
   AI_OUTCOMES,
   aiOutcomeLabel,
@@ -201,10 +199,6 @@ export async function handleCampaignAiWebhook(request: Request): Promise<Respons
     return new Response("Invalid signature", { status: 403 });
   }
 
-  // The follow-up requests of a call run in the classic format: what the person said, or the key they pressed.
-  const step = url.searchParams.get("step");
-  if (step === "turn" || step === "press") return handleClassicStep(url, params, step, originForRequest(request));
-
   const sampleCallId = url.searchParams.get("sampleCallId");
   if (sampleCallId) {
     return url.searchParams.get("event") === "status"
@@ -228,7 +222,7 @@ function isMachine(answeredBy: string | undefined): boolean {
   return a.startsWith("machine") || a === "fax";
 }
 
-async function loadCampaignRow(campaignCallId: string) {
+async function handleAnswer(campaignCallId: string, params: Record<string, string>, origin: string): Promise<Response> {
   await ensureSchema();
   const [row] = await sql`
     select cc.campaign_id, cc.call_id, cc.tenant_id, cc.contact_id, ct.person, ct.company, ct.first_name, ct.last_name, ct.location, ct.country, c.ai_prompt, c.ai_settings
@@ -237,78 +231,6 @@ async function loadCampaignRow(campaignCallId: string) {
     join campaigns c on c.id = cc.campaign_id
     where cc.id = ${campaignCallId} limit 1
   `;
-  return row;
-}
-
-/** Everything the classic-format call needs, from one campaign call. */
-async function campaignCtx(row: Record<string, unknown>, campaignCallId: string, origin: string): Promise<PhoneCtx> {
-  const saved = sanitizeAiSettings(row["ai_settings"]);
-  const settings = { ...saved, voice: await voiceForPlan(row["tenant_id"] as string, saved.voice) };
-  const person = {
-    person: row["person"] as string | null,
-    company: row["company"] as string | null,
-    firstName: row["first_name"] as string | null,
-    lastName: row["last_name"] as string | null,
-    location: row["location"] as string | null,
-    country: row["country"] as string | null,
-  };
-  let fromNumber: string | null = null;
-  if (row["call_id"]) {
-    const [call] = await sql`select from_number from calls where id = ${row["call_id"] as string} limit 1`;
-    fromNumber = (call?.["from_number"] as string | null) ?? null;
-  }
-  return {
-    kind: "campaign",
-    callId: row["call_id"] as string,
-    tenantId: row["tenant_id"] as string,
-    settings,
-    role: interpolate(row["ai_prompt"] as string, person),
-    brief: settings.delivery === "script" ? "" : await contactBrief(row["tenant_id"] as string, row["contact_id"] as string),
-    firstName: person.firstName?.trim() || person.person?.trim().split(/\s+/)[0] || null,
-    fromNumber,
-    base: `${origin}${CAMPAIGN_AI_WEBHOOK_PATH}?campaignCallId=${campaignCallId}`,
-  };
-}
-
-const SAMPLE_ROLE =
-  "You are Sam, a friendly assistant on a short sample call, so a business owner can hear how you sound. " +
-  "Chat briefly and naturally with whatever they say. After a few exchanges, say a warm goodbye and end the call.";
-
-async function sampleCtx(sampleCallId: string, origin: string): Promise<PhoneCtx | null> {
-  await ensureSchema();
-  const [call] = await sql`select tenant_id, from_number, ai_settings from calls where id = ${sampleCallId} and handled_by = 'ai_sample' limit 1`;
-  if (!call) return null;
-  return {
-    kind: "sample",
-    callId: sampleCallId,
-    tenantId: call["tenant_id"] as string,
-    settings: sanitizeAiSettings(call["ai_settings"]),
-    role: SAMPLE_ROLE,
-    brief: "",
-    firstName: null,
-    fromNumber: (call["from_number"] as string | null) ?? null,
-    base: `${origin}${CAMPAIGN_AI_WEBHOOK_PATH}?sampleCallId=${sampleCallId}`,
-  };
-}
-
-/** A follow-up request in the classic format: the person spoke (turn), or pressed a key (press). */
-async function handleClassicStep(url: URL, params: Record<string, string>, step: "turn" | "press", origin: string): Promise<Response> {
-  const campaignCallId = url.searchParams.get("campaignCallId");
-  const sampleCallId = url.searchParams.get("sampleCallId");
-  let ctx: PhoneCtx | null = null;
-  if (campaignCallId) {
-    const row = await loadCampaignRow(campaignCallId);
-    if (row && row["ai_prompt"]) ctx = await campaignCtx(row, campaignCallId, origin);
-  } else if (sampleCallId) {
-    ctx = await sampleCtx(sampleCallId, origin);
-  }
-  if (!ctx) return cxml(hangup());
-  if (step === "press") return pressStep(ctx, params["Digits"] ?? "");
-  return conversationTurn(ctx, params["SpeechResult"] ?? null);
-}
-
-async function handleAnswer(campaignCallId: string, params: Record<string, string>, origin: string): Promise<Response> {
-  const row = await loadCampaignRow(campaignCallId);
   // A missing row (deleted campaign mid-chain) is a silent stop, not an error —
   // hang up politely rather than 500ing back at the carrier.
   if (!row || !row.ai_prompt) {
@@ -332,26 +254,12 @@ async function handleAnswer(campaignCallId: string, params: Record<string, strin
     const beepDone = (params["AnsweredBy"] ?? "").toLowerCase().startsWith("machine_end");
     if (settings.voicemail === "message" && settings.voicemailMessage.trim() && beepDone) {
       const message = interpolate(settings.voicemailMessage, person);
-      if (settings.engine !== "swml") return cxml(`<Pause length="1"/>${say(message)}${hangup()}`);
       return swml({
         version: "1.0.0",
         sections: { main: [{ answer: {} }, { sleep: 400 }, { play: { url: `say:${message}` } }, { hangup: {} }] },
       });
     }
-    if (settings.engine !== "swml") return cxml(hangup());
     return swml({ version: "1.0.0", sections: { main: [{ hangup: {} }] } });
-  }
-
-  // The classic format: our own AI model holds the conversation, or the script is read, using the same
-  // commands the IVR menu uses.
-  if (settings.engine !== "swml") {
-    const ctx = await campaignCtx(row, campaignCallId, origin);
-    console.log(`[campaign-call] answered ${campaignCallId}: AnsweredBy=${params["AnsweredBy"] ?? "(not checked)"} delivery=${settings.delivery} voice=${settings.voice}`);
-    if (settings.delivery === "script") {
-      const audio = await scriptAudio(ctx.role, ctx.settings, origin);
-      return scriptCall(ctx, audio ? { script: audio.script, press: audio.press } : null);
-    }
-    return openConversation(ctx);
   }
 
   // A script campaign reads the script aloud and, if asked to, offers to connect the person. No AI.
@@ -441,9 +349,6 @@ async function handleStatusCallback(
       where id = ${row.call_id}
     `;
   }
-
-  // A conversation run here has no summary yet: write it now that the call is over.
-  if (answered && row.call_id) await summariseCall(row.call_id as string);
 
   await dialNextPendingContact(row.campaign_id, origin);
   return new Response(null, { status: 204 });
@@ -647,29 +552,6 @@ export const sampleAiCallFn = createServerFn({ method: "POST" })
 async function handleSampleAnswer(callId: string, origin: string): Promise<Response> {
   const [call] = await sql`select ai_settings from calls where id = ${callId} and handled_by = 'ai_sample' limit 1`;
   if (!call) return swml({ version: "1.0.0", sections: { main: [{ hangup: {} }] } });
-  if (sanitizeAiSettings(call["ai_settings"]).engine !== "swml") {
-    const ctx = await sampleCtx(callId, origin);
-    if (!ctx) return cxml(hangup());
-    // Reading a script: a line check you can hear. A beep (no speech), the carrier's plain voice, the chosen voice,
-    // then the built-in voice. Which of them is missing says what is not working.
-    if (ctx.settings.delivery === "script") {
-      const v = findAiVoice(ctx.settings.voice);
-      const male = /^(daniel|oliver|jack|onyx|josh)$/.test(v.id);
-      const builtIn = await speechUrls("Three. This is the built-in voice. Your script will sound like this when it is played from a recording.", origin);
-      console.log(`[campaign-script] sample line check, voice=${ctx.settings.voice}`);
-      return cxml(
-        `<Pause length="1"/>` +
-          play(`${origin}/line-check.wav`) +
-          `<Pause length="1"/>` +
-          say("One. This is the plain default voice.") +
-          `<Pause length="1"/>` +
-          say(`Two. This is your chosen voice. ${SAMPLE_SCRIPT}`, { voice: male ? "man" : "woman", language: v.lang }) +
-          (builtIn ? `<Pause length="1"/>${builtIn.map(play).join("")}` : "") +
-          hangup(),
-      );
-    }
-    return openConversation(ctx);
-  }
   if (sanitizeAiSettings(call["ai_settings"]).delivery === "script") {
     // A line check you can hear: a beep (no speech at all), then the carrier's default voice, then the chosen
     // voice reading a sample. Which of the three is missing says exactly what is not working.
@@ -722,7 +604,6 @@ async function handleSampleStatus(callId: string, params: Record<string, string>
       duration_seconds = ${Number.isFinite(duration) ? duration : null}
     where id = ${callId} and handled_by = 'ai_sample'
   `;
-  if (answered) await summariseCall(callId);
   return new Response(null, { status: 204 });
 }
 
