@@ -22,7 +22,6 @@ import { workspaceDialCode } from "./contacts.server";
 import { buildAiVerb, buildScriptDoc, campaignGreeting, contactBrief, scriptText, summaryPrompt, tagCall } from "./ai-agent.server";
 import { conversationTurn, openConversation, pressStep, scriptCall, summariseCall, type PhoneCtx } from "./ai-phone.server";
 import { cxml, hangup, play, say } from "./signalwire";
-import { AI_CALLING_ENABLED, AI_OFF_MESSAGE } from "./ai-switch";
 import {
   AI_OUTCOMES,
   aiOutcomeLabel,
@@ -145,12 +144,6 @@ export async function dialNextPendingContact(
 
   // The settings in force are kept on the call: the action webhooks read them back.
   const settings = sanitizeAiSettings(campaign.ai_settings);
-  if (!AI_CALLING_ENABLED && settings.delivery !== "script") {
-    await sql`update campaign_calls set status = 'pending', attempts = greatest(attempts - 1, 0), updated_at = now() where id = ${claimed['id']}`;
-    await sql`update campaigns set status = 'Paused', updated_at = now() where id = ${campaignId} and status = 'Active'`;
-    console.warn(`[campaign-dialer] ${campaignId} paused — AI calling is switched off`);
-    return;
-  }
   const [{ id: callId }] = await sql`
     insert into calls (tenant_id, campaign_id, direction, to_number, from_number, contact_id, status, handled_by, ai_settings)
     values (${tenantId}, ${campaignId}, 'outbound', ${contact.phone}, ${fromNumber}, ${claimed.contact_id}, 'ringing', 'ai',
@@ -323,7 +316,6 @@ async function handleAnswer(campaignCallId: string, params: Record<string, strin
   }
 
   const saved = sanitizeAiSettings(row.ai_settings);
-  if (!AI_CALLING_ENABLED && saved.delivery !== "script") return cxml(hangup());
   const settings = { ...saved, voice: await voiceForPlan(row.tenant_id as string, saved.voice) };
   const person = {
     person: row.person as string | null,
@@ -617,7 +609,6 @@ export async function sampleAiCall(data: { token: string; settings: unknown; to:
   }
 
   const settings = sanitizeAiSettings(data.settings);
-  if (!AI_CALLING_ENABLED && settings.delivery !== "script") throw new Error(AI_OFF_MESSAGE);
   await requirePremiumVoice(tenantId, settings.voice);
   const parsed = parsePhone(data.to, await workspaceDialCode(tenantId));
   if ("error" in parsed) throw new Error(`${parsed.error}.`);
@@ -656,7 +647,6 @@ export const sampleAiCallFn = createServerFn({ method: "POST" })
 async function handleSampleAnswer(callId: string, origin: string): Promise<Response> {
   const [call] = await sql`select ai_settings from calls where id = ${callId} and handled_by = 'ai_sample' limit 1`;
   if (!call) return swml({ version: "1.0.0", sections: { main: [{ hangup: {} }] } });
-  if (!AI_CALLING_ENABLED && sanitizeAiSettings(call["ai_settings"]).delivery !== "script") return cxml(hangup());
   if (sanitizeAiSettings(call["ai_settings"]).engine !== "swml") {
     const ctx = await sampleCtx(callId, origin);
     if (!ctx) return cxml(hangup());

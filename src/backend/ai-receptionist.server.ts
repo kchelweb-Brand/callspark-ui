@@ -11,7 +11,6 @@
 // Server-only; imported by the call webhook, never by browser code.
 
 import { sql } from "./db";
-import { AI_CALLING_ENABLED } from "./ai-switch";
 import { ensureSchema } from "./schema.server";
 import { tenantHasFeature, voiceForPlan } from "./entitlements";
 import { loadAutomations, type Automations } from "./automation.server";
@@ -27,7 +26,6 @@ export async function receptionistFor(
   tenantId: string,
   situation: "incoming_open" | NoAnswerReason,
 ): Promise<Automations["aiReceptionist"] | null> {
-  if (!AI_CALLING_ENABLED) return null;
   const { aiReceptionist } = await loadAutomations(tenantId);
   if (!aiReceptionist.enabled) return null;
   if (!(await tenantHasFeature(tenantId, "aiReceptionist"))) return null;
