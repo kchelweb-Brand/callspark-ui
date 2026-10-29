@@ -85,6 +85,10 @@
         }
         ${voicemail
           ? `<div data-script-only class="stack ${script ? "" : "hidden"}">
+              <label>Voice engine
+                ${choose(`${p}-speech`, (o.speech || []).map((x) => opt(x.id, x.label)).join(""), s.speech || "built-in")}
+                <span class="hint" id="${p}-speech-hint">${U.esc(((o.speech || []).find((x) => x.id === (s.speech || "built-in")) || {}).hint || "")}</span>
+              </label>
               <div class="switch-row"><div><h3>Offer "press 1" to speak with someone</h3><p class="hint">After the script, the person can press 1 to be connected to the number below. Everyone else hears the script and the call ends.</p></div>
                 <label class="switch"><input type="checkbox" id="${p}-press" ${s.pressToConnect ? "checked" : ""} ${disabled ? "disabled" : ""} /><span></span></label></div>
               <label id="${p}-press-row" class="${s.pressToConnect ? "" : "hidden"}">Connect them to
@@ -136,6 +140,13 @@
         $("delivery-hint").textContent = d ? d.hint : "";
       });
     }
+    const speech = $("speech");
+    if (speech) {
+      speech.addEventListener("change", () => {
+        const d = (o.speech || []).find((x) => x.id === speech.value);
+        $("speech-hint").textContent = d ? d.hint : "";
+      });
+    }
     const press = $("press");
     if (press) press.addEventListener("change", () => root.querySelector(`#${p}-press-row`).classList.toggle("hidden", !press.checked));
     const vm = $("vm");
@@ -162,6 +173,7 @@
     const b = base || options.defaults;
     return {
       delivery: $("delivery") ? $("delivery").value : b.delivery || "ai",
+      speech: $("speech") ? $("speech").value : b.speech || "built-in",
       pressToConnect: $("press") ? $("press").checked : !!b.pressToConnect,
       voice: $("voice").value,
       style: $("style").value,

@@ -19,7 +19,7 @@ import { sqlQuery } from "./db";
 import { ensureSchema } from "./schema.server";
 import { parsePhone } from "./contact-import";
 import { workspaceDialCode } from "./contacts.server";
-import { buildAiVerb, buildScriptDoc, campaignGreeting, contactBrief, summaryPrompt, tagCall } from "./ai-agent.server";
+import { buildAiVerb, buildScriptDoc, campaignGreeting, contactBrief, scriptText, summaryPrompt, tagCall } from "./ai-agent.server";
 import {
   AI_OUTCOMES,
   aiOutcomeLabel,
@@ -264,13 +264,15 @@ async function handleAnswer(campaignCallId: string, params: Record<string, strin
 
   // A script campaign reads the script aloud and, if asked to, offers to connect the person. No AI.
   if (settings.delivery === "script") {
+    const scriptBody = interpolate(row.ai_prompt as string, person);
+    const audio = await scriptAudio(scriptBody, settings, origin);
     let fromNumber: string | null = null;
     if (row.call_id) {
       const [call] = await sql`select from_number from calls where id = ${row.call_id as string} limit 1`;
       fromNumber = (call?.["from_number"] as string | null) ?? null;
     }
     console.log(`[campaign-script] answered ${campaignCallId}: AnsweredBy=${params["AnsweredBy"] ?? "(not checked)"} voice=${settings.voice} press1=${settings.pressToConnect}`);
-    return swml(buildScriptDoc({ script: interpolate(row.ai_prompt as string, person), settings, fromNumber }));
+    return swml(buildScriptDoc({ script: scriptBody, settings, fromNumber, audio }));
   }
 
   const brief = await contactBrief(row.tenant_id as string, row.contact_id as string);
@@ -350,6 +352,26 @@ async function handleStatusCallback(
 
   await dialNextPendingContact(row.campaign_id, origin);
   return new Response(null, { status: 204 });
+}
+
+/**
+ * Recordings for a script call, when the built-in voice is chosen. Returns null to use the carrier's voice:
+ * either that was chosen, or the recordings could not be made (never leave the person in silence for it).
+ */
+async function scriptAudio(script: string, settings: ReturnType<typeof sanitizeAiSettings>, origin: string) {
+  if (settings.speech !== "built-in") return null;
+  const { speechUrls } = await import("./tts.server");
+  const spoken = scriptText(script);
+  const [body, press, connecting] = await Promise.all([
+    speechUrls(spoken, origin),
+    settings.pressToConnect ? speechUrls("To speak with someone now, press 1.", origin) : Promise.resolve(null),
+    settings.pressToConnect ? speechUrls("Connecting you now. Please hold.", origin) : Promise.resolve(null),
+  ]);
+  if (!body) {
+    console.warn("[campaign-script] built-in voice unavailable, using the carrier's voice");
+    return null;
+  }
+  return { script: body, press: press ?? undefined, connecting: connecting ?? undefined };
 }
 
 function swml(doc: unknown): Response {
@@ -523,6 +545,8 @@ async function handleSampleAnswer(callId: string, origin: string): Promise<Respo
     // voice reading a sample. Which of the three is missing says exactly what is not working.
     const chosen = sanitizeAiSettings(call["ai_settings"]);
     const voice = findAiVoice(chosen.voice);
+    const { speechUrls } = await import("./tts.server");
+    const builtIn = await speechUrls("Three. This is the built-in voice. Your script will sound like this when it is played from a recording.", origin);
     console.log(`[campaign-script] sample line check, voice=${chosen.voice}`);
     return swml({
       version: "1.0.0",
@@ -535,6 +559,7 @@ async function handleSampleAnswer(callId: string, origin: string): Promise<Respo
           { play: { url: "say:One. This is the plain default voice." } },
           { sleep: 700 },
           { play: { url: `say:Two. This is your chosen voice. ${SAMPLE_SCRIPT}`, say_voice: voice.voice, say_language: voice.lang } },
+          ...(builtIn ? [{ sleep: 700 }, { play: { urls: builtIn } }] : []),
           { sleep: 500 },
           { hangup: {} },
         ],

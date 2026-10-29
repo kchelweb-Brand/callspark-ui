@@ -58,6 +58,14 @@ export const AI_DELIVERY: { id: AiDelivery; label: string; hint: string }[] = [
   { id: "script", label: "Read my script aloud (no AI)", hint: "A voice reads your script word for word to whoever picks up, then ends the call. Optionally offers \"press 1\" to be connected to you." },
 ];
 
+/** Script mode: who makes the voice. The built-in one is made here and played as a recording, so it does not depend on the carrier's voices. */
+export type AiSpeech = "built-in" | "carrier";
+
+export const AI_SPEECH: { id: AiSpeech; label: string; hint: string }[] = [
+  { id: "built-in", label: "Built-in voice (recommended)", hint: "Your script is turned into a recording here and played on the call. It does not depend on the phone carrier's voices." },
+  { id: "carrier", label: "Phone carrier voices (pick one below)", hint: "The carrier reads your script in the voice you pick. This stays silent if the carrier's voices are not working." },
+];
+
 export type AiVoicemail = "hangup" | "message" | "talk";
 
 export const AI_VOICEMAIL: { id: AiVoicemail; label: string }[] = [
@@ -91,6 +99,8 @@ export function isAiOutcome(value: unknown): value is AiOutcomeId {
 
 export interface AiAgentSettings {
   delivery: AiDelivery;
+  /** Script mode: who makes the voice. */
+  speech: AiSpeech;
   /** Script mode: after reading, offer "press 1 to speak with someone" and connect to the transfer number. */
   pressToConnect: boolean;
   voice: string;
@@ -114,6 +124,7 @@ export interface AiAgentSettings {
 
 export const DEFAULT_AI_SETTINGS: AiAgentSettings = {
   delivery: "ai",
+  speech: "built-in",
   pressToConnect: false,
   voice: "ella",
   style: "natural",
@@ -142,6 +153,7 @@ export function sanitizeAiSettings(raw: unknown, base: AiAgentSettings = DEFAULT
   const transfer = typeof r["transferNumber"] === "string" ? r["transferNumber"].trim().slice(0, 24) : base.transferNumber;
   return {
     delivery: clean(r["delivery"], AI_DELIVERY.map((d) => d.id), base.delivery),
+    speech: clean(r["speech"], AI_SPEECH.map((d) => d.id), base.speech),
     pressToConnect: typeof r["pressToConnect"] === "boolean" ? (r["pressToConnect"] as boolean) : base.pressToConnect,
     voice: clean(r["voice"], AI_VOICES.map((v) => v.id), base.voice),
     style: clean(r["style"], AI_STYLES.map((s) => s.id), base.style),
