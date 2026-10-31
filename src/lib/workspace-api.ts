@@ -2,6 +2,7 @@
 import {
   createCampaignFn,
   deleteCampaignFn,
+  deleteCampaignsFn,
   duplicateCampaignFn,
   listCampaignsFn,
   updateCampaignFn,
@@ -98,6 +99,11 @@ export function duplicateCampaign(id: string) {
 
 export function deleteCampaign(id: string) {
   return deleteCampaignFn({ data: { token: requireToken(), id } });
+}
+
+/** Deletes every campaign in `ids`; resolves with how many were removed. */
+export function deleteCampaigns(ids: string[]) {
+  return deleteCampaignsFn({ data: { token: requireToken(), ids } });
 }
 
 /** `origin` is the browser's own location — the webhook address the carrier calls back into. */

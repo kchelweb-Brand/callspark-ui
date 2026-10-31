@@ -241,10 +241,40 @@ export async function deleteCampaign(data: { token: string; id: string }) {
   return { ok: true as const, released };
 }
 
+/** Deletes several campaigns at once. Only this workspace's own campaigns are touched; ids that aren't found are ignored. */
+export async function deleteCampaigns(data: { token: string; ids: string[] }) {
+  const tenantId = await requireTenant(data.token);
+  await ensureSchema();
+  const ids = [...new Set((Array.isArray(data.ids) ? data.ids : []).filter((x) => typeof x === "string" && /^[0-9a-f-]{36}$/i.test(x)))];
+  if (ids.length === 0) throw new Error("Choose at least one campaign to delete.");
+  if (ids.length > 200) throw new Error("Delete 200 campaigns or fewer at a time.");
+
+  const removed = (await sql`
+    delete from campaigns where tenant_id = ${tenantId} and id = any(${ids}::uuid[]) returning recording
+  `) as unknown as { recording: unknown }[];
+
+  // Each recording file goes too, unless a campaign that is staying still plays it.
+  const released: string[] = [];
+  for (const row of removed) {
+    const key = sanitizeRecordingSettings(row.recording).file?.key;
+    if (!key || released.includes(key)) continue;
+    released.push(...(await unusedRecordingKeys(tenantId, key)));
+  }
+  return { ok: true as const, deleted: removed.length, released };
+}
+
 export const deleteCampaignFn = createServerFn({ method: "POST" })
   .validator((data: { token: string; id: string }) => data)
   .handler(async ({ data }) => {
     const { released } = await deleteCampaign(data);
     await deleteStoredFiles(released);
     return { ok: true as const };
+  });
+
+export const deleteCampaignsFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string; ids: string[] }) => data)
+  .handler(async ({ data }) => {
+    const { released, ...result } = await deleteCampaigns(data);
+    await deleteStoredFiles(released);
+    return result;
   });

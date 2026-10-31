@@ -23,6 +23,7 @@ import {
   updateCampaign,
   duplicateCampaign,
   deleteCampaign,
+  deleteCampaigns,
 } from "./campaigns.server";
 import { deleteGreeting, deleteStoredFiles, uploadGreeting } from "./media-store";
 import { RECORDING_VOICEMAIL, DEFAULT_RECORDING_SETTINGS, MAX_CALLS_AT_ONCE } from "./recording-options";
@@ -307,6 +308,11 @@ export async function handleNativeApi(request: Request, pathname: string): Promi
       }
       case "campaigns/duplicate":
         return jsonOk(await duplicateCampaign(await readJson(request)));
+      case "campaigns/delete-many": {
+        const { released, ...result } = await deleteCampaigns(await readJson(request));
+        await deleteStoredFiles(released);
+        return jsonOk(result);
+      }
       case "campaigns/delete": {
         const { released } = await deleteCampaign(await readJson(request));
         await deleteStoredFiles(released);

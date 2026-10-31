@@ -1375,3 +1375,12 @@ td select, td input[type="checkbox"] { font-size: 13px; }
 .help-form textarea { flex: 1; resize: none; border: 1px solid #c8d3dd; border-radius: 8px; padding: 8px 10px; font: inherit; font-size: 13.5px; max-height: 90px; }
 .help-send { background: #0b8f4d; color: #fff; border: none; border-radius: 8px; padding: 0 14px; font-weight: 700; cursor: pointer; }
 .help-foot { margin: 0; padding: 4px 14px 10px; font-size: 11px; color: #465a6e; }
+
+/* Campaigns: Delete selected sits beside New campaign. */
+.header-actions { display: flex; align-items: center; gap: 10px; }
+button.btn-danger { background: var(--danger); color: #fff; box-shadow: none; }
+button.btn-danger:hover { background: #bd322d; }
+button.btn-danger:disabled { opacity: 0.45; cursor: not-allowed; }
+button.btn-danger:disabled:hover { background: var(--danger); }
+.data-table input.row-check { width: 16px; height: 16px; cursor: pointer; }
+.modal-text { white-space: pre-line; }

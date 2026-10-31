@@ -56,6 +56,7 @@ import {
 } from "@/backend/recording-options";
 import {
   deleteCampaign,
+  deleteCampaigns,
   duplicateCampaign,
   getCampaignCallLog,
   listCampaigns,
@@ -138,6 +139,9 @@ function CampaignsPage() {
   const [status, setStatus] = useState<string | null>(null);
   const [owner, setOwner] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Campaign | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkBusy, setBulkBusy] = useState(false);
   const [logTarget, setLogTarget] = useState<Campaign | null>(null);
   const [logRows, setLogRows] = useState<CampaignCallLogRow[]>([]);
   const [logLoading, setLogLoading] = useState(false);
@@ -346,6 +350,26 @@ function CampaignsPage() {
     }
   }
 
+  // Only campaigns that still exist count as selected (a reload or a delete can remove some).
+  const selectedRows = rows.filter((r) => selected.has(r.id));
+
+  async function handleBulkDelete() {
+    const ids = selectedRows.map((r) => r.id);
+    if (ids.length === 0) return;
+    setBulkBusy(true);
+    try {
+      const result = await deleteCampaigns(ids);
+      setRows((prev) => prev.filter((r) => !ids.includes(r.id)));
+      setSelected(new Set());
+      setBulkOpen(false);
+      toast.success(`${result.deleted} ${result.deleted === 1 ? "campaign" : "campaigns"} deleted`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not delete those campaigns.");
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
   const owners = useMemo(() => [...new Set(rows.map((r) => r.owner))], [rows]);
   const statuses = useMemo(() => [...new Set(rows.map((r) => r.status))], [rows]);
 
@@ -414,12 +438,48 @@ function CampaignsPage() {
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
+          <div className="ml-auto flex items-center gap-2">
+            {selectedRows.length > 0 && (
+              <>
+                <span className="text-sm text-muted-foreground">{selectedRows.length} selected</span>
+                <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())}>
+                  Clear
+                </Button>
+              </>
+            )}
+            <Button variant="destructive" disabled={selectedRows.length === 0} onClick={() => setBulkOpen(true)}>
+              <Trash2 className="size-4" /> Delete selected
+            </Button>
+          </div>
         </div>
 
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10">
+                  <Checkbox
+                    aria-label="Select all campaigns in this view"
+                    disabled={visible.length === 0}
+                    checked={
+                      visible.length > 0 && visible.every((r) => selected.has(r.id))
+                        ? true
+                        : visible.some((r) => selected.has(r.id))
+                          ? "indeterminate"
+                          : false
+                    }
+                    onCheckedChange={(on) =>
+                      setSelected((prev) => {
+                        const next = new Set(prev);
+                        for (const r of visible) {
+                          if (on === true) next.add(r.id);
+                          else next.delete(r.id);
+                        }
+                        return next;
+                      })
+                    }
+                  />
+                </TableHead>
                 <TableHead>Campaign</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Contacts loaded</TableHead>
@@ -432,7 +492,7 @@ function CampaignsPage() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-12 text-center text-sm text-muted-foreground">
+                  <TableCell colSpan={8} className="py-12 text-center text-sm text-muted-foreground">
                     <span className="inline-flex items-center gap-2">
                       <Loader2 className="size-4 animate-spin" /> Loading campaigns…
                     </span>
@@ -440,7 +500,7 @@ function CampaignsPage() {
                 </TableRow>
               ) : error ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-10 text-center">
+                  <TableCell colSpan={8} className="py-10 text-center">
                     <p className="text-sm text-destructive">{error}</p>
                     <Button className="mt-3" size="sm" onClick={() => void load()}>
                       Try again
@@ -449,7 +509,7 @@ function CampaignsPage() {
                 </TableRow>
               ) : visible.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground">
+                  <TableCell colSpan={8} className="py-10 text-center text-sm text-muted-foreground">
                     {rows.length === 0
                       ? "No campaigns yet. Create your first one to start dialing."
                       : "No campaigns match this view."}
@@ -457,7 +517,21 @@ function CampaignsPage() {
                 </TableRow>
               ) : (
                 visible.map((c) => (
-                <TableRow key={c.id}>
+                <TableRow key={c.id} data-state={selected.has(c.id) ? "selected" : undefined}>
+                  <TableCell className="w-10">
+                    <Checkbox
+                      aria-label={`Select ${c.name}`}
+                      checked={selected.has(c.id)}
+                      onCheckedChange={(on) =>
+                        setSelected((prev) => {
+                          const next = new Set(prev);
+                          if (on === true) next.add(c.id);
+                          else next.delete(c.id);
+                          return next;
+                        })
+                      }
+                    />
+                  </TableCell>
                   <TableCell className="font-semibold">
                     {c.name}
                     {c.mode === "recording" && (
@@ -567,6 +641,46 @@ function CampaignsPage() {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={() => deleteTarget && void handleDelete(deleteTarget)}>
               Delete campaign
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={bulkOpen} onOpenChange={(open) => !open && !bulkBusy && setBulkOpen(false)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Delete {selectedRows.length} {selectedRows.length === 1 ? "campaign" : "campaigns"}?
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="flex flex-col gap-2">
+                <p>This removes the selected campaigns, their dialing history and their recordings. This can't be undone.</p>
+                <ul className="list-disc pl-5">
+                  {selectedRows.slice(0, 6).map((r) => (
+                    <li key={r.id}>{r.name}</li>
+                  ))}
+                  {selectedRows.length > 6 && <li>and {selectedRows.length - 6} more</li>}
+                </ul>
+                {selectedRows.some((r) => r.status === "Active") && (
+                  <p className="font-medium text-destructive">
+                    Some of these are dialing right now. Deleting them stops those calls.
+                  </p>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={bulkBusy}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={bulkBusy}
+              className="bg-destructive text-white hover:bg-destructive/90"
+              onClick={(e) => {
+                e.preventDefault();
+                void handleBulkDelete();
+              }}
+            >
+              {bulkBusy ? <Loader2 className="size-4 animate-spin" /> : null}
+              Delete {selectedRows.length === 1 ? "campaign" : "campaigns"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

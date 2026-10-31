@@ -11,6 +11,9 @@
   let logPollTimer = null;
   let apiBase = "";
   let options = null;
+  /** Ids ticked in the table, and the campaigns last loaded (so a selection survives a refresh only for rows that still exist). */
+  let selected = new Set();
+  let loaded = [];
 
   const MAX_MB = 5;
 
@@ -206,14 +209,52 @@
     }
   }
 
+  function updateBulkButton() {
+    const btn = document.getElementById("btn-delete-campaigns");
+    if (!btn) return;
+    const n = loaded.filter((c) => selected.has(c.id)).length;
+    btn.disabled = n === 0;
+    btn.textContent = n > 0 ? `Delete selected (${n})` : "Delete selected";
+    const all = document.getElementById("cs-all");
+    if (all) {
+      all.checked = loaded.length > 0 && n === loaded.length;
+      all.indeterminate = n > 0 && n < loaded.length;
+    }
+  }
+
+  async function deleteSelected() {
+    const rows = loaded.filter((c) => selected.has(c.id));
+    if (rows.length === 0) return;
+    const names = rows.slice(0, 5).map((c) => "• " + c.name).join("\n") + (rows.length > 5 ? `\nand ${rows.length - 5} more` : "");
+    const running = rows.some((c) => c.status === "Active") ? "\n\nSome of these are dialing right now. Deleting them stops those calls." : "";
+    const ok = await window.KchelUi.confirm({
+      title: `Delete ${rows.length} ${rows.length === 1 ? "campaign" : "campaigns"}?`,
+      message: `This removes the selected campaigns, their dialing history and their recordings. This can't be undone.\n\n${names}${running}`,
+      confirmLabel: "Delete",
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      const result = await window.kchel.api("campaigns/delete-many", { ids: rows.map((c) => c.id) });
+      selected = new Set();
+      window.KchelUi.toast(`${result.deleted} ${result.deleted === 1 ? "campaign" : "campaigns"} deleted`, "info");
+      await load();
+    } catch (err) {
+      window.KchelUi.toast(err.message, "error");
+    }
+  }
+
   function render(campaigns) {
+    loaded = campaigns;
+    selected = new Set([...selected].filter((id) => campaigns.some((c) => c.id === id)));
     if (campaigns.length === 0) {
+      updateBulkButton();
       els.table.innerHTML = '<p class="hint" style="padding:16px">No campaigns yet.</p>';
       return;
     }
     els.table.innerHTML = `
       <table class="data-table">
-        <thead><tr><th>Name</th><th>Type</th><th>Status</th><th>Progress</th><th></th></tr></thead>
+        <thead><tr><th><input type="checkbox" id="cs-all" class="row-check" aria-label="Select all campaigns" /></th><th>Name</th><th>Type</th><th>Status</th><th>Progress</th><th></th></tr></thead>
         <tbody>
           ${campaigns
             .map((c) => {
@@ -221,6 +262,7 @@
               const hasFile = broadcast && c.recording && c.recording.file;
               return `
             <tr>
+              <td><input type="checkbox" class="row-check" data-select="${c.id}" aria-label="Select ${escapeHtml(c.name)}" ${selected.has(c.id) ? "checked" : ""} /></td>
               <td>${escapeHtml(c.name)}</td>
               <td>${broadcast ? "Voice broadcast" : "Manual"}</td>
               <td><span class="status status-${c.status === "Active" ? "ok" : "pending"}">${escapeHtml(c.status)}</span></td>
@@ -246,6 +288,20 @@
         </tbody>
       </table>
     `;
+
+    els.table.querySelectorAll("input[data-select]").forEach((box) => {
+      box.addEventListener("change", () => {
+        if (box.checked) selected.add(box.dataset.select);
+        else selected.delete(box.dataset.select);
+        updateBulkButton();
+      });
+    });
+    document.getElementById("cs-all").addEventListener("change", (e) => {
+      selected = e.target.checked ? new Set(campaigns.map((c) => c.id)) : new Set();
+      els.table.querySelectorAll("input[data-select]").forEach((box) => (box.checked = selected.has(box.dataset.select)));
+      updateBulkButton();
+    });
+    updateBulkButton();
 
     els.table.querySelectorAll("button[data-action]").forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -589,6 +645,7 @@
 
   function bind() {
     els.btnNew.addEventListener("click", openNewCampaignModal);
+    document.getElementById("btn-delete-campaigns").addEventListener("click", () => void deleteSelected());
   }
 
   window.KchelCampaigns = {
