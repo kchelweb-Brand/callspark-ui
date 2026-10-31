@@ -218,145 +218,16 @@ async function apply(): Promise<void> {
   // Trials that ran out used to be suspended outright, which locked the owner out of
   // the very page they need to pay. They are now simply on hold, so reopen them, once.
   await sql`
-    if not exists (select 1 from app_flags where name = 'lapsed-trials-reopened') then
-      update tenants set status = 'active'
-        where status = 'suspended' and plan = 'trial' and trial_ends_at is not null and trial_ends_at < now();
-      insert into app_flags (name) values ('lapsed-trials-reopened');
-    end if
-  `;
-
-  // ---------- payments received (one row per provider transaction, so none is handled twice) ----------
-  await sql`
-    create table if not exists payments (
-      id uuid primary key default gen_random_uuid(),
-      provider text not null,
-      provider_tx_id text not null,
-      tx_ref text,
-      tenant_id uuid references tenants(id) on delete set null,
-      email text,
-      amount numeric(12,2) not null default 0,
-      currency text,
-      plan_id text,
-      seats int,
-      interval text,
-      status text not null default 'received',
-      note text,
-      created_at timestamptz not null default now(),
-      unique (provider, provider_tx_id)
-    )
-  `;
-
-  // ---------- messages from the public contact form ----------
-  await sql`
-    create table if not exists contact_requests (
-      id uuid primary key default gen_random_uuid(),
-      name text not null,
-      email text not null,
-      company text,
-      team_size text,
-      message text not null,
-      created_at timestamptz not null default now()
-    )
-  `;
-
-  // ---------- payment links the owner manages (card, bank, crypto, gift card) ----------
-  await sql`
-    create table if not exists payment_links (
-      id uuid primary key default gen_random_uuid(),
-      region text not null default 'default' check (region in ('default','emerging')),
-      plan_id text not null,
-      seats int not null default 1,
-      interval text not null default 'monthly' check (interval in ('monthly','annual')),
-      method text not null default 'card' check (method in ('card','bank','crypto','giftcard','other')),
-      label text not null default '',
-      amount_usd numeric(10,2) not null check (amount_usd > 0),
-      url text not null,
-      active boolean not null default true,
-      created_at timestamptz not null default now()
-    )
-  `;
-
-  // ---------- how crypto and gift-card payments are received (wallets, instructions) ----------
-  await sql`
-    create table if not exists payment_settings (
-      key text primary key,
-      value jsonb not null default '{}'::jsonb,
-      updated_at timestamptz not null default now()
-    )
-  `;
-
-  // ---------- receipts customers attach to "I've paid" ----------
-  await sql`
-    create table if not exists payment_receipts (
-      id uuid primary key default gen_random_uuid(),
-      tenant_id uuid references tenants(id) on delete cascade,
-      filename text not null,
-      content_type text not null,
-      size int not null,
-      data bytea not null,
-      created_at timestamptz not null default now()
-    )
-  `;
-
-  // ---------- "I've paid" claims the owner verifies, and the phones that get told about them ----------
-  await sql`
-    create table if not exists payment_claims (
-      id uuid primary key default gen_random_uuid(),
-      tenant_id uuid not null references tenants(id) on delete cascade,
-      user_email text,
-      plan_id text not null,
-      seats int not null default 1,
-      interval text not null default 'monthly',
-      method text not null,
-      expected_usd numeric(12,2),
-      declared_usd numeric(12,2),
-      reference text,
-      status text not null default 'pending' check (status in ('pending','approved','rejected')),
-      ticket_ref text,
-      note text,
-      created_at timestamptz not null default now(),
-      handled_at timestamptz,
-      handled_by text
-    )
-  `;
-  await sql`create index if not exists idx_payment_claims_status on payment_claims (status, created_at desc)`;
-  await sql`alter table payment_receipts add column if not exists claim_id uuid references payment_claims(id) on delete cascade`;
-  await sql`alter table payment_receipts add column if not exists amount_usd numeric(12,2)`;
-  await sql`
-    create table if not exists push_subscriptions (
-      id uuid primary key default gen_random_uuid(),
-      user_id uuid not null references users(id) on delete cascade,
-      endpoint text not null unique,
-      p256dh text not null,
-      auth text not null,
-      label text,
-      created_at timestamptz not null default now()
-    )
-  `;
-
-  // ---------- contacts: first and last name, where they are ----------
-  await sql`alter table contacts add column if not exists first_name text`;
-  await sql`alter table contacts add column if not exists last_name text`;
-  await sql`alter table contacts add column if not exists location text`;
-  await sql`alter table contacts add column if not exists country text`;
-
-  // ---------- voice-broadcast campaigns: one recording played to everyone who answers ----------
-  await sql`alter table campaigns add column if not exists recording jsonb`;
-  // How a voice-broadcast call ended: played, voicemail, voicemail_left, transferred, opted_out.
-  await sql`alter table calls add column if not exists broadcast_result text`;
-  // Campaigns used to be 'manual' or 'ai_agent'. AI campaigns are gone: any left over become voice
-  // broadcasts (paused, with no recording yet) so the owner keeps their list and history.
-  await sql`
     if not exists (
       select 1 from pg_constraint
       where conrelid = 'campaigns'::regclass and contype = 'c' and pg_get_constraintdef(oid) like '%recording%'
     ) then
-      for r in
-        select conname from pg_constraint
-        where conrelid = 'campaigns'::regclass and contype = 'c' and pg_get_constraintdef(oid) like '%ai_agent%'
-      loop
-        execute format('alter table campaigns drop constraint %I', r.conname);
-      end loop;
+      execute coalesce(
+        (select 'alter table campaigns ' || string_agg(format('drop constraint %I', conname), ', ')
+         from pg_constraint
+         where conrelid = 'campaigns'::regclass and contype = 'c' and pg_get_constraintdef(oid) like '%ai_agent%'),
+        'select 1'
+      );
       update campaigns set mode = 'recording', status = case when status = 'Active' then 'Paused' else status end
         where mode = 'ai_agent';
       alter table campaigns add constraint campaigns_mode_check check (mode in ('manual','recording'));
