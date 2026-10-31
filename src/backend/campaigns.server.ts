@@ -2,10 +2,14 @@ import { createServerFn } from "@tanstack/react-start";
 
 import { sql } from "./db";
 import { verifyToken } from "./tokens";
-import { requireCanCreate, requirePremiumVoice } from "./entitlements";
-import { reviewCampaignPrompt } from "./prompt-review";
+import { requireCanCreate } from "./entitlements";
 import { ensureSchema } from "./schema.server";
-import { aiSettingsProblem, sanitizeAiSettings, type AiAgentSettings } from "./ai-agent-options";
+import { deleteStoredFiles } from "./media-store";
+import {
+  recordingSettingsProblem,
+  sanitizeRecordingSettings,
+  type RecordingSettings,
+} from "./recording-options";
 
 async function requireTenant(token: string): Promise<string> {
   const payload = await verifyToken(token);
@@ -21,16 +25,16 @@ export interface CampaignRecord {
   list_id: string | null;
   owner: string | null;
   script: string | null;
-  mode: "manual" | "ai_agent";
-  ai_prompt: string | null;
-  /** Voice, style, voicemail and actions for an AI campaign. */
-  ai_settings: AiAgentSettings | null;
+  /** "manual": people dial the list (power dialer). "recording": a voice broadcast that plays one recording. */
+  mode: "manual" | "recording";
+  /** The recording and what happens around it. Only set on a voice broadcast. */
+  recording: RecordingSettings | null;
   compliance_ack: boolean;
   contacts_loaded: number;
   calls_made: number;
   connect_rate: number;
   created_at: string;
-  /** Live counts from campaign_calls — only meaningful for mode='ai_agent'; the dead contacts_loaded/calls_made columns never reflect a run in progress. */
+  /** Live counts from campaign_calls — only meaningful for mode='recording'; the dead contacts_loaded/calls_made columns never reflect a run in progress. */
   queue_total: number;
   queue_completed: number;
   queue_failed: number;
@@ -40,7 +44,7 @@ export async function listCampaigns(data: { token: string }) {
   const tenantId = await requireTenant(data.token);
   await ensureSchema();
   const rows = await sql`
-    select c.id, c.name, c.status, c.list_name, c.list_id, c.owner, c.script, c.mode, c.ai_prompt, c.ai_settings, c.compliance_ack,
+    select c.id, c.name, c.status, c.list_name, c.list_id, c.owner, c.script, c.mode, c.recording, c.compliance_ack,
            c.contacts_loaded, c.calls_made, c.connect_rate, c.created_at,
            count(cc.id)::int as queue_total,
            count(cc.id) filter (where cc.status = 'completed')::int as queue_completed,
@@ -58,6 +62,27 @@ export const listCampaignsFn = createServerFn({ method: "POST" })
   .validator((data: { token: string }) => data)
   .handler(async ({ data }) => listCampaigns(data));
 
+/** The recording must be one this workspace uploaded, in a format phones can play. */
+function checkRecording(tenantId: string, settings: RecordingSettings): void {
+  if (settings.file && !settings.file.key.startsWith(`greetings/${tenantId}/`)) {
+    throw new Error("That recording doesn't belong to this workspace. Upload it again.");
+  }
+  const problem = recordingSettingsProblem(settings);
+  if (problem) throw new Error(problem);
+}
+
+/**
+ * The recording file to remove from storage, if nothing else plays it any more
+ * (a duplicated campaign shares the file with the original). Returns the key to delete, or none.
+ */
+async function unusedRecordingKeys(tenantId: string, key: string | null | undefined): Promise<string[]> {
+  if (!key || !key.startsWith(`greetings/${tenantId}/`)) return [];
+  const stillUsed = await sql`
+    select 1 from campaigns where tenant_id = ${tenantId} and recording -> 'file' ->> 'key' = ${key} limit 1
+  `;
+  return stillUsed.length > 0 ? [] : [key];
+}
+
 export async function createCampaign(data: {
   token: string;
   name: string;
@@ -66,9 +91,8 @@ export async function createCampaign(data: {
   owner?: string;
   script?: string;
   status?: string;
-  mode?: "manual" | "ai_agent";
-  aiPrompt?: string;
-  aiSettings?: AiAgentSettings;
+  mode?: "manual" | "recording";
+  recording?: RecordingSettings;
   complianceAck?: boolean;
 }) {
   const tenantId = await requireTenant(data.token);
@@ -77,24 +101,22 @@ export async function createCampaign(data: {
   if (!name) throw new Error("Give the campaign a name.");
   await requireCanCreate(tenantId, "campaigns");
 
-  const mode = data.mode ?? "manual";
-  const aiSettings = data.aiSettings === undefined ? null : sanitizeAiSettings(data.aiSettings);
-  const aiProblem = aiSettings ? aiSettingsProblem(aiSettings) : null;
-  if (aiProblem) throw new Error(aiProblem);
-  if (aiSettings) await requirePremiumVoice(tenantId, aiSettings.voice);
-  // An AI campaign always starts Draft — it's only allowed to go Active
-  // through startCampaignDialingFn, which gates on the prompt and the
+  const mode = data.mode === "recording" ? "recording" : "manual";
+  const recording = mode === "recording" ? sanitizeRecordingSettings(data.recording) : null;
+  if (recording) checkRecording(tenantId, recording);
+  // A voice broadcast always starts Draft — it's only allowed to go Active
+  // through startCampaignDialingFn, which gates on the recording and the
   // compliance acknowledgment existing first.
-  const status = mode === "ai_agent" ? "Draft" : data.status ?? "Draft";
+  const status = mode === "recording" ? "Draft" : data.status ?? "Draft";
 
   const rows = await sql`
-    insert into campaigns (tenant_id, name, status, list_name, list_id, owner, script, mode, ai_prompt, ai_settings, compliance_ack)
+    insert into campaigns (tenant_id, name, status, list_name, list_id, owner, script, mode, recording, compliance_ack)
     values (
       ${tenantId}, ${name}, ${status},
       ${data.listName ?? null}, ${data.listId ?? null}, ${data.owner ?? null}, ${data.script ?? null},
-      ${mode}, ${data.aiPrompt ?? null}, ${aiSettings ? JSON.stringify(aiSettings) : null}::jsonb, ${data.complianceAck ?? false}
+      ${mode}, ${recording ? JSON.stringify(recording) : null}::jsonb, ${data.complianceAck ?? false}
     )
-    returning id, name, status, list_name, list_id, owner, script, mode, ai_prompt, ai_settings, compliance_ack,
+    returning id, name, status, list_name, list_id, owner, script, mode, recording, compliance_ack,
               contacts_loaded, calls_made, connect_rate, created_at
   `;
   return { ok: true as const, campaign: rows[0] as unknown as CampaignRecord };
@@ -110,9 +132,8 @@ export const createCampaignFn = createServerFn({ method: "POST" })
       owner?: string;
       script?: string;
       status?: string;
-      mode?: "manual" | "ai_agent";
-      aiPrompt?: string;
-      aiSettings?: AiAgentSettings;
+      mode?: "manual" | "recording";
+      recording?: RecordingSettings;
       complianceAck?: boolean;
     }) => data,
   )
@@ -124,23 +145,26 @@ export async function updateCampaign(data: {
   name?: string;
   status?: string;
   listId?: string;
-  aiPrompt?: string;
-  aiSettings?: AiAgentSettings;
+  recording?: RecordingSettings;
   complianceAck?: boolean;
 }) {
   const tenantId = await requireTenant(data.token);
   await ensureSchema();
-  const aiSettings = data.aiSettings === undefined ? null : sanitizeAiSettings(data.aiSettings);
-  const aiProblem = aiSettings ? aiSettingsProblem(aiSettings) : null;
-  if (aiProblem) throw new Error(aiProblem);
-  if (aiSettings) await requirePremiumVoice(tenantId, aiSettings.voice);
 
-  if (data.status === "Active") {
-    const [existing] = await sql`select mode from campaigns where id = ${data.id} and tenant_id = ${tenantId}`;
-    if (existing?.mode === "ai_agent") {
-      throw new Error("Use \"Start dialing\" for an AI campaign — it needs to seed the call queue first.");
-    }
+  const [existing] = await sql`
+    select mode, recording from campaigns where id = ${data.id} and tenant_id = ${tenantId} limit 1
+  `;
+  if (!existing) throw new Error("Campaign not found.");
+  if (data.status === "Active" && existing["mode"] === "recording") {
+    throw new Error("Use \"Start broadcast\" for a voice broadcast — it needs to build the call queue first.");
   }
+  if (data.recording !== undefined && existing["mode"] !== "recording") {
+    throw new Error("Only a voice broadcast has a recording.");
+  }
+
+  const previous = sanitizeRecordingSettings(existing["recording"]);
+  const recording = data.recording === undefined ? null : sanitizeRecordingSettings(data.recording);
+  if (recording) checkRecording(tenantId, recording);
 
   // coalesce keeps unspecified fields untouched, so a status change can't
   // accidentally blank out the name.
@@ -149,16 +173,20 @@ export async function updateCampaign(data: {
       name = coalesce(${data.name ?? null}, name),
       status = coalesce(${data.status ?? null}, status),
       list_id = coalesce(${data.listId ?? null}, list_id),
-      ai_prompt = coalesce(${data.aiPrompt ?? null}, ai_prompt),
-      ai_settings = coalesce(${aiSettings ? JSON.stringify(aiSettings) : null}::jsonb, ai_settings),
+      recording = coalesce(${recording ? JSON.stringify(recording) : null}::jsonb, recording),
       compliance_ack = coalesce(${data.complianceAck ?? null}, compliance_ack),
       updated_at = now()
     where id = ${data.id} and tenant_id = ${tenantId}
-    returning id, name, status, list_name, list_id, owner, script, mode, ai_prompt, ai_settings, compliance_ack,
+    returning id, name, status, list_name, list_id, owner, script, mode, recording, compliance_ack,
               contacts_loaded, calls_made, connect_rate, created_at
   `;
   if (rows.length === 0) throw new Error("Campaign not found.");
-  return { ok: true as const, campaign: rows[0] as unknown as CampaignRecord };
+
+  const released =
+    recording && previous.file && previous.file.key !== recording.file?.key
+      ? await unusedRecordingKeys(tenantId, previous.file.key)
+      : [];
+  return { ok: true as const, campaign: rows[0] as unknown as CampaignRecord, released };
 }
 
 export const updateCampaignFn = createServerFn({ method: "POST" })
@@ -169,12 +197,15 @@ export const updateCampaignFn = createServerFn({ method: "POST" })
       name?: string;
       status?: string;
       listId?: string;
-      aiPrompt?: string;
-      aiSettings?: AiAgentSettings;
+      recording?: RecordingSettings;
       complianceAck?: boolean;
     }) => data,
   )
-  .handler(async ({ data }) => updateCampaign(data));
+  .handler(async ({ data }) => {
+    const { released, ...result } = await updateCampaign(data);
+    await deleteStoredFiles(released);
+    return result;
+  });
 
 export async function duplicateCampaign(data: { token: string; id: string }) {
   const tenantId = await requireTenant(data.token);
@@ -187,10 +218,10 @@ export async function duplicateCampaign(data: { token: string; id: string }) {
   // copy needs its own explicit confirmation, not an inherited one) — a
   // duplicate starts fresh.
   const rows = await sql`
-    insert into campaigns (tenant_id, name, status, list_name, list_id, owner, script, mode, ai_prompt, ai_settings, compliance_ack)
-    select tenant_id, name || ' (copy)', 'Draft', list_name, list_id, owner, script, mode, ai_prompt, ai_settings, false
+    insert into campaigns (tenant_id, name, status, list_name, list_id, owner, script, mode, recording, compliance_ack)
+    select tenant_id, name || ' (copy)', 'Draft', list_name, list_id, owner, script, mode, recording, false
     from campaigns where id = ${data.id} and tenant_id = ${tenantId}
-    returning id, name, status, list_name, list_id, owner, script, mode, ai_prompt, ai_settings, compliance_ack,
+    returning id, name, status, list_name, list_id, owner, script, mode, recording, compliance_ack,
               contacts_loaded, calls_made, connect_rate, created_at
   `;
   if (rows.length === 0) throw new Error("Campaign not found.");
@@ -203,14 +234,17 @@ export const duplicateCampaignFn = createServerFn({ method: "POST" })
 
 export async function deleteCampaign(data: { token: string; id: string }) {
   const tenantId = await requireTenant(data.token);
+  await ensureSchema();
+  const [existing] = await sql`select recording from campaigns where id = ${data.id} and tenant_id = ${tenantId} limit 1`;
   await sql`delete from campaigns where id = ${data.id} and tenant_id = ${tenantId}`;
-  return { ok: true as const };
+  const released = await unusedRecordingKeys(tenantId, sanitizeRecordingSettings(existing?.["recording"]).file?.key);
+  return { ok: true as const, released };
 }
 
 export const deleteCampaignFn = createServerFn({ method: "POST" })
   .validator((data: { token: string; id: string }) => data)
-  .handler(async ({ data }) => deleteCampaign(data));
-
-export const reviewCampaignPromptFn = createServerFn({ method: "POST" })
-  .validator((data: { token: string; prompt: string; businessName?: string }) => data)
-  .handler(async ({ data }) => reviewCampaignPrompt(data));
+  .handler(async ({ data }) => {
+    const { released } = await deleteCampaign(data);
+    await deleteStoredFiles(released);
+    return { ok: true as const };
+  });

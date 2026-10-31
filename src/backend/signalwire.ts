@@ -192,6 +192,11 @@ export function record({
   return `<Record ${attrs} />`;
 }
 
+/** Silence for a moment, so a recording doesn't start the instant the line connects. */
+export function pause(seconds: number): string {
+  return `<Pause length="${Math.max(1, Math.round(seconds))}" />`;
+}
+
 export function hangup(): string {
   return "<Hangup />";
 }

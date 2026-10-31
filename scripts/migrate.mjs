@@ -400,15 +400,15 @@ async function main() {
   // The QA sandbox must never hit a limit mid-test.
   await sql`update tenants set plan = 'managed' where workspace_slug = 'qa-sandbox'`;
 
-  // ---------- AI voice-agent campaigns ----------
+  // ---------- Voice-broadcast campaigns ----------
   // list_name stays for display/back-compat; list_id is the real FK the
   // dialer actually resolves against, since names aren't unique per tenant.
   await sql`alter table campaigns add column if not exists list_id uuid references contact_lists(id) on delete set null`;
-  await sql`alter table campaigns add column if not exists mode text not null default 'manual' check (mode in ('manual','ai_agent'))`;
+  await sql`alter table campaigns add column if not exists mode text not null default 'manual' check (mode in ('manual','recording'))`;
   await sql`alter table campaigns add column if not exists ai_prompt text`;
   // An acknowledgment gate, not a compliance guarantee — there's no way for
   // this app to verify actual consent, so this just records that the tenant
-  // was asked before an AI-agent campaign is allowed to start dialing.
+  // was asked before a voice-broadcast campaign is allowed to start dialing.
   await sql`alter table campaigns add column if not exists compliance_ack boolean not null default false`;
   await sql`
     update campaigns c set list_id = (

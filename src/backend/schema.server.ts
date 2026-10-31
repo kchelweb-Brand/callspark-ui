@@ -133,7 +133,7 @@ async function apply(): Promise<void> {
   await sql`create index if not exists idx_notifications_user on notifications (user_id, created_at desc)`;
   await sql`create index if not exists idx_notifications_broadcast on notifications (broadcast_id)`;
 
-  // ---------- AI summaries & receptionist ----------
+  // ---------- call summaries ----------
   await sql`alter table calls add column if not exists transcript text`;
   await sql`alter table calls add column if not exists summary text`;
   await sql`alter table calls add column if not exists summary_at timestamptz`;
@@ -160,7 +160,8 @@ async function apply(): Promise<void> {
   `;
   await sql`create index if not exists idx_auto_texts_lookup on auto_texts (tenant_id, to_number, created_at desc)`;
 
-  // ---------- AI agent: tags, settings snapshot, appointments ----------
+  // ---------- retired AI-agent columns and tables ----------
+  // Nothing reads or writes these any more. They stay so that old calls and appointments keep their history.
   await sql`alter table calls add column if not exists ai_outcome text`;
   await sql`alter table calls add column if not exists ai_note text`;
   await sql`alter table calls add column if not exists ai_settings jsonb`;
@@ -338,6 +339,29 @@ async function apply(): Promise<void> {
   await sql`alter table contacts add column if not exists last_name text`;
   await sql`alter table contacts add column if not exists location text`;
   await sql`alter table contacts add column if not exists country text`;
+
+  // ---------- voice-broadcast campaigns: one recording played to everyone who answers ----------
+  await sql`alter table campaigns add column if not exists recording jsonb`;
+  // How a voice-broadcast call ended: played, voicemail, voicemail_left, transferred, opted_out.
+  await sql`alter table calls add column if not exists broadcast_result text`;
+  // Campaigns used to be 'manual' or 'ai_agent'. AI campaigns are gone: any left over become voice
+  // broadcasts (paused, with no recording yet) so the owner keeps their list and history.
+  await sql`
+    if not exists (
+      select 1 from pg_constraint
+      where conrelid = 'campaigns'::regclass and contype = 'c' and pg_get_constraintdef(oid) like '%recording%'
+    ) then
+      for r in
+        select conname from pg_constraint
+        where conrelid = 'campaigns'::regclass and contype = 'c' and pg_get_constraintdef(oid) like '%ai_agent%'
+      loop
+        execute format('alter table campaigns drop constraint %I', r.conname);
+      end loop;
+      update campaigns set mode = 'recording', status = case when status = 'Active' then 'Paused' else status end
+        where mode = 'ai_agent';
+      alter table campaigns add constraint campaigns_mode_check check (mode in ('manual','recording'));
+    end if
+  `;
 
   // One request for everything. The advisory lock makes two workers that start
   // at once take turns instead of racing to create the same table.

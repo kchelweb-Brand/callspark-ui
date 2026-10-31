@@ -39,8 +39,6 @@ export function featureLines(p: Plan): string[] {
   if (f.missedCallTextBack) lines.push("Missed-call text-back");
   if (f.numberHealth || f.numberRotation) lines.push("Number health and rotation");
   if (f.callSummaries) lines.push("AI call summaries and transcripts");
-  if (f.aiReceptionist) lines.push("AI receptionist");
-  if (f.premiumVoices) lines.push("Premium AI voices");
   if (p.managedSip) lines.push("SIP line supplied and managed");
   return lines;
 }
@@ -49,7 +47,7 @@ export function featureLines(p: Plan): string[] {
 const TAGLINE: Partial<Record<PlanId, string>> = {
   starter: "The full dialer on your own phone line. Built for a small team getting going.",
   professional: "More seats, numbers and analytics for a floor that calls all day.",
-  business: "One flat price for up to 8 agents, with the AI receptionist included.",
+  business: "One flat price for up to 8 agents, with call summaries and number rotation included.",
   managed: "We supply and run the phone line, and support your team.",
 };
 
@@ -140,8 +138,6 @@ const ROWS: { label: string; cell: (p: Plan) => string | boolean }[] = [
   { label: "Missed-call text-back", cell: (p) => p.features.missedCallTextBack },
   { label: "Number health and rotation", cell: (p) => p.features.numberRotation },
   { label: "AI call summaries and transcripts", cell: (p) => p.features.callSummaries },
-  { label: "AI receptionist", cell: (p) => p.features.aiReceptionist },
-  { label: "Premium AI voices", cell: (p) => p.features.premiumVoices },
   { label: "SIP line supplied", cell: (p) => p.managedSip },
 ];
 

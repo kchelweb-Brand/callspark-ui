@@ -18,7 +18,7 @@ const PRINCIPLES = [
   { title: "A dialer, not just a phone system", body: "Most phone systems are built to receive calls. Kchel is built around the person who spends the day making them, and the logo says so: a K that also reads as fast-forward." },
   { title: "Keep your carrier, keep your rates", body: "We do not mark up your minutes unless you ask us to supply the line. Bring your own provider, and your call charges stay between you and them." },
   { title: "Say what it does, and only that", body: "Plans list real limits. AI features say what they can and cannot do. If something is not supported, the product and this website say so." },
-  { title: "People stay in charge", body: "Automation handles the first pass, the missed call and the after-hours message. Owners decide what an agent or an AI agent is allowed to do, and every action is recorded." },
+  { title: "People stay in charge", body: "Automation handles the first pass, the missed call and the after-hours message. Owners decide what an agent is allowed to do, and every action is recorded." },
   { title: "Small enough to answer", body: "When you write to us, a person reads it. Help is a click away in the app, and a human is one step behind the assistant." },
 ];
 
@@ -28,7 +28,7 @@ function AboutPage() {
       <TextPageHead
         trail={[{ label: "Home", to: "/" }, { label: "About" }]}
         title="Calling software for people who live on the phone."
-        lede="Kchel Dialer brings the phone line, the list, the dialer, the AI agent and the team into one workspace, so a small team can work like a much larger one."
+        lede="Kchel Dialer brings the phone line, the list, the dialer, voice broadcasts and the team into one workspace, so a small team can work like a much larger one."
       />
 
       <Section tone="white">
@@ -46,7 +46,7 @@ function AboutPage() {
                 A sales floor, a clinic front desk and a collections team all need the same few things: a line that works, a list to work through, a record of what happened, and a way to keep the team organised. They rarely need five separate products to get them.
               </p>
               <p>
-                So Kchel puts those parts together, and adds the things that are newly possible: an AI voice agent that can make the first pass on a long list, and a receptionist that answers when nobody can, written to be honest about being automated.
+                So Kchel puts those parts together, and adds the things that are newly possible: a recording that plays to a whole list while your team does the work only people can, and a text that goes out to the callers you missed.
               </p>
             </div>
           </div>

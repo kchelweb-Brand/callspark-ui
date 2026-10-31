@@ -5,6 +5,7 @@ import {
   Loader2,
   MoreHorizontal,
   Pause,
+  PhoneCall,
   Play,
   Search,
   SlidersHorizontal,
@@ -44,9 +45,15 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { CreateCampaignDialog } from "@/components/dash/CreateCampaignDialog";
-import { AiAgentSettingsForm } from "@/components/dash/AiAgentSettingsForm";
+import { RecordingSettingsForm } from "@/components/dash/RecordingSettingsForm";
 import { Checkbox } from "@/components/ui/checkbox";
-import { DEFAULT_AI_SETTINGS, sanitizeAiSettings, type AiAgentSettings } from "@/backend/ai-agent-options";
+import { deleteGreeting } from "@/lib/media-api";
+import {
+  DEFAULT_RECORDING_SETTINGS,
+  recordingSettingsProblem,
+  sanitizeRecordingSettings,
+  type RecordingSettings,
+} from "@/backend/recording-options";
 import {
   deleteCampaign,
   duplicateCampaign,
@@ -56,6 +63,7 @@ import {
   pauseCampaignDialing,
   recallCampaign,
   reconcileCampaign,
+  sendTestCall,
   startCampaignDialing,
   updateCampaign,
   type CampaignCallLogRow,
@@ -94,7 +102,7 @@ interface Campaign {
   id: string;
   name: string;
   status: string;
-  mode: "manual" | "ai_agent";
+  mode: "manual" | "recording";
   contacts: number;
   calls: number;
   connect: number;
@@ -102,7 +110,7 @@ interface Campaign {
   queueTotal: number;
   queueCompleted: number;
   queueFailed: number;
-  aiSettings: AiAgentSettings;
+  recording: RecordingSettings;
 }
 
 function toRow(record: CampaignRecord): Campaign {
@@ -118,7 +126,7 @@ function toRow(record: CampaignRecord): Campaign {
     queueTotal: record.queue_total ?? 0,
     queueCompleted: record.queue_completed ?? 0,
     queueFailed: record.queue_failed ?? 0,
-    aiSettings: sanitizeAiSettings(record.ai_settings, DEFAULT_AI_SETTINGS),
+    recording: sanitizeRecordingSettings(record.recording, DEFAULT_RECORDING_SETTINGS),
   };
 }
 
@@ -133,9 +141,12 @@ function CampaignsPage() {
   const [logTarget, setLogTarget] = useState<Campaign | null>(null);
   const [logRows, setLogRows] = useState<CampaignCallLogRow[]>([]);
   const [logLoading, setLogLoading] = useState(false);
-  const [voiceTarget, setVoiceTarget] = useState<Campaign | null>(null);
-  const [voiceDraft, setVoiceDraft] = useState<AiAgentSettings>(DEFAULT_AI_SETTINGS);
-  const [voiceSaving, setVoiceSaving] = useState(false);
+  const [settingsTarget, setSettingsTarget] = useState<Campaign | null>(null);
+  const [settingsDraft, setSettingsDraft] = useState<RecordingSettings>(DEFAULT_RECORDING_SETTINGS);
+  const [settingsSaving, setSettingsSaving] = useState(false);
+  const [testTarget, setTestTarget] = useState<Campaign | null>(null);
+  const [testPhone, setTestPhone] = useState("");
+  const [testBusy, setTestBusy] = useState(false);
   const [recallTarget, setRecallTarget] = useState<Campaign | null>(null);
   const [recallOptions, setRecallOptions] = useState<{ key: string; label: string; count: number }[]>([]);
   const [recallPicked, setRecallPicked] = useState<Set<string>>(new Set());
@@ -169,36 +180,66 @@ function CampaignsPage() {
     }
   }
 
-  // AI-agent campaigns can't go through the generic status update above —
+  // Voice broadcasts can't go through the generic status update above:
   // "Active" needs the call queue seeded first, which these dedicated
   // endpoints handle before flipping status.
-  async function startAiCampaign(c: Campaign) {
+  async function startBroadcast(c: Campaign) {
     try {
       await startCampaignDialing(c.id, window.location.origin);
       await load();
       toast.success(`${c.name} is dialing`);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not start dialing.");
+      toast.error(err instanceof Error ? err.message : "Could not start the broadcast.");
     }
   }
 
-  function openVoice(c: Campaign) {
-    setVoiceDraft(c.aiSettings);
-    setVoiceTarget(c);
+  function openSettings(c: Campaign) {
+    setSettingsDraft(c.recording);
+    setSettingsTarget(c);
   }
 
-  async function saveVoice() {
-    if (!voiceTarget) return;
-    setVoiceSaving(true);
+  /** Closing without saving: a recording uploaded just now has nothing to belong to. */
+  function closeSettings() {
+    if (settingsTarget && settingsDraft.file && settingsDraft.file.key !== settingsTarget.recording.file?.key) {
+      void deleteGreeting(settingsDraft.file.key).catch(() => {});
+    }
+    setSettingsTarget(null);
+  }
+
+  /** Saves the dialog's values; returns the updated row, or null when it could not be saved. */
+  async function saveSettings(): Promise<Campaign | null> {
+    if (!settingsTarget) return null;
+    const problem = recordingSettingsProblem(settingsDraft);
+    if (problem) {
+      toast.error(problem);
+      return null;
+    }
+    setSettingsSaving(true);
     try {
-      const result = await updateCampaign(voiceTarget.id, { aiSettings: voiceDraft });
-      setRows((prev) => prev.map((r) => (r.id === voiceTarget.id ? toRow(result.campaign) : r)));
-      toast.success("Voice and behaviour saved", { description: "Applies to the next call placed." });
-      setVoiceTarget(null);
+      const result = await updateCampaign(settingsTarget.id, { recording: settingsDraft });
+      const row = toRow(result.campaign);
+      setRows((prev) => prev.map((r) => (r.id === row.id ? row : r)));
+      toast.success("Recording and options saved", { description: "Applies to the next call placed." });
+      return row;
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not save that.");
+      return null;
     } finally {
-      setVoiceSaving(false);
+      setSettingsSaving(false);
+    }
+  }
+
+  async function runTestCall() {
+    if (!testTarget) return;
+    setTestBusy(true);
+    try {
+      const result = await sendTestCall(testTarget.id, testPhone);
+      toast.success(`Calling ${result.to}`, { description: "Pick up to hear exactly what your contacts will hear." });
+      setTestTarget(null);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not place the test call.");
+    } finally {
+      setTestBusy(false);
     }
   }
 
@@ -221,7 +262,7 @@ function CampaignsPage() {
     try {
       const result = await recallCampaign(recallTarget.id, [...recallPicked]);
       toast.success(`${result.requeued} ${result.requeued === 1 ? "contact" : "contacts"} queued again`, {
-        description: "Press Start dialing to call them.",
+        description: "Press Start broadcast to call them.",
       });
       setRecallTarget(null);
       await load();
@@ -232,7 +273,7 @@ function CampaignsPage() {
     }
   }
 
-  async function pauseAiCampaign(c: Campaign) {
+  async function pauseBroadcast(c: Campaign) {
     try {
       await pauseCampaignDialing(c.id);
       await load();
@@ -410,7 +451,7 @@ function CampaignsPage() {
                 <TableRow>
                   <TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground">
                     {rows.length === 0
-                      ? "No campaigns yet — create your first one to start dialing."
+                      ? "No campaigns yet. Create your first one to start dialing."
                       : "No campaigns match this view."}
                   </TableCell>
                 </TableRow>
@@ -419,9 +460,9 @@ function CampaignsPage() {
                 <TableRow key={c.id}>
                   <TableCell className="font-semibold">
                     {c.name}
-                    {c.mode === "ai_agent" && (
+                    {c.mode === "recording" && (
                       <span className="ml-2 rounded-full border border-border bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase text-muted-foreground">
-                        AI
+                        Broadcast
                       </span>
                     )}
                   </TableCell>
@@ -432,7 +473,7 @@ function CampaignsPage() {
                     {c.contacts.toLocaleString()}
                   </TableCell>
                   <TableCell className="text-right font-mono text-sm">
-                    {c.mode === "ai_agent"
+                    {c.mode === "recording"
                       ? `${c.queueCompleted + c.queueFailed}/${c.queueTotal}`
                       : c.calls.toLocaleString()}
                   </TableCell>
@@ -448,14 +489,14 @@ function CampaignsPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        {c.mode === "ai_agent" ? (
+                        {c.mode === "recording" ? (
                           c.status === "Active" ? (
-                            <DropdownMenuItem onClick={() => void pauseAiCampaign(c)}>
+                            <DropdownMenuItem onClick={() => void pauseBroadcast(c)}>
                               <Pause className="size-3.5" /> Pause
                             </DropdownMenuItem>
                           ) : (
-                            <DropdownMenuItem onClick={() => void startAiCampaign(c)}>
-                              <Play className="size-3.5" /> {c.queueTotal > 0 ? "Resume" : "Start"} dialing
+                            <DropdownMenuItem onClick={() => void startBroadcast(c)}>
+                              <Play className="size-3.5" /> {c.queueTotal > 0 ? "Resume" : "Start"} broadcast
                             </DropdownMenuItem>
                           )
                         ) : c.status === "Active" ? (
@@ -467,19 +508,30 @@ function CampaignsPage() {
                             <Play className="size-3.5" /> Resume
                           </DropdownMenuItem>
                         ) : null}
-                        {c.mode === "ai_agent" && c.queueTotal > 0 && (
+                        {c.mode === "recording" && c.queueTotal > 0 && (
                           <DropdownMenuItem onClick={() => void openCallLog(c)}>
                             <List className="size-3.5" /> View call log
                           </DropdownMenuItem>
                         )}
-                        {c.mode === "ai_agent" && c.queueTotal > 0 && (
+                        {c.mode === "recording" && c.queueTotal > 0 && (
                           <DropdownMenuItem onClick={() => void openRecall(c)}>
                             <Play className="size-3.5" /> Call people again…
                           </DropdownMenuItem>
                         )}
-                        {c.mode === "ai_agent" && (
-                          <DropdownMenuItem onClick={() => openVoice(c)}>
-                            <List className="size-3.5" /> Voice and behaviour…
+                        {c.mode === "recording" && (
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setTestPhone("");
+                              setTestTarget(c);
+                            }}
+                            disabled={!c.recording.file}
+                          >
+                            <PhoneCall className="size-3.5" /> Send me a test call…
+                          </DropdownMenuItem>
+                        )}
+                        {c.mode === "recording" && (
+                          <DropdownMenuItem onClick={() => openSettings(c)}>
+                            <List className="size-3.5" /> Recording and options…
                           </DropdownMenuItem>
                         )}
                         <DropdownMenuItem onClick={() => void handleDuplicate(c)}>
@@ -520,20 +572,73 @@ function CampaignsPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <Dialog open={!!voiceTarget} onOpenChange={(open) => !open && setVoiceTarget(null)}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
+      <Dialog open={!!settingsTarget} onOpenChange={(open) => !open && closeSettings()}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
           <DialogHeader>
-            <DialogTitle>{voiceTarget?.name} — voice and behaviour</DialogTitle>
-            <DialogDescription>How the agent sounds and what it can do. Applies to the next call placed.</DialogDescription>
+            <DialogTitle>{settingsTarget?.name} — recording and options</DialogTitle>
+            <DialogDescription>What contacts hear and what they can do. Applies to the next call placed.</DialogDescription>
           </DialogHeader>
-          <AiAgentSettingsForm value={voiceDraft} onChange={setVoiceDraft} showVoicemail showTransfer />
+          <RecordingSettingsForm
+            value={settingsDraft}
+            onChange={setSettingsDraft}
+            savedKey={settingsTarget?.recording.file?.key ?? null}
+          />
           <DialogFooter>
-            <Button variant="outline" onClick={() => setVoiceTarget(null)}>
+            <Button variant="outline" onClick={closeSettings}>
               Cancel
             </Button>
-            <Button onClick={() => void saveVoice()} disabled={voiceSaving}>
-              {voiceSaving ? <Loader2 className="size-4 animate-spin" /> : null}
+            <Button
+              variant="outline"
+              disabled={settingsSaving || !settingsDraft.file}
+              onClick={() =>
+                void (async () => {
+                  const saved = await saveSettings();
+                  if (!saved) return;
+                  setSettingsTarget(null);
+                  setTestPhone("");
+                  setTestTarget(saved);
+                })()
+              }
+            >
+              <PhoneCall className="size-4" /> Save and test
+            </Button>
+            <Button
+              disabled={settingsSaving}
+              onClick={() =>
+                void (async () => {
+                  if (await saveSettings()) setSettingsTarget(null);
+                })()
+              }
+            >
+              {settingsSaving ? <Loader2 className="size-4 animate-spin" /> : null}
               Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!testTarget} onOpenChange={(open) => !open && setTestTarget(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Send me a test call</DialogTitle>
+            <DialogDescription>
+              {testTarget?.name} rings the number below and plays the recording just as a contact would hear it. Your
+              keys work too, so press them to try them.
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            placeholder="Your mobile number, e.g. +14155550134"
+            value={testPhone}
+            onChange={(e) => setTestPhone(e.target.value)}
+            autoFocus
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTestTarget(null)}>
+              Cancel
+            </Button>
+            <Button onClick={() => void runTestCall()} disabled={testBusy || !testPhone.trim()}>
+              {testBusy ? <Loader2 className="size-4 animate-spin" /> : <PhoneCall className="size-4" />}
+              Call me
             </Button>
           </DialogFooter>
         </DialogContent>

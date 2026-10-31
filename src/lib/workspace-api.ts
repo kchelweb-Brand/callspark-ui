@@ -4,24 +4,20 @@ import {
   deleteCampaignFn,
   duplicateCampaignFn,
   listCampaignsFn,
-  reviewCampaignPromptFn,
   updateCampaignFn,
   type CampaignRecord,
 } from "@/backend/campaigns.server";
 import {
   getCampaignCallLogFn,
   getCampaignOutcomesFn,
-  listAppointmentsFn,
   pauseCampaignDialingFn,
   reconcileCampaignFn,
   recallCampaignFn,
-  sampleAiCallFn,
-  setAppointmentStatusFn,
+  sendTestCallFn,
   startCampaignDialingFn,
-  type AppointmentRow,
   type CampaignCallLogRow,
 } from "@/backend/campaign-dialer";
-import type { AiAgentSettings } from "@/backend/ai-agent-options";
+import type { RecordingSettings } from "@/backend/recording-options";
 import {
   createAgentFn,
   deleteAgentFn,
@@ -76,9 +72,8 @@ export function createCampaign(input: {
   owner?: string;
   script?: string;
   status?: string;
-  mode?: "manual" | "ai_agent";
-  aiPrompt?: string;
-  aiSettings?: AiAgentSettings;
+  mode?: "manual" | "recording";
+  recording?: RecordingSettings;
   complianceAck?: boolean;
 }) {
   return createCampaignFn({ data: { token: requireToken(), ...input } });
@@ -90,8 +85,7 @@ export function updateCampaign(
     name?: string;
     status?: string;
     listId?: string;
-    aiPrompt?: string;
-    aiSettings?: AiAgentSettings;
+    recording?: RecordingSettings;
     complianceAck?: boolean;
   },
 ) {
@@ -106,11 +100,7 @@ export function deleteCampaign(id: string) {
   return deleteCampaignFn({ data: { token: requireToken(), id } });
 }
 
-export function reviewCampaignPrompt(prompt: string, businessName?: string) {
-  return reviewCampaignPromptFn({ data: { token: requireToken(), prompt, businessName } });
-}
-
-/** `origin` is the browser's own location — the webhook path SignalWire calls back into. */
+/** `origin` is the browser's own location — the webhook address the carrier calls back into. */
 export function startCampaignDialing(campaignId: string, origin: string) {
   return startCampaignDialingFn({ data: { token: requireToken(), campaignId, origin } });
 }
@@ -123,11 +113,11 @@ export function reconcileCampaign(campaignId: string, origin: string) {
   return reconcileCampaignFn({ data: { token: requireToken(), campaignId, origin } });
 }
 
-export type { AppointmentRow, CampaignCallLogRow };
+export type { CampaignCallLogRow };
 
-/** Rings `to` with this voice and style so it can be judged by ear. */
-export function sampleAiCall(settings: AiAgentSettings, to: string) {
-  return sampleAiCallFn({ data: { token: requireToken(), settings, to, origin: window.location.origin } });
+/** Rings `to` with the campaign's saved recording, exactly as a contact would hear it. */
+export function sendTestCall(campaignId: string, to: string) {
+  return sendTestCallFn({ data: { token: requireToken(), campaignId, to, origin: window.location.origin } });
 }
 
 /** How a campaign's calls ended so far, for choosing who to call again. */
@@ -137,14 +127,6 @@ export function getCampaignOutcomes(campaignId: string) {
 
 export function recallCampaign(campaignId: string, outcomes: string[]) {
   return recallCampaignFn({ data: { token: requireToken(), campaignId, outcomes } });
-}
-
-export async function listAppointments() {
-  return (await listAppointmentsFn({ data: { token: requireToken() } })).appointments;
-}
-
-export function setAppointmentStatus(id: string, status: "requested" | "confirmed" | "dismissed") {
-  return setAppointmentStatusFn({ data: { token: requireToken(), id, status } });
 }
 
 export async function getCampaignCallLog(campaignId: string) {

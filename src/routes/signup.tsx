@@ -173,7 +173,7 @@ function SignupPage() {
     <AuthShell
       headline="Start dialing"
       accent="in minutes."
-      body="Calling, campaigns, AI voice agents and a team workspace, for solo operators and full call floors alike."
+      body="Calling, campaigns, voice broadcasts and a team workspace, for solo operators and full call floors alike."
       points={["Set up your workspace in about a minute", "Bring your own SIP line, or let us supply one", "No password to remember"]}
       visual="aicall"
       footnote={chosenName ? `You chose ${chosenName}. Verify your email, then pay for it. Your 7-day free trial runs meanwhile.` : "Free for 7 days. No card needed. We sign you in with a one-time code."}

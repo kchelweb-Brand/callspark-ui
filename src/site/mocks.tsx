@@ -130,54 +130,30 @@ function QueueMock() {
 
 function AiCallMock() {
   return (
-    <Pane title="AI voice agent · Spring renewals" status={<span className="flex items-center gap-1.5 text-xs font-semibold text-slate"><Dot /> 02:14</span>}>
-      <div className="space-y-3 p-5 text-sm">
-        <div className="flex gap-2">
-          <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-brand-blue text-[10px] font-bold text-white">AI</span>
-          <p className="rounded-2xl rounded-tl-sm bg-mist px-3.5 py-2.5 leading-snug">Hi Daniel, it's Sam, an automated assistant calling for Harbor Supply about your renewal. Is now an okay time?</p>
+    <Pane title="Voice broadcast · Spring renewals" status={<Chip tone="green">Calling</Chip>}>
+      <div className="space-y-4 p-5 text-sm">
+        <div className="flex items-center gap-3 rounded-lg bg-mist p-3">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-brand-blue text-[11px] font-bold text-white">MP3</span>
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-semibold">spring-renewals.mp3</p>
+            <p className="text-xs text-slate">0:42 · Press 1 to connect, press 2 to opt out</p>
+          </div>
         </div>
-        <div className="flex justify-end">
-          <p className="max-w-[80%] rounded-2xl rounded-tr-sm bg-leaf px-3.5 py-2.5 leading-snug text-white">Sure, but make it quick. Can you do Friday afternoon?</p>
-        </div>
-        <div className="flex gap-2">
-          <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-brand-blue text-[10px] font-bold text-white">AI</span>
-          <p className="rounded-2xl rounded-tl-sm bg-mist px-3.5 py-2.5 leading-snug">I'll note Friday afternoon for you. The team will confirm the exact time with you.</p>
+        <div>
+          <div className="flex justify-between text-xs font-semibold text-slate">
+            <span>24 of 60 called</span>
+            <span>3 at once</span>
+          </div>
+          <div className="mt-2 h-2 overflow-hidden rounded-full bg-rule">
+            <div className="h-full w-2/5 rounded-full bg-leaf" />
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-2 border-t border-rule pt-3">
-          <Chip tone="green">Interested</Chip>
-          <Chip tone="blue">Appointment requested: Friday pm</Chip>
-          <Chip tone="grey">Summary saved</Chip>
+          <Chip tone="green">14 heard it</Chip>
+          <Chip tone="blue">3 pressed 1</Chip>
+          <Chip tone="yellow">5 voicemail</Chip>
+          <Chip tone="grey">2 asked not to be called</Chip>
         </div>
-      </div>
-    </Pane>
-  );
-}
-
-function ReceptionistMock() {
-  return (
-    <Pane title="Call summary" status={<Chip tone="blue">AI receptionist</Chip>}>
-      <div className="p-5 text-sm">
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <p className="text-[11px] font-bold tracking-wider text-slate uppercase">Caller</p>
-            <p className="mt-1 font-semibold">Jordan Bell</p>
-            <p className="font-mono text-xs text-slate">+1 628 555 0190</p>
-          </div>
-          <div>
-            <p className="text-[11px] font-bold tracking-wider text-slate uppercase">Received</p>
-            <p className="mt-1 font-semibold">Tuesday, 7:42 pm</p>
-            <p className="text-xs text-slate">After hours · 1 min 48 s</p>
-          </div>
-        </div>
-        <p className="mt-4 rounded-lg bg-mist p-3 leading-relaxed">Jordan wants a quote to replace two kitchen taps and asked for a call back tomorrow morning. Not urgent. Prefers calls before 10 am.</p>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <Chip tone="yellow">Call back</Chip>
-          <Chip tone="grey">Message taken</Chip>
-        </div>
-        <ul className="mt-4 space-y-2 border-t border-rule pt-3 text-xs text-slate">
-          <li className="flex items-center gap-2"><Dot /> Answered after hours</li>
-          <li className="flex items-center gap-2"><Dot /> Transcript available</li>
-        </ul>
       </div>
     </Pane>
   );
@@ -268,7 +244,7 @@ function FlowMock() {
         </div>
         <div className="mt-4 flex flex-wrap gap-2 border-t border-rule pt-3 text-xs">
           <Chip tone="grey">Mon–Fri 9:00–17:30</Chip>
-          <Chip tone="grey">After hours → AI receptionist</Chip>
+          <Chip tone="grey">After hours → voicemail</Chip>
         </div>
       </div>
     </Pane>
@@ -345,7 +321,6 @@ const MAP: Record<VisualKey, () => ReactNode> = {
   flow: FlowMock,
   team: TeamMock,
   desktop: DesktopMock,
-  receptionist: ReceptionistMock,
 };
 
 export function Visual({ name }: { name: VisualKey }) {

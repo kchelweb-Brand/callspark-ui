@@ -15,21 +15,20 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Calling, campaigns, AI voice agents and a team workspace in one place. Bring your own phone line, import a list and make your first call this afternoon. Free for 7 days.",
+          "Calling, campaigns, voice broadcasts and a team workspace in one place. Bring your own phone line, import a list and make your first call this afternoon. Free for 7 days.",
       },
       { property: "og:title", content: "Kchel Dialer — The phone system your sales floor actually dials with" },
-      { property: "og:description", content: "Power dialer, AI voice agent, AI receptionist and team tools. Free for 7 days." },
+      { property: "og:description", content: "Power dialer, voice broadcast campaigns and team tools. Free for 7 days." },
     ],
   }),
   component: HomePage,
 });
 
-const TABS = ["phone-system", "dialer", "ai-voice-agent", "ai-receptionist"] as const;
+const TABS = ["phone-system", "dialer", "voice-broadcast"] as const;
 const TAB_LABEL: Record<(typeof TABS)[number], string> = {
   "phone-system": "Phone system",
   dialer: "Power dialer",
-  "ai-voice-agent": "AI voice agent",
-  "ai-receptionist": "AI receptionist",
+  "voice-broadcast": "Voice broadcast",
 };
 
 function ProductTabs() {
@@ -75,13 +74,13 @@ function ProductTabs() {
 const STEPS = [
   { n: "1", title: "Connect your line", body: "Enter your SIP provider's details, or ask for a managed line. The app tells you when it is registered." },
   { n: "2", title: "Bring in your list", body: "Upload a spreadsheet of up to 10,000 contacts, check the preview, and you have a campaign." },
-  { n: "3", title: "Start calling", body: "Work the list with the power dialer, or let the AI voice agent make the first pass for you." },
+  { n: "3", title: "Start calling", body: "Work the list with the power dialer, or play a recording to the whole list." },
 ];
 
 function HomePage() {
   const analytics = PRODUCTS.find((p) => p.slug === "analytics")!;
   const team = PRODUCTS.find((p) => p.slug === "team")!;
-  const ai = PRODUCTS.find((p) => p.slug === "ai-voice-agent")!;
+  const ai = PRODUCTS.find((p) => p.slug === "voice-broadcast")!;
   return (
     <SiteLayout>
       {/* Hero */}
@@ -93,7 +92,7 @@ function HomePage() {
               The phone system your sales floor actually dials with.
             </h1>
             <p className="mt-6 max-w-xl text-[19px] leading-relaxed text-slate">
-              Place calls, run campaigns, put an AI voice agent on your list and manage your team, all in one workspace. Bring your own phone line, or have one supplied.
+              Place calls, run campaigns, play a recording to your whole list and manage your team, all in one workspace. Bring your own phone line, or have one supplied.
             </p>
             <div className="mt-9 flex flex-wrap gap-3">
               <CtaLink to="/signup">Start free trial</CtaLink>
@@ -113,9 +112,9 @@ function HomePage() {
           <Facts
             items={[
               { value: "10,000", label: "contacts imported in a single upload" },
-              { value: "12", label: "AI voices to choose from, in three quality tiers" },
+              { value: "5", label: "people rung at once on a voice broadcast, at most" },
               { value: "7 days", label: "free trial, with no card needed" },
-              { value: "1", label: "workspace for calls, texts, AI agents and your team" },
+              { value: "1", label: "workspace for calls, texts, recordings and your team" },
             ]}
           />
         </Container>
@@ -149,16 +148,16 @@ function HomePage() {
       <Section tone="navy">
         <SectionHead
           onDark
-          eyebrow="AI voice agent"
-          title="The first pass on a long list, made by an agent that doesn't get tired."
-          lede="It speaks first, handles voicemail, writes down how each call went, and hands the good ones to your team."
+          eyebrow="Voice broadcast"
+          title="Record it once. Reach the whole list."
+          lede="Upload your recording, test it on your own phone, and play it to everyone who answers. They can press a key to reach you."
         />
         <div className="mt-14">
           <Split tone="navy" block={ai.blocks[1]!} />
         </div>
         <div className="mt-10">
-          <TextLink onDark to="/product/ai-voice-agent">
-            See everything the AI voice agent does
+          <TextLink onDark to="/product/voice-broadcast">
+            See everything voice broadcast does
           </TextLink>
         </div>
       </Section>

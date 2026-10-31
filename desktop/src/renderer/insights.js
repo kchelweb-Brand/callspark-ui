@@ -162,7 +162,7 @@
               calls.map((c) => [
                 U.esc(who(c)),
                 U.esc(c.direction),
-                c.handled_by === "ai" ? '<span class="status status-ok">AI receptionist</span>' : U.esc(c.agent_email || "—"),
+                c.handled_by === "broadcast" || c.handled_by === "broadcast_test" ? '<span class="status status-ok">Voice broadcast</span>' : c.handled_by === "ai" ? '<span class="status">Automated</span>' : U.esc(c.agent_email || "—"),
                 statusPill(c),
                 U.esc(U.dur(c.duration_seconds)),
                 U.esc(U.when(c.started_at)),

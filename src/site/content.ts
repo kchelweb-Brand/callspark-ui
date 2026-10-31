@@ -10,8 +10,7 @@ export type VisualKey =
   | "messages"
   | "flow"
   | "team"
-  | "desktop"
-  | "receptionist";
+  | "desktop";
 
 export interface Link {
   label: string;
@@ -143,91 +142,53 @@ export const PRODUCTS: Product[] = [
     ],
   },
   {
-    slug: "ai-voice-agent",
-    name: "AI voice agent",
-    short: "An agent that calls your list and holds a real conversation.",
-    headline: "An AI agent that works your list while your team does the work only people can.",
+    slug: "voice-broadcast",
+    name: "Voice broadcast",
+    short: "Play your own recording to everyone on a list who answers.",
+    headline: "Record it once. Reach the whole list.",
     lede:
-      "Write what the call is for. The agent dials each contact, speaks first, listens, answers, and records how it went. It always says it is automated if anyone sincerely asks.",
+      "Upload your recording, choose a contact list and start. Everyone who answers hears your message in your own voice, and you can let them press a key to speak with you or to never be called again.",
     heroVisual: "aicall",
-    facts: ["12 voices in three quality tiers", "Leaves a message or hangs up on voicemail", "Tags every call so you know who to call next"],
+    facts: ["Your own recording, as an MP3 or WAV", "Leaves it on voicemail, or hangs up", "Press 1 to connect, press 2 to opt out"],
     blocks: [
       {
-        title: "A voice you choose, and can hear first",
+        title: "Your voice, your words, heard first",
         body:
-          "Pick from twelve voices, from clear and economical to very natural, and a speaking style: natural, calm or quick. Press Call me and the agent rings your own phone so you can hear exactly what your customers will hear.",
-        points: ["US, British and Australian accents", "Natural pauses, and it can be interrupted", "Premium voices are included from the Business plan"],
+          "Upload the recording you want played. Before it goes to anyone, press Send me a test call and your own phone rings with exactly what your contacts will hear.",
+        points: ["MP3 or WAV, up to 5 MB", "Replace the recording any time; it applies to the next call", "Hear it on your own phone before you start"],
         visual: "aicall",
       },
       {
-        title: "It does something with the call",
+        title: "Let people respond",
         body:
-          "A conversation that ends with nothing recorded is wasted. The agent can act on the call, within limits you set.",
+          "While the recording plays, the person can press a key. Say in the recording what each key does.",
         points: [
-          "Tags how it went: interested, call back, not interested, wrong number, do not call",
-          "Notes an appointment request for you to confirm. It never promises a time slot",
-          "Sends one text with details you gave it, never to anyone who opted out",
-          "Hands the call to a person on your transfer number when someone asks for one",
+          "Press 1 connects them straight to a phone number you choose",
+          "Press 2 adds them to your do-not-call list, and they are never called again",
+          "Leave both off and the recording simply plays",
         ],
         visual: "aicall",
       },
       {
         title: "Voicemail, handled",
         body:
-          "Answering machines are detected, so the agent does not talk to a beep. Choose to hang up, or to leave a short message after the tone.",
-        points: ["Your message can use the contact's name", "Voicemails are tagged so you can try again later"],
+          "Answering machines are detected. Choose to leave your recording after the beep, to hang up, or to skip the check and play to whoever answers.",
+        points: ["Voicemails are marked so you can try again later", "Checking adds a short pause before a person hears the recording"],
         visual: "queue",
       },
       {
         title: "Call the right people again",
         body:
-          "After a run, see how many people did not answer, reached voicemail, or asked for a call back, and queue just those for another pass. Wrong numbers, transfers and do-not-call contacts are never offered.",
-        points: ["Outcome tags appear in Call History and can be filtered", "Each call has a written summary and a transcript"],
+          "After a run, see how many people did not answer, reached voicemail or heard the message, and queue just those for another pass. People who pressed 1 or asked not to be called are never offered.",
+        points: ["Every call is listed with what happened", "Choose how many people are rung at the same time, from one to five"],
         visual: "analytics",
       },
     ],
     faqs: [
-      { q: "Will people know it is an AI?", a: "The agent is told to say it is an automated assistant whenever someone sincerely asks, and campaigns require you to confirm that your contacts consented and that the call discloses it is automated." },
-      { q: "Is it legal to call people with an AI voice?", a: "Rules differ by country. In the United States an AI voice counts as an artificial voice, which needs the person's prior consent. Check the rules where you and your contacts are before you start." },
-      { q: "Can I hear a voice before I use it?", a: "Yes. Press Call me and the agent rings your own phone with the voice and style you chose. You can try it up to five times a day." },
+      { q: "Is it legal to call people with a recording?", a: "Rules differ by country. In the United States a recorded message counts as a prerecorded call, which needs the person's prior consent. Check the rules where you and your contacts are before you start." },
+      { q: "Can I hear it before I use it?", a: "Yes. Press Send me a test call and the campaign rings your own phone with the recording, exactly as a contact would hear it. You can do this up to fifteen times a day." },
+      { q: "Does it call everyone at once?", a: "No. You choose how many people are rung at the same time, from one to five. The rest wait their turn." },
     ],
-  },
-  {
-    slug: "ai-receptionist",
-    name: "AI receptionist",
-    short: "Answers when nobody can, and takes a proper message.",
-    headline: "Never let a call go to a dead voicemail again.",
-    lede:
-      "When you are closed, busy, or the team is on other calls, the receptionist picks up, finds out who is calling and why, answers simple questions about your business, and sends you a written summary.",
-    heroVisual: "receptionist",
-    facts: ["Answers after hours, when nobody picks up, or on every call", "Hands urgent calls to a person", "A written summary on every call"],
-    blocks: [
-      {
-        title: "Tell it about your business once",
-        body:
-          "Write what it should know: hours, services, prices you are happy to share, where you are, how to book. It answers only from that, and says it will pass a question on rather than guess.",
-        points: ["It always says it is an automated assistant", "It never asks for card numbers or passwords", "Choose its voice and speaking style, and hear it on your phone"],
-        visual: "receptionist",
-      },
-      {
-        title: "You decide when it answers",
-        body: "Pick the situation that suits you, and change it any time.",
-        points: ["Only when you are closed", "When you are closed or nobody picks up", "Every call, as a front desk"],
-        visual: "flow",
-      },
-      {
-        title: "Everything it hears, written down",
-        body:
-          "Each call ends with a short summary of who called, their number and what they wanted, plus the full transcript. Appointment requests are listed for you to confirm, and urgent calls can be connected to your own number.",
-        points: ["Tagged outcomes such as message taken or call back", "Appointment requests collected under Automations", "The text-back feature can message callers you missed"],
-        visual: "aicall",
-      },
-    ],
-    faqs: [
-      { q: "Can it book appointments?", a: "It notes the time someone asks for and lists it for you to confirm. It cannot see your calendar, so it never promises a slot." },
-      { q: "Which plans include it?", a: "The AI receptionist is included from the Business plan." },
-    ],
-    from: "Business",
   },
   {
     slug: "messaging",
@@ -375,7 +336,7 @@ export const SOLUTIONS: {
     heroVisual: "queue",
     needs: [
       { title: "Work a list without the busywork", body: "Import a spreadsheet, start the power dialer, and the next contact is ready as soon as the last call is logged.", product: "dialer" },
-      { title: "Hand the first pass to an AI agent", body: "Let the agent qualify a cold list and tag who is interested, so your reps start with warm calls.", product: "ai-voice-agent" },
+      { title: "Warm up a cold list", body: "Play one recording to the whole list and let people press a key to be connected, so your reps start with people who raised a hand.", product: "voice-broadcast" },
       { title: "See what works", body: "Outcomes, connect rates and a leaderboard show which lists and which people are producing.", product: "analytics" },
     ],
     plan: "professional",
@@ -386,11 +347,11 @@ export const SOLUTIONS: {
     short: "Look bigger than you are, and miss fewer calls.",
     headline: "A front desk that never goes home.",
     lede: "Answer every call, even when you are with a customer or the shop is closed, and follow up on the ones you missed.",
-    heroVisual: "receptionist",
+    heroVisual: "flow",
     needs: [
-      { title: "Answer when you can't", body: "The AI receptionist takes a message, answers simple questions and sends you a summary.", product: "ai-receptionist" },
+      { title: "Send every caller somewhere useful", body: "Menus, hours and routing are set up in an afternoon, without a phone engineer, and callers who reach nobody leave a voicemail.", product: "phone-system" },
       { title: "Win back missed calls", body: "An automatic text goes to anyone whose call you missed.", product: "messaging" },
-      { title: "One line, one place", body: "Menus, hours and routing are set up in an afternoon, without a phone engineer.", product: "phone-system" },
+      { title: "Reach your customers in one go", body: "Record a message once and play it to your whole customer list.", product: "voice-broadcast" },
     ],
     plan: "business",
   },
@@ -481,39 +442,26 @@ export const GUIDES: Guide[] = [
     summary: "Build a campaign and work it with the power dialer.",
     steps: [
       { title: "Create the campaign", body: "Open Campaigns, press Create campaign, give it a name, choose a contact list and an owner." },
-      { title: "Choose how it is dialed", body: "Human-dialed campaigns use the power dialer in the desktop app. AI voice agent campaigns call for you." },
+      { title: "Choose how it is dialed", body: "Manual campaigns use the power dialer in the desktop app. Voice broadcasts play your recording to the list for you." },
       { title: "Start the power dialer", body: "On the campaign, choose Power dial. It counts down, places the call, and asks how it went." },
       { title: "Record each result", body: "Tap connected, call back, not interested, voicemail, busy, wrong number or do not call. The next contact comes up." },
     ],
     tips: ["Set how long the dialer waits between calls, and when it should stop ringing.", "Contacts marked do-not-call are skipped."],
   },
   {
-    slug: "set-up-the-ai-voice-agent",
-    title: "Set up the AI voice agent",
-    minutes: 10,
-    summary: "Write the call, choose the voice, and let it work a list.",
+    slug: "set-up-a-voice-broadcast",
+    title: "Set up a voice broadcast",
+    minutes: 8,
+    summary: "Upload a recording, test it on your own phone, and play it to a list.",
     steps: [
-      { title: "Create an AI campaign", body: "Press Create campaign and choose AI voice agent. Pick a contact list." },
-      { title: "Write what the call is for", body: "Describe who it is, why it is calling and what you want. Use {{first_name}} and {{company}} to personalise." },
-      { title: "Choose voice and behaviour", body: "Pick a voice and speaking style, decide what happens on voicemail, and which actions it may take." },
-      { title: "Hear it first", body: "Press Call me. The agent rings your own phone with the voice you chose." },
-      { title: "Confirm consent and start", body: "Tick the box confirming your contacts consented and the call discloses it is automated, then press Start dialing." },
+      { title: "Create the campaign", body: "Press Create campaign and choose Voice broadcast. Give it a name and pick a contact list." },
+      { title: "Upload your recording", body: "Choose an MP3 or WAV file. Start it by saying who you are and that it is a recorded message." },
+      { title: "Choose what happens on voicemail", body: "Leave the recording after the beep, hang up, or skip the check and play to whoever answers." },
+      { title: "Add keys if you want them", body: "Press 1 connects the person to a number you choose. Press 2 stops future calls. Say what each key does in the recording." },
+      { title: "Hear it first", body: "Choose Send me a test call. Your phone rings with exactly what your contacts will hear." },
+      { title: "Confirm consent and start", body: "Tick the box confirming your contacts agreed to receive recorded calls, then choose Start broadcast." },
     ],
-    tips: ["Use Call people again to retry the unanswered and voicemail contacts.", "Check the rules on automated calls where you operate before you start."],
-  },
-  {
-    slug: "set-up-the-ai-receptionist",
-    title: "Set up the AI receptionist",
-    minutes: 6,
-    summary: "Have every missed call answered and written down.",
-    steps: [
-      { title: "Open Automations", body: "Find the AI receptionist panel and switch it on." },
-      { title: "Choose when it answers", body: "Only when closed, when closed or nobody picks up, or on every call." },
-      { title: "Describe your business", body: "Add hours, services, prices you are happy to share and how to book. It answers only from this." },
-      { title: "Add an urgent line", body: "Enter a number for calls that need a person, and keep handover switched on." },
-      { title: "Choose a voice and test it", body: "Pick a voice and use Call me to hear it, then save." },
-    ],
-    tips: ["Appointment requests are listed on the same page for you to confirm.", "The AI receptionist is included from the Business plan."],
+    tips: ["Use Call people again to retry the unanswered and voicemail contacts.", "Check the rules on recorded calls where you operate before you start."],
   },
   {
     slug: "invite-your-team",
@@ -548,11 +496,11 @@ export const FAQS: { group: string; items: Faq[] }[] = [
     ],
   },
   {
-    group: "AI features",
+    group: "Voice broadcast",
     items: [
-      { q: "What can the AI voice agent do?", a: "It calls a list, speaks first, holds a conversation, handles voicemail, tags how each call went, notes appointment requests, can text once, and can transfer to a person." },
-      { q: "Is the AI always honest about being an AI?", a: "It is instructed to say it is an automated assistant whenever anyone sincerely asks, and you confirm that your contacts consented before a campaign can start." },
-      { q: "Which plans include the AI receptionist?", a: "Business and Managed Enterprise." },
+      { q: "What is a voice broadcast?", a: "A campaign that plays your own recording to everyone on a contact list who answers. People can press 1 to be connected to you, or 2 to never be called again, if you turn those keys on." },
+      { q: "What do I need to start one?", a: "A contact list, an MP3 or WAV recording, and a tick in the consent box confirming your contacts agreed to receive recorded calls." },
+      { q: "Can I try it first?", a: "Yes. Send me a test call rings your own phone with the recording, exactly as a contact would hear it." },
     ],
   },
   {
@@ -570,6 +518,6 @@ export const SECURITY_POINTS: { title: string; body: string }[] = [
   { title: "Permissions enforced on the server", body: "What an agent may do is checked on every request. Hiding a button is never the only protection." },
   { title: "Secrets stored encrypted", body: "SIP passwords are stored encrypted." },
   { title: "Your data stays yours", body: "Your contacts, recordings and history remain exportable, including after a trial ends." },
-  { title: "Consent built into AI campaigns", body: "An AI voice campaign cannot start until the owner confirms the contacts consented and the call discloses it is automated." },
-  { title: "Do-not-call that sticks", body: "Contacts marked do-not-call are skipped by campaigns and automations, and an agent can mark someone do-not-call as soon as a call ends." },
+  { title: "Consent built into voice broadcasts", body: "A voice broadcast cannot start until the owner confirms the contacts agreed to receive recorded calls." },
+  { title: "Do-not-call that sticks", body: "Contacts marked do-not-call are skipped by campaigns and automations, and a person who presses 2 on a voice broadcast is never called again." },
 ];

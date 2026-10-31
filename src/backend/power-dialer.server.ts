@@ -77,7 +77,7 @@ export async function powerStart(data: { token: string; campaignId: string }) {
   `;
   const campaign = rows[0] as { mode: string; list_id: string | null; name: string } | undefined;
   if (!campaign) throw new Error("Campaign not found.");
-  if (campaign.mode !== "manual") throw new Error("Power dialing is for manual campaigns. AI campaigns dial on their own.");
+  if (campaign.mode !== "manual") throw new Error("Power dialing is for manual campaigns. Voice broadcasts dial on their own.");
   if (!campaign.list_id) throw new Error("This campaign has no contact list. Create a new campaign and choose a list.");
 
   // Idempotent: adds contacts appended to the list since, never resets progress.

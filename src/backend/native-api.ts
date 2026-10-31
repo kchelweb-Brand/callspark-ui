@@ -24,25 +24,12 @@ import {
   duplicateCampaign,
   deleteCampaign,
 } from "./campaigns.server";
-import { reviewCampaignPrompt } from "./prompt-review";
+import { deleteGreeting, deleteStoredFiles, uploadGreeting } from "./media-store";
+import { RECORDING_VOICEMAIL, DEFAULT_RECORDING_SETTINGS, MAX_CALLS_AT_ONCE } from "./recording-options";
 import {
   getCampaignOutcomes,
   recallCampaign,
-  sampleAiCall,
-  listAppointments,
-  setAppointmentStatus,
-} from "./campaign-dialer";
-import {
-  AI_MODELS,
-  AI_OUTCOMES,
-  AI_STYLES,
-  AI_TIER_NOTE,
-  AI_DELIVERY,
-  AI_VOICEMAIL,
-  AI_VOICES,
-  DEFAULT_AI_SETTINGS,
-} from "./ai-agent-options";
-import {
+  sendTestCall,
   startCampaignDialing,
   pauseCampaignDialing,
   reconcileCampaign,
@@ -313,14 +300,18 @@ export async function handleNativeApi(request: Request, pathname: string): Promi
         return jsonOk(await listCampaigns(await readJson(request)));
       case "campaigns/create":
         return jsonOk(await createCampaign(await readJson(request)));
-      case "campaigns/update":
-        return jsonOk(await updateCampaign(await readJson(request)));
+      case "campaigns/update": {
+        const { released, ...result } = await updateCampaign(await readJson(request));
+        await deleteStoredFiles(released);
+        return jsonOk(result);
+      }
       case "campaigns/duplicate":
         return jsonOk(await duplicateCampaign(await readJson(request)));
-      case "campaigns/delete":
-        return jsonOk(await deleteCampaign(await readJson(request)));
-      case "campaigns/review-prompt":
-        return jsonOk(await reviewCampaignPrompt(await readJson(request)));
+      case "campaigns/delete": {
+        const { released } = await deleteCampaign(await readJson(request));
+        await deleteStoredFiles(released);
+        return jsonOk({ ok: true as const });
+      }
       case "campaigns/start-dialing":
         return jsonOk(await startCampaignDialing(await readJson(request)));
       case "campaigns/pause-dialing":
@@ -334,31 +325,26 @@ export async function handleNativeApi(request: Request, pathname: string): Promi
       case "campaigns/recall":
         return jsonOk(await recallCampaign(await readJson(request)));
 
-      // ---------- AI voice agent: what can be chosen, hearing a voice, bookings ----------
-      case "ai/options": {
+      // ---------- voice broadcast: what can be chosen, uploading the recording, hearing it ----------
+      case "campaigns/options": {
         // Static, but only for a signed-in owner like every other settings route.
         const { token } = await readJson<{ token: string }>(request);
         const payload = await verifyToken(token);
         if (!payload?.tenantId) throw new Error("Not signed in.");
         return jsonOk({
-          voices: AI_VOICES,
-          tierNotes: AI_TIER_NOTE,
-          delivery: AI_DELIVERY,
-          styles: AI_STYLES,
-          models: AI_MODELS,
-          voicemail: AI_VOICEMAIL,
-          outcomes: AI_OUTCOMES,
-          defaults: DEFAULT_AI_SETTINGS,
+          voicemail: RECORDING_VOICEMAIL,
+          defaults: DEFAULT_RECORDING_SETTINGS,
+          maxCallsAtOnce: MAX_CALLS_AT_ONCE,
         });
       }
-      case "ai/sample": {
-        const body = await readJson<{ token: string; settings: unknown; to: string }>(request);
-        return jsonOk(await sampleAiCall({ ...body, origin: new URL(request.url).origin }));
+      case "campaigns/test-call": {
+        const body = await readJson<{ token: string; campaignId: string; to: string }>(request);
+        return jsonOk(await sendTestCall({ ...body, origin: new URL(request.url).origin }));
       }
-      case "ai/appointments":
-        return jsonOk(await listAppointments(await readJson(request)));
-      case "ai/appointment-status":
-        return jsonOk(await setAppointmentStatus(await readJson(request)));
+      case "media/upload":
+        return jsonOk(await uploadGreeting(await readJson(request)));
+      case "media/delete":
+        return jsonOk(await deleteGreeting(await readJson(request)));
 
       // ---------- phone system / IVR (menus live inside the same config) ----------
       case "phone-system/get":
@@ -436,7 +422,7 @@ export async function handleNativeApi(request: Request, pathname: string): Promi
       case "support/reply":
         return jsonOk(await replyAsCustomer(await readJson(request)));
 
-      // ---------- automations: text-back, AI receptionist, rotation ----------
+      // ---------- automations: text-back and rotation ----------
       case "automations/get":
         return jsonOk(await getAutomations(await readJson(request)));
       case "automations/save":

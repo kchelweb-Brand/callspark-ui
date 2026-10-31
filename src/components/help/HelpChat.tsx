@@ -7,8 +7,8 @@ import { askHelp, isSignedIn, sendChatToSupport, type ChatMessage } from "@/lib/
 const STORAGE_KEY = "kchel-help-chat";
 const MAX_STORED = 30;
 
-const VISITOR_IDEAS = ["How much does it cost?", "How do I get started?", "What can the AI voice agent do?", "Can I use my own phone line?"];
-const MEMBER_IDEAS = ["How do I import contacts?", "How do I add an agent?", "How do I set up the AI receptionist?", "Why can't I make calls?"];
+const VISITOR_IDEAS = ["How much does it cost?", "How do I get started?", "What is a voice broadcast?", "Can I use my own phone line?"];
+const MEMBER_IDEAS = ["How do I import contacts?", "How do I add an agent?", "How do I run a voice broadcast?", "Why can't I make calls?"];
 
 const WELCOME = "Hi! I can answer questions about using Kchel Dialer. What do you need help with?";
 

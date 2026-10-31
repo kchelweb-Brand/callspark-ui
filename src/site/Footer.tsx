@@ -28,7 +28,7 @@ export function SiteFooter() {
           <div className="max-w-xs">
             <Logo markClassName="size-9" className="text-[1.15rem] [&_span]:!text-white" />
             <p className="mt-5 text-[15px] leading-relaxed text-white/70">
-              The phone system your sales floor actually dials with. Calling, campaigns, AI voice agents and a team workspace in one place.
+              The phone system your sales floor actually dials with. Calling, campaigns, voice broadcasts and a team workspace in one place.
             </p>
             <div className="mt-6 flex gap-3">
               <CtaLink to="/signup" className="h-11">

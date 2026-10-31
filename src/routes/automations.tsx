@@ -34,8 +34,6 @@ import {
 } from "@/backend/automation.server";
 import { getNumberHealthFn, restNumberFn } from "@/backend/reputation.server";
 import { getSessionToken } from "@/lib/auth-api";
-import { AiAgentSettingsForm } from "@/components/dash/AiAgentSettingsForm";
-import { listAppointments, setAppointmentStatus, type AppointmentRow } from "@/lib/workspace-api";
 
 export const Route = createFileRoute("/automations")({
   head: () => ({
@@ -44,7 +42,7 @@ export const Route = createFileRoute("/automations")({
       {
         name: "description",
         content:
-          "Missed-call text-back, an AI receptionist and number rotation, plus the health of each of your numbers.",
+          "Missed-call text-back and number rotation, plus the health of each of your numbers.",
       },
       { property: "og:title", content: "Automations — Kchel Dialer" },
       {
@@ -62,13 +60,12 @@ type Features = {
   numberRotation: boolean;
   missedCallTextBack: boolean;
   callSummaries: boolean;
-  aiReceptionist: boolean;
 };
 
 type NumberRow = Awaited<ReturnType<typeof getNumberHealthFn>>["numbers"][number];
 type AutoText = AutoTextRow;
 
-const UNLOCK = { missedCallTextBack: "Starter", numberRotation: "Professional", aiReceptionist: "Business" } as const;
+const UNLOCK = { missedCallTextBack: "Starter", numberRotation: "Professional" } as const;
 
 function token(): string {
   const t = getSessionToken();
@@ -211,94 +208,6 @@ function AutomationsPage() {
       </Panel>
 
       <Panel
-        title="AI receptionist"
-        description="An automated assistant answers when nobody can, finds out who is calling and why, and takes a message. You get a written summary on the call."
-        actions={
-          <Switch
-            checked={auto.aiReceptionist.enabled}
-            disabled={!features.aiReceptionist}
-            onCheckedChange={(on) =>
-              setAuto({ ...auto, aiReceptionist: { ...auto.aiReceptionist, enabled: on } })
-            }
-          />
-        }
-      >
-        <div className="flex flex-col gap-4">
-          {locked("aiReceptionist")}
-          <div className="flex flex-col gap-2">
-            <Label>When should it answer?</Label>
-            <Select
-              value={auto.aiReceptionist.mode}
-              disabled={!features.aiReceptionist}
-              onValueChange={(mode) =>
-                setAuto({ ...auto, aiReceptionist: { ...auto.aiReceptionist, mode: mode as Automations["aiReceptionist"]["mode"] } })
-              }
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="after_hours">Only when you're closed</SelectItem>
-                <SelectItem value="unanswered">When you're closed or nobody picks up</SelectItem>
-                <SelectItem value="always">Every call (front desk)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="ai-name">Business name</Label>
-            <Input
-              id="ai-name"
-              disabled={!features.aiReceptionist}
-              value={auto.aiReceptionist.businessName}
-              onChange={(e) => setAuto({ ...auto, aiReceptionist: { ...auto.aiReceptionist, businessName: e.target.value } })}
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="ai-about">What should it know about your business?</Label>
-            <Textarea
-              id="ai-about"
-              rows={5}
-              maxLength={1500}
-              placeholder="Hours, services, prices you're happy to share, address, how to book…"
-              disabled={!features.aiReceptionist}
-              value={auto.aiReceptionist.about}
-              onChange={(e) => setAuto({ ...auto, aiReceptionist: { ...auto.aiReceptionist, about: e.target.value } })}
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="ai-urgent">Urgent line (optional)</Label>
-            <Input
-              id="ai-urgent"
-              placeholder="+14155550134"
-              disabled={!features.aiReceptionist}
-              value={auto.aiReceptionist.transferNumber}
-              onChange={(e) => setAuto({ ...auto, aiReceptionist: { ...auto.aiReceptionist, transferNumber: e.target.value } })}
-            />
-          </div>
-          <div className="flex flex-col gap-3 rounded-lg border border-border p-3">
-            <p className="text-sm font-medium">Voice and behaviour</p>
-            <AiAgentSettingsForm
-              value={auto.aiReceptionist.agent}
-              disabled={!features.aiReceptionist}
-              onChange={(agent) => setAuto({ ...auto, aiReceptionist: { ...auto.aiReceptionist, agent } })}
-            />
-          </div>
-          <p className="text-xs text-muted-foreground">
-            It always says it is an automated assistant, only answers from the description above, and never asks
-            for card numbers or passwords. Your urgent line is where a call is connected when someone asks for a
-            person, if handover is on.
-          </p>
-        </div>
-      </Panel>
-
-      <Panel
-        title="Appointment requests"
-        description="Times people asked for on AI calls. The agent never promises a slot: confirm each one with them."
-      >
-        <AppointmentList />
-      </Panel>
-
-      <Panel
         title="Number rotation"
         description="Spreads automated outbound calls across your numbers, caps each one per day, and rests numbers whose answer rate collapses."
         actions={
@@ -323,7 +232,7 @@ function AutomationsPage() {
             onChange={(e) => setAuto({ ...auto, numberRotation: { ...auto.numberRotation, dailyCap: Number(e.target.value) } })}
           />
           <p className="text-xs text-muted-foreground">
-            Around 75–150 a day per number is the usual guidance. Rotation applies to AI campaign calls. Calls from
+            Around 75–150 a day per number is the usual guidance. Rotation applies to voice-broadcast campaign calls. Calls from
             the desktop softphone go out on the caller ID your SIP trunk sets.
           </p>
         </div>
@@ -433,71 +342,5 @@ function AutomationsPage() {
         </div>
       </Panel>
     </Shell>
-  );
-}
-
-/** What the AI agent noted: times people asked for, waiting for a human to confirm them. */
-function AppointmentList() {
-  const [rows, setRows] = useState<AppointmentRow[] | null>(null);
-
-  const load = useCallback(async () => {
-    try {
-      setRows(await listAppointments());
-    } catch {
-      setRows([]);
-    }
-  }, []);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  async function mark(id: string, status: "confirmed" | "dismissed") {
-    try {
-      await setAppointmentStatus(id, status);
-      await load();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not update that.");
-    }
-  }
-
-  if (rows === null) {
-    return (
-      <p className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Loader2 className="size-4 animate-spin" /> Loading…
-      </p>
-    );
-  }
-  if (rows.length === 0) {
-    return <p className="text-sm text-muted-foreground">No requests yet. They appear here when the AI agent notes one.</p>;
-  }
-  return (
-    <div className="flex flex-col gap-2">
-      {rows.map((a) => (
-        <div key={a.id} className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border p-3">
-          <div className="flex flex-col gap-0.5">
-            <span className="text-sm font-medium">
-              {a.when_text}
-              {a.name ? ` · ${a.name}` : ""}
-            </span>
-            <span className="text-xs text-muted-foreground">
-              {[a.phone, a.reason].filter(Boolean).join(" · ") || "No details"}
-            </span>
-          </div>
-          {a.status === "requested" ? (
-            <div className="flex gap-2">
-              <Button size="sm" onClick={() => void mark(a.id, "confirmed")}>
-                Confirmed with them
-              </Button>
-              <Button size="sm" variant="outline" onClick={() => void mark(a.id, "dismissed")}>
-                Dismiss
-              </Button>
-            </div>
-          ) : (
-            <span className="text-xs text-muted-foreground">{a.status === "confirmed" ? "Confirmed" : "Dismissed"}</span>
-          )}
-        </div>
-      ))}
-    </div>
   );
 }

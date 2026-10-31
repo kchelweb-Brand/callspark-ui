@@ -5,8 +5,7 @@ import { renderErrorPage } from "./lib/error-page";
 import { getMediaBucket, setCloudflareEnv } from "./backend/cf-env";
 import { handleTelnyxVoiceWebhook } from "./backend/inbound";
 import { handleSignalWireVoiceWebhook } from "./backend/inbound-signalwire";
-import { CAMPAIGN_AI_WEBHOOK_PATH, handleCampaignAiWebhook } from "./backend/campaign-dialer";
-import { AI_ACTIONS_PATH, handleAiFunction } from "./backend/ai-agent.server";
+import { CAMPAIGN_WEBHOOK_PATH, handleCampaignWebhook } from "./backend/campaign-dialer";
 import { FLUTTERWAVE_WEBHOOK_PATH, handleFlutterwaveWebhook } from "./backend/payment-webhook.server";
 import { RECEIPT_PATH, serveReceipt } from "./backend/receipts.server";
 import { NATIVE_API_PREFIX, handleNativeApi } from "./backend/native-api";
@@ -153,13 +152,13 @@ export default {
         return await handleSignalWireVoiceWebhook(request);
       }
 
-      // AI-agent campaign calling — its own path since it returns SWML
-      // (hands the call to SignalWire's own voice agent) rather than cXML.
-      if (url.pathname === CAMPAIGN_AI_WEBHOOK_PATH) {
+      // Voice-broadcast campaigns: the carrier asks what to play when someone
+      // answers, which key they pressed, and how the call ended.
+      if (url.pathname === CAMPAIGN_WEBHOOK_PATH) {
         if (request.method !== "POST") {
           return new Response("Method not allowed", { status: 405 });
         }
-        return await handleCampaignAiWebhook(request);
+        return await handleCampaignWebhook(request);
       }
 
       // Flutterwave tells us a payment cleared; the plan is switched on from here.
@@ -176,15 +175,6 @@ export default {
           return new Response("Method not allowed", { status: 405 });
         }
         return await serveReceipt(url);
-      }
-
-      // What the AI agent asks us to do mid-call (tag the call, note a booking,
-      // send a text, transfer). Signed per call, so no other credential is needed.
-      if (url.pathname === AI_ACTIONS_PATH) {
-        if (request.method !== "POST") {
-          return new Response("Method not allowed", { status: 405 });
-        }
-        return await handleAiFunction(request);
       }
 
       // The native desktop dialer (Electron + baresip) talks to these fixed

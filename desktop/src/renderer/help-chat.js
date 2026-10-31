@@ -6,7 +6,7 @@
 // textContent, so nothing the assistant says can inject markup.
 (function () {
   const WELCOME = "Hi! I can answer questions about using Kchel Dialer. What do you need help with?";
-  const IDEAS = ["How do I import contacts?", "How do I add an agent?", "How do I set up the AI receptionist?", "Why can't I make calls?"];
+  const IDEAS = ["How do I import contacts?", "How do I add an agent?", "How do I run a voice broadcast?", "Why can't I make calls?"];
   const MAX_STORED = 30;
 
   let messages = [];

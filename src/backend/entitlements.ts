@@ -5,7 +5,6 @@
 // reachable directly, so the gate has to sit next to the insert.
 
 import { sql } from "./db";
-import { findAiVoice } from "./ai-agent-options";
 import { ensureSchema } from "./schema.server";
 import { isOnHold, lifecycleOf, type Lifecycle } from "./billing-lifecycle";
 import {
@@ -243,23 +242,4 @@ export async function getUsageSummary(tenantId: string): Promise<{
   );
 
   return { plan, usage };
-}
-
-// ---------------------------------------------------------------------------
-// AI voices
-// ---------------------------------------------------------------------------
-
-/** Premium voices cost the most per minute, so they come with the plans that include them. */
-export async function requirePremiumVoice(tenantId: string, voiceId: string): Promise<void> {
-  if (findAiVoice(voiceId).tier === "premium") await requireFeature(tenantId, "premiumVoices");
-}
-
-/**
- * The voice a call will really use. A plan that no longer includes premium
- * voices (after a downgrade, or a lapsed trial) falls back to a standard one
- * instead of dropping the call.
- */
-export async function voiceForPlan(tenantId: string, voiceId: string): Promise<string> {
-  if (findAiVoice(voiceId).tier !== "premium") return voiceId;
-  return (await tenantHasFeature(tenantId, "premiumVoices")) ? voiceId : "ella";
 }

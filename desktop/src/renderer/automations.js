@@ -1,6 +1,6 @@
 "use strict";
 
-// Automations (missed-call text-back, AI receptionist, number rotation) and
+// Automations (missed-call text-back and number rotation) and
 // the Number health page.
 (function () {
   const U = window.KchelUi;
@@ -10,7 +10,6 @@
   const UNLOCK = {
     missedCallTextBack: "Starter",
     numberRotation: "Professional",
-    aiReceptionist: "Business",
   };
 
   function showError(root, err) {
@@ -26,21 +25,6 @@
       <label class="switch"><input type="checkbox" id="${id}" ${on ? "checked" : ""} ${locked ? "disabled" : ""} /><span></span></label></div>`;
   }
 
-  /** What the AI agent noted: times people asked for, waiting for a person to confirm them. */
-  function apptRows(list) {
-    if (!list.length) return '<p class="hint">No requests yet. They appear here when the AI agent notes one.</p>';
-    return list
-      .map((a) => {
-        const detail = [a.phone, a.reason].filter(Boolean).join(" · ") || "No details";
-        const right =
-          a.status === "requested"
-            ? `<span><button data-appt="${a.id}" data-status="confirmed">Confirmed with them</button> <button data-appt="${a.id}" data-status="dismissed">Dismiss</button></span>`
-            : `<span class="hint">${a.status === "confirmed" ? "Confirmed" : "Dismissed"}</span>`;
-        return `<div class="switch-row"><div><h3>${U.esc(a.when_text)}${a.name ? " · " + U.esc(a.name) : ""}</h3><p class="hint">${U.esc(detail)}</p></div>${right}</div>`;
-      })
-      .join("");
-  }
-
   // ---------- Automations ----------
   const automations = (() => {
     const root = $("view-automations");
@@ -48,12 +32,7 @@
 
     async function load() {
       try {
-        const [d, t, appts] = await Promise.all([
-          api("automations/get"),
-          api("automations/texts").catch(() => ({ texts: [] })),
-          api("ai/appointments").catch(() => ({ appointments: [] })),
-          window.KchelAi.ensureOptions(),
-        ]);
+        const [d, t] = await Promise.all([api("automations/get"), api("automations/texts").catch(() => ({ texts: [] }))]);
         const a = d.automations;
         const f = d.features;
         root.querySelector("[data-body]").innerHTML = `
@@ -65,36 +44,10 @@
           </div>
 
           <div class="panel stack">
-            ${switchRow("ai-on", "AI receptionist", "An automated assistant answers when nobody can, finds out who is calling and why, and takes a message. You get a written summary on the call.", a.aiReceptionist.enabled, !f.aiReceptionist)}
-            ${lockNote(f, "aiReceptionist")}
-            <label>When should it answer?
-              <select id="ai-mode" ${f.aiReceptionist ? "" : "disabled"}>
-                <option value="after_hours" ${a.aiReceptionist.mode === "after_hours" ? "selected" : ""}>Only when you're closed</option>
-                <option value="unanswered" ${a.aiReceptionist.mode === "unanswered" ? "selected" : ""}>When you're closed or nobody picks up</option>
-                <option value="always" ${a.aiReceptionist.mode === "always" ? "selected" : ""}>Every call (front desk)</option>
-              </select>
-            </label>
-            <label>Business name<input id="ai-name" type="text" value="${U.esc(a.aiReceptionist.businessName)}" ${f.aiReceptionist ? "" : "disabled"} /></label>
-            <label>What should it know about your business?
-              <textarea id="ai-about" rows="5" maxlength="1500" placeholder="Hours, services, prices you're happy to share, address, how to book…" ${f.aiReceptionist ? "" : "disabled"}>${U.esc(a.aiReceptionist.about)}</textarea>
-            </label>
-            <label>Urgent line (optional)<input id="ai-urgent" type="text" placeholder="+14155550134" value="${U.esc(a.aiReceptionist.transferNumber)}" ${f.aiReceptionist ? "" : "disabled"} /></label>
-            <p class="eyebrow">Voice and behaviour</p>
-            ${window.KchelAi.formHtml("rcp", a.aiReceptionist.agent, { voicemail: false, transfer: false, disabled: !f.aiReceptionist })}
-            <p class="hint">It always says it is an automated assistant, only answers from the description above, and never asks for card numbers or passwords. Your urgent line is where a call is connected when someone asks for a person, if handover is on.</p>
-          </div>
-
-          <div class="panel stack">
-            <p class="eyebrow">Appointment requests</p>
-            <p class="hint">Times people asked for on AI calls. The agent never promises a slot: confirm each one with them.</p>
-            <div id="appt-list">${apptRows(appts.appointments || [])}</div>
-          </div>
-
-          <div class="panel stack">
             ${switchRow("nr-on", "Number rotation", "Spreads automated outbound calls across your numbers, caps each one per day, and rests numbers whose answer rate collapses.", a.numberRotation.enabled, !f.numberRotation)}
             ${lockNote(f, "numberRotation")}
             <label>Calls per number per day<input id="nr-cap" type="number" min="10" max="1000" value="${a.numberRotation.dailyCap}" ${f.numberRotation ? "" : "disabled"} /></label>
-            <p class="hint">Around 75–150 a day per number is the usual guidance. Rotation applies to AI campaign calls. Calls from the desktop softphone go out on the caller ID your SIP trunk sets. See the health of each number on Number health.</p>
+            <p class="hint">Around 75–150 a day per number is the usual guidance. Rotation applies to voice-broadcast campaign calls. Calls from the desktop softphone go out on the caller ID your SIP trunk sets. See the health of each number on Number health.</p>
           </div>
 
           <div class="page-actions"><button id="auto-save">Save changes</button><span class="hint" id="auto-hint"></span></div>
@@ -112,19 +65,6 @@
             )}
           </div>`;
 
-        window.KchelAi.bindForm(root, "rcp");
-        root.querySelector("#appt-list").addEventListener("click", async (e) => {
-          const btn = e.target.closest("button[data-appt]");
-          if (!btn) return;
-          try {
-            await api("ai/appointment-status", { id: btn.dataset.appt, status: btn.dataset.status });
-            const fresh = await api("ai/appointments");
-            root.querySelector("#appt-list").innerHTML = apptRows(fresh.appointments || []);
-          } catch (err) {
-            U.toast(err.message, "error");
-          }
-        });
-
         $("auto-save").addEventListener("click", async () => {
           const hint = $("auto-hint");
           hint.textContent = "Saving…";
@@ -132,14 +72,6 @@
             await api("automations/save", {
               automations: {
                 missedCallTextBack: { enabled: $("tb-on").checked, message: $("tb-msg").value },
-                aiReceptionist: {
-                  enabled: $("ai-on").checked,
-                  mode: $("ai-mode").value,
-                  businessName: $("ai-name").value,
-                  about: $("ai-about").value,
-                  transferNumber: $("ai-urgent").value,
-                  agent: window.KchelAi.readForm(root, "rcp", a.aiReceptionist.agent),
-                },
                 numberRotation: { enabled: $("nr-on").checked, dailyCap: Number($("nr-cap").value) },
               },
             });

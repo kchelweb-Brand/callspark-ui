@@ -11,7 +11,7 @@ export const Route = createFileRoute("/resources/")({
       {
         name: "description",
         content:
-          "Step-by-step guides for setting up your phone line, importing contacts, running campaigns, and using the AI voice agent and receptionist.",
+          "Step-by-step guides for setting up your phone line, importing contacts, running campaigns, and setting up a voice broadcast.",
       },
     ],
   }),

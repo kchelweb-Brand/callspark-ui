@@ -11,7 +11,7 @@ export const Route = createFileRoute("/product/")({
       {
         name: "description",
         content:
-          "Everything in the Kchel Dialer workspace: cloud phone system, power dialer, AI voice agent, AI receptionist, messaging, analytics, team tools and a Windows app.",
+          "Everything in the Kchel Dialer workspace: cloud phone system, power dialer, voice broadcast, messaging, analytics, team tools and a Windows app.",
       },
     ],
   }),
@@ -25,7 +25,7 @@ function ProductOverview() {
         trail={[{ label: "Home", to: "/" }, { label: "Product" }]}
         eyebrow="The platform"
         title="One workspace for every call your business makes and takes."
-        lede="Set up a phone line, work a list, put an AI agent on the first pass, and see what happened afterwards. Each part works on its own, and they share the same contacts, history and team."
+        lede="Set up a phone line, work a list, play a recording to it, and see what happened afterwards. Each part works on its own, and they share the same contacts, history and team."
         visual="queue"
         actions={
           <>

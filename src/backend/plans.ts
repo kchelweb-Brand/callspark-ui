@@ -37,9 +37,6 @@ export interface PlanFeatures {
   missedCallTextBack: boolean;
   /** Transcripts and written summaries of recorded calls. */
   callSummaries: boolean;
-  /** An AI agent that answers inbound calls, after hours or when nobody picks up. */
-  aiReceptionist: boolean;
-  premiumVoices: boolean;
 }
 
 export interface Plan {
@@ -93,8 +90,6 @@ export const PLANS: Record<PlanId, Plan> = {
       numberRotation: false,
       missedCallTextBack: false,
       callSummaries: false,
-      aiReceptionist: false,
-      premiumVoices: false,
     },
   },
   starter: {
@@ -119,8 +114,6 @@ export const PLANS: Record<PlanId, Plan> = {
       numberRotation: false,
       missedCallTextBack: true,
       callSummaries: false,
-      aiReceptionist: false,
-      premiumVoices: false,
     },
   },
   professional: {
@@ -145,20 +138,18 @@ export const PLANS: Record<PlanId, Plan> = {
       numberRotation: true,
       missedCallTextBack: true,
       callSummaries: true,
-      aiReceptionist: false,
-      premiumVoices: false,
     },
   },
   // The step between Professional ($295 for 5 seats) and Managed ($2,500): a
-  // flat fee that makes the 6th to 8th agent cheap and unlocks the AI
-  // receptionist, while still running on the customer's own carrier.
+  // flat fee that makes the 6th to 8th agent cheap, while still running on the
+  // customer's own carrier.
   business: {
     id: "business",
     name: "Business",
     pricePerAgentMonthly: 0,
     priceFlatMonthly: 570,
     blurb:
-      "Up to 8 agents on your own carrier, with the AI receptionist, call summaries and number rotation included.",
+      "Up to 8 agents on your own carrier, with call summaries and number rotation included.",
     managedSip: false,
     limits: {
       agents: 8,
@@ -176,8 +167,6 @@ export const PLANS: Record<PlanId, Plan> = {
       numberRotation: true,
       missedCallTextBack: true,
       callSummaries: true,
-      aiReceptionist: true,
-      premiumVoices: true,
     },
   },
   managed: {
@@ -207,8 +196,6 @@ export const PLANS: Record<PlanId, Plan> = {
       numberRotation: true,
       missedCallTextBack: true,
       callSummaries: true,
-      aiReceptionist: true,
-      premiumVoices: true,
     },
   },
 };
@@ -250,8 +237,6 @@ export const FEATURE_LABELS: Record<FeatureKey, string> = {
   numberRotation: "Number rotation",
   missedCallTextBack: "Missed-call text-back",
   callSummaries: "Call summaries",
-  aiReceptionist: "AI receptionist",
-  premiumVoices: "Premium AI voices",
 };
 
 /** The cheapest plan that includes a feature — what an upgrade message should name. */

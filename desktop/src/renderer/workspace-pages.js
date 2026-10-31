@@ -346,7 +346,6 @@
       ["missedCallTextBack", "Text-back"],
       ["numberRotation", "Number rotation"],
       ["callSummaries", "Call summaries"],
-      ["aiReceptionist", "AI receptionist"],
     ];
 
     function addonRow(name, price, a, key) {

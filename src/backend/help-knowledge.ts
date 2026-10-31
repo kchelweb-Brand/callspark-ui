@@ -149,34 +149,25 @@ export const ARTICLES: HelpArticle[] = [
       "and moves to the next. You can set how long to wait between calls (or none) and when to stop ringing. It never calls ahead of an agent who is still on a call. Power dialing is included on the plans that list it.",
   },
   {
-    id: "ai-campaigns",
-    title: "AI voice agent campaigns",
-    keywords: ["ai agent", "voice agent", "robot", "bot calls", "ai campaign", "ai call", "ai calls", "script", "prompt", "voicemail", "voice", "sound", "human like", "call again", "outbound ai", "start dialing"],
+    id: "voice-broadcast",
+    title: "Voice broadcast campaigns",
+    keywords: ["voice broadcast", "broadcast", "recording", "recorded message", "robocall", "play a recording", "upload recording", "voicemail drop", "press 1", "press 2", "opt out", "test call", "start broadcast", "call again", "campaign"],
     body:
-      "An AI voice agent calls your list for you. Create a campaign and choose AI voice agent, write what it should say (use {{first_name}} and {{company}} to personalise), pick a contact list, " +
-      "and tick the box confirming your contacts consented and the call discloses it is automated. Under Voice and behaviour choose the voice, speaking style (Natural, Calm, Quick) and how smart it is, " +
-      "and choose what happens on voicemail: hang up, leave a short message, or always talk. Press Call me to hear the voice on your own phone first. " +
-      "The agent speaks first when someone answers. It can tag how the call went, note an appointment request for you to confirm, text the person once, and hand over to a human on the transfer number. " +
-      "Press Start dialing to begin and Pause to stop. Use Call people again to put people who did not answer, got voicemail or asked for a call back into the queue. " +
-      "Outcomes show in Call History. Premium voices are included on the Business plan and above. Check your local laws on automated calls before you start.",
-  },
-  {
-    id: "ai-receptionist",
-    title: "AI receptionist",
-    keywords: ["receptionist", "after hours", "answer calls", "ai answer", "answer my phone", "answering", "closed", "when i'm closed", "missed", "front desk", "take a message"],
-    body:
-      "The AI receptionist answers incoming calls when nobody can, asks who is calling and why, answers simple questions from the description of your business, and takes a message. " +
-      "Turn it on under Automations, AI receptionist. Choose when it answers: only when closed, when closed or nobody picks up, or every call. Fill in the business name and what it should know " +
-      "(hours, services, prices you are happy to share). An urgent line is where a call is connected when someone asks for a person. You get a written summary on each call. " +
-      "It is included on the plans that list the AI receptionist.",
+      "A voice broadcast plays your own recording to everyone on a contact list who answers. Create a campaign and choose Voice broadcast, pick a contact list, upload an MP3 or WAV recording (up to 5 MB), " +
+      "and tick the box confirming your contacts agreed to receive recorded calls. Start the recording by saying who you are and that it is a recorded message. " +
+      "Choose what happens on voicemail: leave the recording after the beep, hang up, or skip the check and play to whoever answers. " +
+      "You can let people press 1 to be connected to a phone number you choose, and 2 to never be called again; say what each key does in the recording. " +
+      "Choose how many people are rung at the same time, from one to five. Use Send me a test call to hear it on your own phone first (up to 15 a day). " +
+      "Press Start broadcast to begin and Pause to stop. Use Call people again to put people who did not answer or reached voicemail back in the queue. " +
+      "Every call is listed in the campaign's call log and in Call History. Check your local laws on recorded calls before you start.",
   },
   {
     id: "automations",
     title: "Missed-call text-back and number rotation",
     keywords: ["text back", "text-back", "missed call", "auto text", "rotation", "rotate", "daily cap", "number health", "spam", "automations"],
     body:
-      "Automations has three switches. Missed-call text-back texts the caller right after a call nobody answered, from the number they called (one text per caller every 6 hours, never to do-not-call contacts); edit the message and use {business} for your name. " +
-      "AI receptionist is described separately. Number rotation spreads automated outbound calls across your numbers, caps each at a daily number, and rests numbers whose answer rate collapses. " +
+      "Automations has two switches. Missed-call text-back texts the caller right after a call nobody answered, from the number they called (one text per caller every 6 hours, never to do-not-call contacts); edit the message and use {business} for your name. " +
+      "Number rotation spreads automated outbound calls across your numbers, caps each at a daily number, and rests numbers whose answer rate collapses. " +
       "Which plan includes each one is in the plans list.",
   },
   {

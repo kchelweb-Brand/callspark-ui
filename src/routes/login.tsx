@@ -91,8 +91,8 @@ function LoginPage() {
     <AuthShell
       headline="Your whole call floor,"
       accent="one workspace."
-      body="Power dialing, AI voice agents, live call monitoring, recordings, analytics and text messaging, in one place built for teams that live on the phone."
-      points={["Call over your own SIP line, from a browser or Windows", "AI voice agents work your list and tag every call", "Menus, extensions and voicemail you control"]}
+      body="Power dialing, voice broadcasts, live call monitoring, recordings, analytics and text messaging, in one place built for teams that live on the phone."
+      points={["Call over your own SIP line, from a browser or Windows", "Voice broadcasts play your recording to a whole list", "Menus, extensions and voicemail you control"]}
       visual="queue"
       footnote="Sign in with a one-time code sent to your email. There is no password to remember."
     >

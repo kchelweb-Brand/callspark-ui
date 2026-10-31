@@ -14,8 +14,8 @@ export interface SignalwireResult {
   body?: unknown;
 }
 
-/** Starts a brand-new outbound call, handed off to whatever `webhookUrl` returns (cXML or SWML). */
-export async function originateAiCall(input: {
+/** Starts a brand-new outbound call, handed off to whatever cXML `webhookUrl` returns. */
+export async function originateCall(input: {
   to: string;
   from: string;
   webhookUrl: string;

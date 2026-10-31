@@ -59,10 +59,10 @@ function Panel({ which }: { which: MenuKey }) {
         </div>
         <Feature
           eyebrow="Featured"
-          title="An AI agent that works your list"
-          body="It dials, speaks first, handles voicemail and tags how every call went."
-          to="/product/ai-voice-agent"
-          cta="See the AI voice agent"
+          title="Record it once, reach the whole list"
+          body="Your own recording plays to everyone who answers, and they can press a key to reach you."
+          to="/product/voice-broadcast"
+          cta="See voice broadcast"
         />
       </div>
     );
@@ -81,7 +81,7 @@ function Panel({ which }: { which: MenuKey }) {
         <Feature
           eyebrow="Plans"
           title="Per agent, or one flat price"
-          body="Start at $29 per agent, or give a team of eight one flat price with the AI receptionist included."
+          body="Start at $29 per agent, or give a team of eight one flat price with call summaries and number rotation included."
           to="/pricing"
           cta="Compare plans"
         />

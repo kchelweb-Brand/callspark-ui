@@ -3,8 +3,8 @@
 // On demand rather than automatic: transcription costs compute, and most calls
 // don't need it. The first request transcribes the recording with Cloudflare's
 // speech model and summarises it; the result is stored on the call, so every
-// later view is free and instant. AI-receptionist calls arrive already
-// summarised (see ai-receptionist.server.ts).
+// later view is free and instant. A call is summarised the first time
+// someone asks for it.
 //
 // Server-only — imports the Workers AI binding, which must never reach the
 // browser bundle.

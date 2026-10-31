@@ -36,7 +36,7 @@ const SECTIONS: { title: string; body: string[] }[] = [
     title: "4. Calls, texts and the law",
     body: [
       "You are responsible for following the laws that apply to your calling and messaging, including rules on consent, do-not-call lists, call recording, caller identification, and automated or artificial voices, in every place you and your contacts are located.",
-      "You must have the consent the law requires before you place automated calls or send text messages. AI voice agent campaigns require you to confirm that your contacts consented and that the call discloses it is automated. You must not use the service for unlawful, deceptive, harassing or fraudulent calls or messages, or to impersonate another person or organisation.",
+      "You must have the consent the law requires before you place automated calls or send text messages. Voice broadcast campaigns require you to confirm that your contacts agreed to receive recorded calls. You must not use the service for unlawful, deceptive, harassing or fraudulent calls or messages, or to impersonate another person or organisation.",
     ],
   },
   {
@@ -48,7 +48,7 @@ const SECTIONS: { title: string; body: string[] }[] = [
   {
     title: "6. AI features",
     body: [
-      "The AI voice agent, AI receptionist, summaries and the help assistant use automated systems that can make mistakes. Review what matters. Do not rely on them for legal, medical or financial decisions. You are responsible for the script and instructions you give an AI agent and for how its output is used.",
+      "Call summaries and the help assistant use automated systems that can make mistakes. Review what matters. Do not rely on them for legal, medical or financial decisions. You are responsible for the recordings you play to people and for the calls you place with them.",
     ],
   },
   {

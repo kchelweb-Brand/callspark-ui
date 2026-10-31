@@ -26,18 +26,10 @@ import {
 } from "@/components/ui/select";
 import { getSessionUser } from "@/lib/auth-api";
 import { getContactsMeta } from "@/lib/contacts-api";
+import { deleteGreeting } from "@/lib/media-api";
 import { createCampaign, type CampaignRecord } from "@/lib/workspace-api";
-import { PromptReviewPanel } from "@/components/dash/PromptReviewPanel";
-import { AiAgentSettingsForm } from "@/components/dash/AiAgentSettingsForm";
-import { DEFAULT_AI_SETTINGS, type AiAgentSettings } from "@/backend/ai-agent-options";
-
-const DEFAULT_AI_PROMPT =
-  "Hi {{first_name}}, this is an automated assistant calling on behalf of [Your Business]. " +
-  "I'm reaching out about [reason for the call]. Is now an okay time to talk?";
-
-const DEFAULT_SCRIPT_TEXT =
-  "Hi {{first_name}}, this is an automated message from [Your Business]. We are calling about [reason for the call]. " +
-  "To speak with us, call [your phone number]. Thank you, and have a great day.";
+import { RecordingSettingsForm } from "@/components/dash/RecordingSettingsForm";
+import { DEFAULT_RECORDING_SETTINGS, recordingSettingsProblem, type RecordingSettings } from "@/backend/recording-options";
 
 export function CreateCampaignDialog({
   trigger,
@@ -52,10 +44,9 @@ export function CreateCampaignDialog({
   const [owner, setOwner] = useState(() => getSessionUser()?.email ?? "");
   const [script, setScript] = useState("");
   const [startNow, setStartNow] = useState(true);
-  const [mode, setMode] = useState<"manual" | "ai_agent">("manual");
-  const [aiPrompt, setAiPrompt] = useState(DEFAULT_AI_PROMPT);
+  const [mode, setMode] = useState<"manual" | "recording">("manual");
+  const [recording, setRecording] = useState<RecordingSettings>(DEFAULT_RECORDING_SETTINGS);
   const [complianceAck, setComplianceAck] = useState(false);
-  const [aiSettings, setAiSettings] = useState<AiAgentSettings>(DEFAULT_AI_SETTINGS);
   const [saving, setSaving] = useState(false);
   const [contactLists, setContactLists] = useState<{ id: string; name: string }[]>([]);
 
@@ -68,8 +59,24 @@ export function CreateCampaignDialog({
       });
   }, [open]);
 
+  function reset() {
+    setName("");
+    setScript("");
+    setRecording(DEFAULT_RECORDING_SETTINGS);
+    setComplianceAck(false);
+  }
+
+  function handleOpenChange(next: boolean) {
+    // Closing without creating: a recording uploaded just now has no campaign to belong to.
+    if (!next && recording.file) {
+      void deleteGreeting(recording.file.key).catch(() => {});
+      setRecording(DEFAULT_RECORDING_SETTINGS);
+    }
+    setOpen(next);
+  }
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         {trigger ?? (
           <Button>
@@ -77,11 +84,11 @@ export function CreateCampaignDialog({
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className={`max-h-[85vh] overflow-y-auto ${mode === "ai_agent" ? "sm:max-w-2xl" : "sm:max-w-lg"}`}>
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Create campaign</DialogTitle>
           <DialogDescription>
-            Name the campaign, pick a contact list and assign an owner.
+            Name the campaign, pick a contact list and choose how it is dialed.
           </DialogDescription>
         </DialogHeader>
 
@@ -94,9 +101,24 @@ export function CreateCampaignDialog({
               toast.error("Give the campaign a name.");
               return;
             }
-            if (mode === "ai_agent" && !complianceAck) {
-              toast.error("Confirm the consent/disclosure checkbox before creating an AI campaign.");
-              return;
+            if (mode === "recording") {
+              if (!listId) {
+                toast.error("Choose a contact list.");
+                return;
+              }
+              if (!recording.file) {
+                toast.error("Upload the recording first.");
+                return;
+              }
+              const problem = recordingSettingsProblem(recording);
+              if (problem) {
+                toast.error(problem);
+                return;
+              }
+              if (!complianceAck) {
+                toast.error("Confirm the consent checkbox before creating a voice broadcast.");
+                return;
+              }
             }
             void (async () => {
               setSaving(true);
@@ -109,21 +131,17 @@ export function CreateCampaignDialog({
                   mode,
                   ...(mode === "manual"
                     ? { ...(script.trim() ? { script: script.trim() } : {}) }
-                    : { aiPrompt: aiPrompt.trim(), aiSettings, complianceAck }),
+                    : { recording, complianceAck }),
                 });
                 onCreated?.(result.campaign);
                 const listLabel = contactLists.find((l) => l.id === listId)?.name ?? "No list yet";
                 toast.success(`Campaign “${result.campaign.name}” created`, {
                   description:
-                    mode === "ai_agent"
-                      ? `${listLabel} · use "Start dialing" to begin`
+                    mode === "recording"
+                      ? `${listLabel} · use "Start broadcast" to begin`
                       : `${listLabel}${startNow ? " · dialing now" : " · saved as draft"}`,
                 });
-                setName("");
-                setScript("");
-                setAiPrompt(DEFAULT_AI_PROMPT);
-                setComplianceAck(false);
-                setAiSettings(DEFAULT_AI_SETTINGS);
+                reset();
                 setOpen(false);
               } catch (err) {
                 toast.error(err instanceof Error ? err.message : "Could not create that campaign.");
@@ -141,16 +159,21 @@ export function CreateCampaignDialog({
                 variant={mode === "manual" ? "default" : "outline"}
                 onClick={() => setMode("manual")}
               >
-                Human-dialed
+                Manual dialing
               </Button>
               <Button
                 type="button"
-                variant={mode === "ai_agent" ? "default" : "outline"}
-                onClick={() => setMode("ai_agent")}
+                variant={mode === "recording" ? "default" : "outline"}
+                onClick={() => setMode("recording")}
               >
-                AI voice agent
+                Voice broadcast
               </Button>
             </div>
+            <p className="text-xs text-muted-foreground">
+              {mode === "manual"
+                ? "Your team calls the list from the Dialer, one contact after another."
+                : "Your recording is played automatically to everyone on the list who answers. You can add keys to connect them to a person or to stop future calls."}
+            </p>
           </div>
 
           <div className="flex flex-col gap-2">
@@ -212,38 +235,7 @@ export function CreateCampaignDialog({
             </>
           ) : (
             <>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="camp-ai-prompt">{aiSettings.delivery === "script" ? "Script to read aloud" : "AI prompt"}</Label>
-                <Textarea
-                  id="camp-ai-prompt"
-                  rows={6}
-                  value={aiPrompt}
-                  onChange={(e) => setAiPrompt(e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">
-                  {aiSettings.delivery === "script"
-                    ? "This is read word for word to everyone who answers. Use {{first_name}} and {{company}}. Keep the disclosure that it is an automated call at the start."
-                    : "This is read to the AI agent for every call — keep the disclosure line at the start."}
-                </p>
-              </div>
-
-              <PromptReviewPanel prompt={aiPrompt} onApply={setAiPrompt} />
-
-              <div className="flex flex-col gap-3 rounded-lg border border-border p-3">
-                <p className="text-sm font-medium">Voice and behaviour</p>
-                <AiAgentSettingsForm
-                  value={aiSettings}
-                  onChange={(next) => {
-                    // Switching how it talks swaps the starting text, unless it has been rewritten.
-                    if (next.delivery !== aiSettings.delivery && (aiPrompt.trim() === DEFAULT_AI_PROMPT.trim() || aiPrompt.trim() === DEFAULT_SCRIPT_TEXT.trim())) {
-                      setAiPrompt(next.delivery === "script" ? DEFAULT_SCRIPT_TEXT : DEFAULT_AI_PROMPT);
-                    }
-                    setAiSettings(next);
-                  }}
-                  showVoicemail
-                  showTransfer
-                />
-              </div>
+              <RecordingSettingsForm value={recording} onChange={setRecording} />
 
               <div className="flex items-start gap-2.5 rounded-lg border border-border bg-muted/40 p-3">
                 <Checkbox
@@ -252,21 +244,21 @@ export function CreateCampaignDialog({
                   onCheckedChange={(v) => setComplianceAck(v === true)}
                 />
                 <Label htmlFor="camp-compliance" className="text-xs leading-relaxed font-normal">
-                  I confirm these contacts consented to be called and I will disclose this is an
-                  automated call, as required by law in my jurisdiction.
+                  I confirm these contacts agreed to receive recorded calls, the recording says who is calling, and I
+                  will follow the calling rules where I operate.
                 </Label>
               </div>
 
               <p className="text-xs text-muted-foreground">
-                Saved as a draft — use <strong>Start dialing</strong> from the campaign list once you're
-                ready, since it needs to build the call queue first.
+                Saved as a draft. Use <strong>Send me a test call</strong> to hear it, then <strong>Start broadcast</strong>{" "}
+                from the campaign list.
               </p>
             </>
           )}
         </form>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>
+          <Button variant="outline" onClick={() => handleOpenChange(false)}>
             Cancel
           </Button>
           <Button type="submit" form="create-campaign-form" disabled={saving}>

@@ -33,7 +33,7 @@ const SECTIONS: { title: string; body: string[] }[] = [
   {
     title: "Who we share it with",
     body: [
-      "We use service providers to operate Kchel: cloud hosting and a managed database, an email delivery service, a telephony and messaging provider, an AI processing service for voice agents, summaries and the help assistant, and payment providers when you pay. They process data only to provide those services to us.",
+      "We use service providers to operate Kchel: cloud hosting and a managed database, an email delivery service, a telephony and messaging provider, an AI processing service for call summaries and the help assistant, and payment providers when you pay. They process data only to provide those services to us.",
       "Calls and texts also pass through the phone line you connect, under your provider's own policies. We may disclose information if the law requires it.",
     ],
   },
