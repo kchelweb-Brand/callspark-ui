@@ -9,8 +9,10 @@ import {
   type CampaignRecord,
 } from "@/backend/campaigns.server";
 import {
+  exportCampaignCsvFn,
   getCampaignCallLogFn,
   getCampaignOutcomesFn,
+  getCampaignSummaryFn,
   pauseCampaignDialingFn,
   reconcileCampaignFn,
   recallCampaignFn,
@@ -106,9 +108,22 @@ export function deleteCampaigns(ids: string[]) {
   return deleteCampaignsFn({ data: { token: requireToken(), ids } });
 }
 
-/** `origin` is the browser's own location — the webhook address the carrier calls back into. */
-export function startCampaignDialing(campaignId: string, origin: string) {
-  return startCampaignDialingFn({ data: { token: requireToken(), campaignId, origin } });
+/**
+ * `origin` is the browser's own location — the webhook address the carrier calls back into.
+ * With `startAt` (an ISO time in the future) the campaign is scheduled instead of started now.
+ */
+export function startCampaignDialing(campaignId: string, origin: string, startAt?: string | null) {
+  return startCampaignDialingFn({ data: { token: requireToken(), campaignId, origin, ...(startAt ? { startAt } : {}) } });
+}
+
+/** Results so far, what is left, and roughly what is left to spend. */
+export async function getCampaignSummary(campaignId: string) {
+  return (await getCampaignSummaryFn({ data: { token: requireToken(), campaignId } })).summary;
+}
+
+/** The whole campaign as a spreadsheet file's text. */
+export function exportCampaignCsv(campaignId: string) {
+  return exportCampaignCsvFn({ data: { token: requireToken(), campaignId } });
 }
 
 export function pauseCampaignDialing(campaignId: string) {
@@ -120,6 +135,7 @@ export function reconcileCampaign(campaignId: string, origin: string) {
 }
 
 export type { CampaignCallLogRow };
+export type { CampaignSummary } from "@/backend/campaign-dialer";
 
 /** Rings `to` with the campaign's saved recording, exactly as a contact would hear it. */
 export function sendTestCall(campaignId: string, to: string) {

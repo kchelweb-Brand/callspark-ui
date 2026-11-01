@@ -339,3 +339,62 @@ export async function deleteContacts(data: { token: string; ids: string[] }) {
 export const deleteContactsFn = createServerFn({ method: "POST" })
   .validator((data: { token: string; ids: string[] }) => data)
   .handler(async ({ data }) => deleteContacts(data));
+
+// ---------------------------------------------------------------------------
+// Deleting a whole list
+// ---------------------------------------------------------------------------
+
+function checkListId(listId: unknown): string {
+  if (typeof listId !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(listId)) throw new Error("Choose a list to delete.");
+  return listId;
+}
+
+/** What deleting a list would touch, so the owner sees it before confirming. */
+export async function getContactListUsage(data: { token: string; listId: string }) {
+  const tenantId = await requireTenant(data.token);
+  await ensureSchema();
+  const listId = checkListId(data.listId);
+  const [list] = (await sql`
+    select l.name, (select count(*)::int from contacts c where c.list_id = l.id) as contacts
+    from contact_lists l where l.id = ${listId} and l.tenant_id = ${tenantId}
+  `) as unknown as { name: string; contacts: number }[];
+  if (!list) throw new Error("That list no longer exists.");
+  const campaigns = (await sql`
+    select name, status from campaigns where tenant_id = ${tenantId} and list_id = ${listId} order by created_at desc limit 20
+  `) as unknown as { name: string; status: string }[];
+  return { ok: true as const, name: list.name, contacts: list.contacts, campaigns };
+}
+
+/**
+ * Deletes a contact list. With `withContacts`, every contact in it goes too, however many there
+ * are (not just the page on screen); without it the contacts stay, just no longer in any list.
+ * Campaigns that were using the list are paused so nothing keeps dialing a list that is gone.
+ */
+export async function deleteContactList(data: { token: string; listId: string; withContacts: boolean }) {
+  const tenantId = await requireTenant(data.token);
+  await ensureSchema();
+  const listId = checkListId(data.listId);
+  const [list] = await sql`select id from contact_lists where id = ${listId} and tenant_id = ${tenantId}`;
+  if (!list) throw new Error("That list no longer exists.");
+
+  const paused = await sql`
+    update campaigns set status = 'Paused', updated_at = now()
+    where tenant_id = ${tenantId} and list_id = ${listId} and status in ('Active', 'Waiting', 'Scheduled')
+    returning id
+  `;
+  let deletedContacts = 0;
+  if (data.withContacts === true) {
+    const gone = await sql`delete from contacts where tenant_id = ${tenantId} and list_id = ${listId} returning id`;
+    deletedContacts = gone.length;
+  }
+  await sql`delete from contact_lists where id = ${listId} and tenant_id = ${tenantId}`;
+  return { ok: true as const, deletedContacts, pausedCampaigns: paused.length };
+}
+
+export const getContactListUsageFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string; listId: string }) => data)
+  .handler(async ({ data }) => getContactListUsage(data));
+
+export const deleteContactListFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string; listId: string; withContacts: boolean }) => data)
+  .handler(async ({ data }) => deleteContactList(data));

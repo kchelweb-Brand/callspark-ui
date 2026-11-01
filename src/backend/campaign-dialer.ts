@@ -2,10 +2,11 @@
 //
 // The carrier (SignalWire) does the dialing and the playing; we only tell it
 // who to ring and what to do when someone picks up, using the same cXML the
-// inbound phone system already speaks. There is no cron driving this: the
-// dialer chains itself through webhooks — place a call, and when its status
-// callback arrives, place the next one. With "calls at once" above one, that many
-// chains run side by side.
+// inbound phone system already speaks. The dialer chains itself through webhooks:
+// place a call, and when its status callback arrives, place the next one. With
+// "calls at once" above one, that many chains run side by side. The 15-minute
+// schedule (broadcast-sweep.server.ts) only wakes campaigns that are waiting for a
+// scheduled start, for calling hours to open, or for a retry to come due.
 
 import { createServerFn } from "@tanstack/react-start";
 
@@ -13,13 +14,14 @@ import { sql, sqlQuery } from "./db";
 import { env } from "./env";
 import { verifyToken } from "./tokens";
 import { requireCanCreate } from "./entitlements";
-import { originateCall } from "./signalwire-rest";
+import { originateCall, sendSms } from "./signalwire-rest";
 import { pickOutboundNumber } from "./reputation.server";
 import { cxml, dial, gather, hangup, pause, play, say, verifySignalWireSignature } from "./signalwire";
 import { ensureSchema } from "./schema.server";
 import { parsePhone } from "./contact-import";
 import { workspaceDialCode } from "./contacts.server";
-import { sanitizeRecordingSettings, transferTarget, type RecordingSettings } from "./recording-options";
+import { canCallNow, nextOpenAt, zonesToCheck } from "./calling-window";
+import { sanitizeRecordingSettings, toE164, transferTarget, type RecordingSettings } from "./recording-options";
 
 export const CAMPAIGN_WEBHOOK_PATH = "/api/voice/campaign";
 
@@ -29,6 +31,9 @@ const STALL_TIMEOUT_MINUTES = 20;
 const MAX_SYNCHRONOUS_FAILURES = 5;
 /** Test calls a workspace can place in a day. */
 const TESTS_PER_DAY = 15;
+/** A campaign pauses itself when this many of its last calls failed outright. */
+const FAILURE_WINDOW = 8;
+const FAILURE_LIMIT = 6;
 
 /** How one call ended. Stored on the call so the log and "call again" can tell them apart. */
 type Result = "played" | "voicemail" | "voicemail_left" | "transferred" | "opted_out" | "no_answer";
@@ -86,13 +91,37 @@ async function setResult(callId: string | null | undefined, result: Result): Pro
 // The dial chain
 // ---------------------------------------------------------------------------
 
+/** How many queued people are looked at per query, and how many queries one step may spend finding someone callable. */
+const CANDIDATE_PAGE = 500;
+const CANDIDATE_PAGES = 4;
+
+/** Stops a running campaign. `Waiting` resumes by itself at `resumeAt`; `Paused` waits for a person. */
+async function stopCampaign(campaignId: string, status: "Paused" | "Waiting", reason: string, resumeAt: Date | null): Promise<void> {
+  await sql`
+    update campaigns set status = ${status}, pause_reason = ${reason.slice(0, 300)}, resume_at = ${resumeAt ? resumeAt.toISOString() : null},
+                         updated_at = now()
+    where id = ${campaignId} and status = 'Active'
+  `;
+}
+
+/** The number to call from: the one chosen for the campaign when it is one of ours, otherwise the automatic pick. */
+async function resolveFromNumber(tenantId: string, preferred: string): Promise<string | null> {
+  const want = preferred ? toE164(preferred) : null;
+  if (want) {
+    const own = await sql`select 1 from phone_numbers where tenant_id = ${tenantId} and number = ${want} limit 1`;
+    if (own.length > 0) return want;
+  }
+  return pickOutboundNumber(tenantId);
+}
+
 /**
- * Claims the next pending, non-DNC contact for a campaign and dials it.
+ * Claims the next pending, non-DNC contact who may be called right now and dials them.
  *
- * Re-checks do_not_call at claim time (not just at seed time) since a
- * contact can be flagged DNC after a campaign is already partway through.
- * `for update skip locked` is the standard Postgres queue-claim idiom — no
- * Durable Object or KV lock needed.
+ * Who "may be called now" is: not do-not-call (re-checked here, since a contact can be flagged
+ * after a campaign is partway through), inside the calling window in their own time zone, and not
+ * waiting out a retry delay. When nobody is callable yet the campaign goes to Waiting with the
+ * time it should wake. The claim is a conditional update on the queue row, so two chains can
+ * never take the same person.
  */
 export async function dialNextPendingContact(campaignId: string, origin: string, failuresSoFar = 0): Promise<void> {
   if (failuresSoFar >= MAX_SYNCHRONOUS_FAILURES) return;
@@ -102,7 +131,7 @@ export async function dialNextPendingContact(campaignId: string, origin: string,
   // stops the chain in one shot instead of burning a query and a failed fetch
   // per contact.
   if (!carrierConfigured()) {
-    await sql`update campaigns set status = 'Paused', updated_at = now() where id = ${campaignId} and status = 'Active'`;
+    await stopCampaign(campaignId, "Paused", "Calling isn't set up: the carrier credentials are missing.", null);
     console.warn(`[campaign-dialer] ${campaignId} paused — SignalWire REST credentials not configured`);
     return;
   }
@@ -113,12 +142,12 @@ export async function dialNextPendingContact(campaignId: string, origin: string,
     status: string;
     recording: unknown;
   }[];
-  if (!campaign || campaign.status !== "Active") return; // paused or gone — stop the chain
+  if (!campaign || campaign.status !== "Active") return; // paused, waiting or gone — stop the chain
 
   const tenantId = campaign.tenant_id;
   const settings = sanitizeRecordingSettings(campaign.recording);
   if (!settings.file) {
-    await sql`update campaigns set status = 'Paused', updated_at = now() where id = ${campaignId} and status = 'Active'`;
+    await stopCampaign(campaignId, "Paused", "There is no recording to play.", null);
     console.warn(`[campaign-dialer] ${campaignId} paused — no recording`);
     return;
   }
@@ -126,23 +155,76 @@ export async function dialNextPendingContact(campaignId: string, origin: string,
   try {
     await requireCanCreate(tenantId, "calls");
   } catch (err) {
-    await sql`update campaigns set status = 'Paused', updated_at = now() where id = ${campaignId} and status = 'Active'`;
+    await stopCampaign(campaignId, "Paused", err instanceof Error ? err.message : "Your plan's call limit was reached.", null);
     console.warn(`[campaign-dialer] ${campaignId} paused — plan limit reached`, err);
     return;
   }
 
-  const [claimed] = (await sql`
-    update campaign_calls set status = 'calling', attempts = attempts + 1, updated_at = now()
-    where id = (
-      select cc.id from campaign_calls cc
+  // Find someone callable now, looking through the queue a page at a time.
+  const now = new Date();
+  const openNow = new Map<string, boolean>();
+  const wakeAt = new Map<string, Date | null>();
+  let earliest: Date | null = null;
+  let blockedByWindow = false;
+  let claimed: { id: string; contact_id: string; phone: string } | null = null;
+
+  for (let page = 0; page < CANDIDATE_PAGES && !claimed; page++) {
+    const rows = (await sql`
+      select cc.id, cc.contact_id, ct.phone, cc.retry_at
+      from campaign_calls cc
       join contacts ct on ct.id = cc.contact_id
       where cc.campaign_id = ${campaignId} and cc.status = 'pending' and ct.do_not_call = false
-      order by cc.created_at asc limit 1
-      for update skip locked
-    )
-    returning id, contact_id
-  `) as unknown as { id: string; contact_id: string }[];
+      order by cc.created_at asc
+      limit ${CANDIDATE_PAGE} offset ${page * CANDIDATE_PAGE}
+    `) as unknown as { id: string; contact_id: string; phone: string; retry_at: string | null }[];
+    if (rows.length === 0) break;
+
+    for (const row of rows) {
+      const retryAt = row.retry_at ? new Date(row.retry_at) : null;
+      const waitingForRetry = retryAt !== null && retryAt.getTime() > now.getTime();
+      // People in the same zone(s) share an answer, so each is worked out once per step.
+      const key = zonesToCheck(row.phone, settings.window).join("|");
+      const base = waitingForRetry ? (retryAt as Date) : now;
+      const wakeKey = `${key}|${base.getTime()}`;
+
+      if (!waitingForRetry) {
+        let open = openNow.get(key);
+        if (open === undefined) {
+          open = canCallNow(now, row.phone, settings.window);
+          openNow.set(key, open);
+        }
+        if (open) {
+          const [taken] = (await sql`
+            update campaign_calls set status = 'calling', attempts = attempts + 1, updated_at = now()
+            where id = ${row.id} and status = 'pending'
+            returning id, contact_id
+          `) as unknown as { id: string; contact_id: string }[];
+          if (taken) {
+            claimed = { id: taken.id, contact_id: taken.contact_id, phone: row.phone };
+            break;
+          }
+          continue; // someone else got them first
+        }
+        blockedByWindow = true;
+      }
+
+      let wake = wakeAt.get(wakeKey);
+      if (wake === undefined) {
+        wake = nextOpenAt(base, row.phone, settings.window);
+        wakeAt.set(wakeKey, wake);
+      }
+      if (wake && (!earliest || wake.getTime() < earliest.getTime())) earliest = wake;
+    }
+    if (rows.length < CANDIDATE_PAGE) break;
+  }
+
   if (!claimed) {
+    if (earliest) {
+      const reason = blockedByWindow ? "Outside the calling hours. It will carry on when they open." : "Waiting to try some people again.";
+      await stopCampaign(campaignId, "Waiting", reason, earliest);
+      console.log(`[campaign-dialer] ${campaignId} waiting until ${earliest.toISOString()} (${blockedByWindow ? "calling hours" : "retry"})`);
+      return;
+    }
     // Nothing waiting. If nothing is in flight either, the list is finished.
     // (Someone flagged do-not-call after the list was loaded is never dialed, so they don't hold it open.)
     const [open] = await sql`
@@ -152,37 +234,31 @@ export async function dialNextPendingContact(campaignId: string, origin: string,
         and (cc.status = 'calling' or (cc.status = 'pending' and ct.do_not_call = false))
     `;
     if (Number(open?.["n"] ?? 0) === 0) {
-      await sql`update campaigns set status = 'Completed', updated_at = now() where id = ${campaignId} and status = 'Active'`;
+      await sql`update campaigns set status = 'Completed', pause_reason = null, resume_at = null, updated_at = now() where id = ${campaignId} and status = 'Active'`;
     }
     return;
   }
 
-  const [contact] = (await sql`select phone from contacts where id = ${claimed.contact_id} limit 1`) as unknown as { phone: string }[];
-  if (!contact) {
-    await sql`update campaign_calls set status = 'skipped', updated_at = now() where id = ${claimed.id}`;
-    return dialNextPendingContact(campaignId, origin, failuresSoFar);
-  }
-
-  const fromNumber = await pickOutboundNumber(tenantId);
+  const fromNumber = await resolveFromNumber(tenantId, settings.callerId);
   if (!fromNumber) {
     // Put the contact back; nothing was dialed.
     await sql`update campaign_calls set status = 'pending', attempts = greatest(attempts - 1, 0), updated_at = now() where id = ${claimed.id}`;
-    await sql`update campaigns set status = 'Paused', updated_at = now() where id = ${campaignId} and status = 'Active'`;
+    await stopCampaign(campaignId, "Paused", "There is no number to call from. Add one, or check it isn't resting.", null);
     console.warn(`[campaign-dialer] ${campaignId} paused — no usable outbound number (none configured, or all at their daily limit or resting)`);
     return;
   }
 
   const [created] = (await sql`
     insert into calls (tenant_id, campaign_id, direction, to_number, from_number, contact_id, status, handled_by)
-    values (${tenantId}, ${campaignId}, 'outbound', ${contact.phone}, ${fromNumber}, ${claimed.contact_id}, 'ringing', 'broadcast')
+    values (${tenantId}, ${campaignId}, 'outbound', ${claimed.phone}, ${fromNumber}, ${claimed.contact_id}, 'ringing', 'broadcast')
     returning id
   `) as unknown as { id: string }[];
   if (!created) throw new Error("Could not record the call.");
   const callId = created.id;
-  await sql`update campaign_calls set call_id = ${callId} where id = ${claimed.id}`;
+  await sql`update campaign_calls set call_id = ${callId}, retry_at = null where id = ${claimed.id}`;
 
   const result = await originateCall({
-    to: contact.phone,
+    to: claimed.phone,
     from: fromNumber,
     webhookUrl: webhookUrl(origin, { campaignCallId: claimed.id }),
     statusCallbackUrl: webhookUrl(origin, { campaignCallId: claimed.id, event: "status" }),
@@ -193,6 +269,11 @@ export async function dialNextPendingContact(campaignId: string, origin: string,
     console.error(`[campaign-dialer] ${campaignId} dial failed for ${claimed.id} — ${result.error}`);
     await sql`update campaign_calls set status = 'failed', updated_at = now() where id = ${claimed.id}`;
     await sql`update calls set status = 'failed', error = ${result.error ?? "Dial failed"}, ended_at = now() where id = ${callId}`;
+    // A run of refusals means something is wrong with the account or the list: stop instead of burning through it.
+    if (failuresSoFar + 1 >= MAX_SYNCHRONOUS_FAILURES) {
+      await stopCampaign(campaignId, "Paused", `The carrier refused the calls: ${result.error ?? "no reason given"}`, null);
+      return;
+    }
     return dialNextPendingContact(campaignId, origin, failuresSoFar + 1);
   }
 
@@ -202,6 +283,24 @@ export async function dialNextPendingContact(campaignId: string, origin: string,
   if (sid) {
     await sql`update calls set provider_call_id = ${sid} where id = ${callId}`;
   }
+}
+
+/**
+ * Pauses a campaign whose recent calls are mostly failing at the carrier (an empty balance, a bad
+ * list, a blocked number), so one problem doesn't quietly use up credit on hundreds of failed calls.
+ */
+async function pauseIfCallsAreFailing(campaignId: string): Promise<boolean> {
+  const recent = (await sql`
+    select status, error from calls where campaign_id = ${campaignId} and handled_by = 'broadcast'
+    order by started_at desc limit ${FAILURE_WINDOW}
+  `) as unknown as { status: string; error: string | null }[];
+  if (recent.length < FAILURE_WINDOW) return false;
+  const failed = recent.filter((r) => r.status === "failed");
+  if (failed.length < FAILURE_LIMIT) return false;
+  const why = failed.find((r) => r.error)?.error ?? "no reason given";
+  await stopCampaign(campaignId, "Paused", `Most recent calls failed (${failed.length} of ${FAILURE_WINDOW}): ${why}`, null);
+  console.warn(`[campaign-dialer] ${campaignId} paused — ${failed.length} of the last ${FAILURE_WINDOW} calls failed: ${why}`);
+  return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -377,14 +476,26 @@ async function handleStatusCallback(campaignCallId: string, params: Record<strin
   console.log(`[campaign] finished ${campaignCallId}: status=${callStatus} seconds=${duration} error=${params["ErrorCode"] ?? ""} ${params["ErrorMessage"] ?? ""}`);
 
   await ensureSchema();
-  const [row] = await sql`
-    select cc.campaign_id, cc.call_id, c.broadcast_result
-    from campaign_calls cc left join calls c on c.id = cc.call_id
+  const [row] = (await sql`
+    select cc.campaign_id, cc.call_id, cc.attempts, cc.contact_id, cc.tenant_id, c.broadcast_result, c.from_number, ca.recording
+    from campaign_calls cc
+    join campaigns ca on ca.id = cc.campaign_id
+    left join calls c on c.id = cc.call_id
     where cc.id = ${campaignCallId} and cc.status = 'calling'
-  `;
+  `) as unknown as {
+    campaign_id: string;
+    call_id: string | null;
+    attempts: number;
+    contact_id: string;
+    tenant_id: string;
+    broadcast_result: Result | null;
+    from_number: string | null;
+    recording: unknown;
+  }[];
   if (!row) return new Response(null, { status: 204 }); // already handled — redelivered webhook, no-op
 
-  const tagged = (row["broadcast_result"] as Result | null) ?? null;
+  const settings = sanitizeRecordingSettings(row.recording);
+  const tagged = row.broadcast_result;
   const connected = callStatus === "completed" && duration > 0;
   const errorMessage = params["ErrorMessage"];
 
@@ -427,17 +538,33 @@ async function handleStatusCallback(campaignCallId: string, params: Record<strin
     reached = false;
   }
 
+  // Try again later? Only for people who didn't pick up (or, if asked, got voicemail), never for a
+  // carrier failure, and only while tries are left.
+  const retryable = callRowStatus === "no_answer" || callRowStatus === "busy";
+  const retryLater =
+    !reached &&
+    retryable &&
+    settings.retry.max > 0 &&
+    row.attempts <= settings.retry.max &&
+    (result !== "voicemail" || settings.retry.includeVoicemail);
+
   // Conditional UPDATE: only this delivery (the one that actually finds the
   // row still 'calling') gets to advance the chain. A redelivered webhook
   // finds nothing to update and stops here.
-  const [claimed] = await sql`
-    update campaign_calls set status = ${reached ? "completed" : "failed"}, updated_at = now()
-    where id = ${campaignCallId} and status = 'calling'
-    returning id, campaign_id
-  `;
+  const [claimed] = retryLater
+    ? await sql`
+        update campaign_calls set status = 'pending', retry_at = now() + (${settings.retry.delayMinutes}::int) * interval '1 minute', updated_at = now()
+        where id = ${campaignCallId} and status = 'calling'
+        returning id, campaign_id
+      `
+    : await sql`
+        update campaign_calls set status = ${reached ? "completed" : "failed"}, updated_at = now()
+        where id = ${campaignCallId} and status = 'calling'
+        returning id, campaign_id
+      `;
   if (!claimed) return new Response(null, { status: 204 });
 
-  if (row["call_id"]) {
+  if (row.call_id) {
     await sql`
       update calls set
         status = ${callRowStatus},
@@ -447,12 +574,49 @@ async function handleStatusCallback(campaignCallId: string, params: Record<strin
         answered_at = case when ${reached} then now() else answered_at end,
         ended_at = now(),
         duration_seconds = ${Number.isFinite(duration) ? duration : null}
-      where id = ${row["call_id"] as string}
+      where id = ${row.call_id}
     `;
   }
 
-  await dialNextPendingContact(row["campaign_id"] as string, origin);
+  if (reached) await maybeSendFollowUp(row.tenant_id, row.contact_id, row.call_id, row.from_number, result, settings);
+
+  const stopped = await pauseIfCallsAreFailing(row.campaign_id);
+  if (!stopped) await dialNextPendingContact(row.campaign_id, origin);
   return new Response(null, { status: 204 });
+}
+
+/** The text sent after a call to people who responded, when the campaign has one. Never throws: a failed text is a log line. */
+async function maybeSendFollowUp(
+  tenantId: string,
+  contactId: string,
+  callId: string | null,
+  fromNumber: string | null,
+  result: Result,
+  settings: RecordingSettings,
+): Promise<void> {
+  try {
+    const f = settings.followUp;
+    if (!f.enabled || !f.message.trim() || !fromNumber) return;
+    const wanted = f.when === "pressed_1" ? result === "transferred" : result === "played" || result === "transferred";
+    if (!wanted) return;
+
+    const [contact] = (await sql`
+      select phone, person, company, first_name, do_not_call, do_not_sms from contacts where id = ${contactId} and tenant_id = ${tenantId}
+    `) as unknown as { phone: string; person: string | null; company: string | null; first_name: string | null; do_not_call: boolean; do_not_sms: boolean }[];
+    if (!contact || contact.do_not_call || contact.do_not_sms) return;
+
+    const first = contact.first_name?.trim() || contact.person?.trim().split(/\s+/)[0] || "there";
+    const body = f.message.replaceAll("{first_name}", first).replaceAll("{company}", contact.company?.trim() || "").slice(0, 320);
+    const sent = await sendSms({ to: contact.phone, from: fromNumber, body });
+    await sql`
+      insert into auto_texts (tenant_id, call_id, kind, to_number, from_number, body, status, error)
+      values (${tenantId}, ${callId}, 'broadcast_followup', ${contact.phone}, ${fromNumber}, ${body},
+              ${sent.ok ? "sent" : "failed"}, ${sent.ok ? null : (sent.error ?? "Send failed")})
+    `;
+    if (!sent.ok) console.warn(`[campaign] follow-up text to ${contact.phone} failed: ${sent.error}`);
+  } catch (err) {
+    console.error("[campaign] follow-up text failed", err);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -487,6 +651,8 @@ export interface CampaignCallLogRow {
   outcome: string | null;
   duration_seconds: number | null;
   updated_at: string;
+  /** When a retry is due, for someone who is waiting to be tried again. */
+  retry_at: string | null;
 }
 
 /** Per-contact dial log for a campaign's detail view — what actually happened, not just a count. */
@@ -495,7 +661,7 @@ export async function getCampaignCallLog(data: { token: string; campaignId: stri
 
   const rows = await sql`
     select cc.id, coalesce(ct.company, ct.person) as contact_name, ct.phone,
-           cc.status, cc.attempts, c.outcome, c.duration_seconds, cc.updated_at
+           cc.status, cc.attempts, c.outcome, c.duration_seconds, cc.updated_at, cc.retry_at
     from campaign_calls cc
     join contacts ct on ct.id = cc.contact_id
     left join calls c on c.id = cc.call_id
@@ -510,8 +676,211 @@ export const getCampaignCallLogFn = createServerFn({ method: "POST" })
   .validator((data: { token: string; campaignId: string }) => data)
   .handler(async ({ data }) => getCampaignCallLog(data));
 
-/** Kicks off (or resumes) a voice broadcast's dial chain. */
-export async function startCampaignDialing(data: { token: string; campaignId: string; origin: string }) {
+// ---------------------------------------------------------------------------
+// Results: a summary, a cost estimate and a spreadsheet
+// ---------------------------------------------------------------------------
+
+/** Seconds a call costs beyond the recording itself: ringing, the pause before it plays, hanging up. */
+const CALL_OVERHEAD_SECONDS = 10;
+/** What a call is assumed to last when the recording's length isn't known. */
+const GUESSED_RECORDING_SECONDS = 30;
+
+export interface CampaignSummary {
+  status: string;
+  pauseReason: string | null;
+  startAt: string | null;
+  resumeAt: string | null;
+  /** People in the queue, by how they ended: key, label, count. */
+  results: { key: string; label: string; count: number }[];
+  /** People not yet tried, plus those waiting for a retry. */
+  remaining: number;
+  waitingForRetry: number;
+  inFlight: number;
+  totalContacts: number;
+  /** Calls actually placed so far, counting retries. */
+  callsPlaced: number;
+  secondsOnCalls: number;
+  /** Rough minutes still to come: people left times the length of one call. Retries can add up to `maxMinutes`. */
+  estimate: { perCallSeconds: number; minutes: number; maxMinutes: number; exactLength: boolean };
+}
+
+/** How the campaign stands: results so far, what is left, and roughly what is left to spend. */
+export async function getCampaignSummary(data: { token: string; campaignId: string }): Promise<{ ok: true; summary: CampaignSummary }> {
+  const tenantId = await requireTenant(data.token);
+  await ensureSchema();
+  const [campaign] = (await sql`
+    select status, pause_reason, start_at, resume_at, recording, list_id from campaigns
+    where id = ${data.campaignId} and tenant_id = ${tenantId} and mode = 'recording'
+  `) as unknown as {
+    status: string;
+    pause_reason: string | null;
+    start_at: string | null;
+    resume_at: string | null;
+    recording: unknown;
+    list_id: string | null;
+  }[];
+  if (!campaign) throw new Error("Campaign not found.");
+  const settings = sanitizeRecordingSettings(campaign.recording);
+
+  const rows = await sqlQuery(
+    `select ${RESULT_KEY_SQL} as key, count(*)::int as n
+     from campaign_calls cc
+     where cc.campaign_id = $1 and cc.tenant_id = $2 and cc.status in ('completed','failed')
+     group by 1`,
+    [data.campaignId, tenantId],
+  );
+  const results = rows
+    .map((r) => ({ key: String(r["key"]), label: RESULT_LABELS[String(r["key"]) as Result] ?? String(r["key"]), count: Number(r["n"]) }))
+    .sort((a, b) => b.count - a.count);
+
+  const [queue] = (await sql`
+    select
+      count(*) filter (where cc.status = 'pending' and ct.do_not_call = false)::int as pending,
+      count(*) filter (where cc.status = 'pending' and ct.do_not_call = false and cc.retry_at is not null)::int as retrying,
+      count(*) filter (where cc.status = 'calling')::int as calling,
+      count(*)::int as total,
+      coalesce(sum(cc.attempts), 0)::int as placed
+    from campaign_calls cc join contacts ct on ct.id = cc.contact_id
+    where cc.campaign_id = ${data.campaignId}
+  `) as unknown as { pending: number; retrying: number; calling: number; total: number; placed: number }[];
+  const [time] = (await sql`
+    select coalesce(sum(duration_seconds), 0)::int as seconds from calls where campaign_id = ${data.campaignId} and handled_by = 'broadcast'
+  `) as unknown as { seconds: number }[];
+
+  // A campaign that hasn't started has an empty queue: the list itself is what is left.
+  let remaining = Number(queue?.pending ?? 0);
+  let totalContacts = Number(queue?.total ?? 0);
+  if (totalContacts === 0 && campaign.list_id) {
+    const [list] = (await sql`
+      select count(*)::int as n from contacts where tenant_id = ${tenantId} and list_id = ${campaign.list_id} and do_not_call = false
+    `) as unknown as { n: number }[];
+    remaining = Number(list?.n ?? 0);
+    totalContacts = remaining;
+  }
+
+  const exactLength = !!settings.file?.seconds;
+  const perCall = (settings.file?.seconds ?? GUESSED_RECORDING_SECONDS) + CALL_OVERHEAD_SECONDS;
+  return {
+    ok: true as const,
+    summary: {
+      status: campaign.status,
+      pauseReason: campaign.pause_reason,
+      startAt: campaign.start_at,
+      resumeAt: campaign.resume_at,
+      results,
+      remaining,
+      waitingForRetry: Number(queue?.retrying ?? 0),
+      inFlight: Number(queue?.calling ?? 0),
+      totalContacts,
+      callsPlaced: Number(queue?.placed ?? 0),
+      secondsOnCalls: Number(time?.seconds ?? 0),
+      estimate: {
+        perCallSeconds: perCall,
+        minutes: Math.ceil((remaining * perCall) / 60),
+        maxMinutes: Math.ceil((remaining * perCall * (1 + settings.retry.max)) / 60),
+        exactLength,
+      },
+    },
+  };
+}
+
+export const getCampaignSummaryFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string; campaignId: string }) => data)
+  .handler(async ({ data }) => getCampaignSummary(data));
+
+/** A cell safe to open in a spreadsheet: quoted, and defanged if it starts like a formula. */
+function csvCell(value: unknown): string {
+  let t = value instanceof Date ? value.toISOString() : value === null || value === undefined ? "" : String(value);
+  // A leading = or @ makes a spreadsheet run the cell as a formula, and so do + and - unless the cell is
+  // just a phone number such as +14155550134.
+  const phoneLike = /^[+\-][\d\s().-]+$/.test(t);
+  if (/^[=@\t\r]/.test(t) || (/^[+\-]/.test(t) && !phoneLike)) t = `'${t}`;
+  return /[",\n\r]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
+}
+
+/** Every person in the campaign and how it went, as a spreadsheet file. */
+export async function exportCampaignCsv(data: { token: string; campaignId: string }) {
+  const tenantId = await requireTenant(data.token);
+  await ensureSchema();
+  const [campaign] = (await sql`
+    select name from campaigns where id = ${data.campaignId} and tenant_id = ${tenantId} and mode = 'recording'
+  `) as unknown as { name: string }[];
+  if (!campaign) throw new Error("Campaign not found.");
+
+  const rows = await sql`
+    select coalesce(ct.person, '') as person, coalesce(ct.company, '') as company, ct.phone,
+           cc.status as queue_status, coalesce(c.outcome, '') as outcome, cc.attempts,
+           coalesce(c.duration_seconds, 0) as seconds, cc.updated_at, ct.do_not_call
+    from campaign_calls cc
+    join contacts ct on ct.id = cc.contact_id
+    left join calls c on c.id = cc.call_id
+    where cc.campaign_id = ${data.campaignId} and cc.tenant_id = ${tenantId}
+    order by cc.created_at asc
+    limit 20000
+  `;
+  const header = ["Name", "Company", "Phone", "Status", "Result", "Tries", "Seconds on call", "Last updated", "Do not call"];
+  const lines = [header.map(csvCell).join(",")];
+  for (const r of rows) {
+    const status =
+      r["queue_status"] === "pending" ? "Not yet called" : r["queue_status"] === "calling" ? "Calling" : r["queue_status"] === "completed" ? "Reached" : "Not reached";
+    lines.push(
+      [r["person"], r["company"], r["phone"], status, r["outcome"], r["attempts"], r["seconds"], r["updated_at"], r["do_not_call"] ? "Yes" : "No"]
+        .map(csvCell)
+        .join(","),
+    );
+  }
+  const safeName = campaign.name.replace(/[^\w\- ]+/g, "").trim().replace(/\s+/g, "-").slice(0, 60) || "campaign";
+  // A byte order mark so Excel reads accented names correctly.
+  return { ok: true as const, filename: `${safeName}-results.csv`, csv: "\uFEFF" + lines.join("\r\n") + "\r\n" };
+}
+
+export const exportCampaignCsvFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string; campaignId: string }) => data)
+  .handler(async ({ data }) => exportCampaignCsv(data));
+
+/**
+ * Seeds the queue, marks the campaign Active and fills the free "calls at once" slots. Used by the
+ * Start button and by the 15-minute schedule when a scheduled start or a wait comes due.
+ */
+export async function beginCampaign(campaignId: string, origin: string, maxSlots = MAX_CALLS_AT_ONCE_CAP): Promise<void> {
+  const [campaign] = (await sql`
+    select tenant_id, recording, list_id from campaigns where id = ${campaignId} limit 1
+  `) as unknown as { tenant_id: string; recording: unknown; list_id: string | null }[];
+  if (!campaign) return;
+  const settings = sanitizeRecordingSettings(campaign.recording);
+
+  // Idempotent — seeding a campaign that's already partway through just
+  // adds any contacts appended to the list since; it never resets progress.
+  if (campaign.list_id) {
+    await sql`
+      insert into campaign_calls (tenant_id, campaign_id, contact_id)
+      select ${campaign.tenant_id}, ${campaignId}, c.id
+      from contacts c
+      where c.tenant_id = ${campaign.tenant_id} and c.list_id = ${campaign.list_id} and c.do_not_call = false
+      on conflict (campaign_id, contact_id) do nothing
+    `;
+  }
+
+  await sql`
+    update campaigns set status = 'Active', pause_reason = null, resume_at = null, start_at = null, callback_origin = ${origin}, updated_at = now()
+    where id = ${campaignId}
+  `;
+
+  // Fill the free slots: "calls at once", less what is already ringing from before a pause.
+  const [inFlight] = (await sql`
+    select count(*)::int as n from campaign_calls where campaign_id = ${campaignId} and status = 'calling'
+  `) as unknown as { n: number }[];
+  const slots = Math.min(maxSlots, Math.max(1, settings.callsAtOnce - Number(inFlight?.n ?? 0)));
+  for (let i = 0; i < slots; i++) {
+    await dialNextPendingContact(campaignId, origin);
+  }
+}
+
+/** How many calls one scheduled wake-up may place: its request budget is small, and the webhooks carry on from there. */
+const MAX_CALLS_AT_ONCE_CAP = 5;
+
+/** Kicks off (or resumes) a voice broadcast's dial chain, or schedules it to start later. */
+export async function startCampaignDialing(data: { token: string; campaignId: string; origin: string; startAt?: string | null }) {
   const tenantId = await requireTenant(data.token);
   await ensureSchema();
 
@@ -531,39 +900,46 @@ export async function startCampaignDialing(data: { token: string; campaignId: st
     throw new Error("Calling isn't set up yet — SignalWire REST credentials are missing.");
   }
 
-  // Idempotent — seeding a campaign that's already partway through just
-  // adds any contacts appended to the list since; it never resets progress.
-  await sql`
-    insert into campaign_calls (tenant_id, campaign_id, contact_id)
-    select ${tenantId}, ${data.campaignId}, c.id
-    from contacts c
-    where c.tenant_id = ${tenantId} and c.list_id = ${campaign.list_id} and c.do_not_call = false
-    on conflict (campaign_id, contact_id) do nothing
-  `;
-
-  await sql`update campaigns set status = 'Active', updated_at = now() where id = ${data.campaignId}`;
-
-  // Fill the free slots: "calls at once", less what is already ringing from before a pause.
-  const [inFlight] = (await sql`
-    select count(*)::int as n from campaign_calls where campaign_id = ${data.campaignId} and status = 'calling'
-  `) as unknown as { n: number }[];
-  const slots = Math.max(1, settings.callsAtOnce - Number(inFlight?.n ?? 0));
-  for (let i = 0; i < slots; i++) {
-    await dialNextPendingContact(data.campaignId, data.origin);
+  if (data.startAt) {
+    const when = new Date(data.startAt);
+    if (Number.isNaN(when.getTime())) throw new Error("That start time isn't a valid date and time.");
+    if (when.getTime() > Date.now() + 90 * 24 * 3600 * 1000) throw new Error("Schedule a start within the next 90 days.");
+    if (when.getTime() > Date.now() + 60 * 1000) {
+      await sql`
+        update campaigns set status = 'Scheduled', start_at = ${when.toISOString()}, resume_at = null, pause_reason = null,
+                             callback_origin = ${data.origin}, updated_at = now()
+        where id = ${data.campaignId} and tenant_id = ${tenantId}
+      `;
+      return { ok: true as const, scheduledFor: when.toISOString(), status: "Scheduled", resumeAt: null as string | null, reason: null as string | null };
+    }
   }
-  return { ok: true as const };
+
+  await beginCampaign(data.campaignId, data.origin);
+  // Starting outside calling hours leaves the campaign Waiting; say so, so the owner isn't left guessing.
+  const [after] = (await sql`select status, resume_at, pause_reason from campaigns where id = ${data.campaignId}`) as unknown as {
+    status: string;
+    resume_at: string | null;
+    pause_reason: string | null;
+  }[];
+  return {
+    ok: true as const,
+    scheduledFor: null as string | null,
+    status: after?.status ?? "Active",
+    resumeAt: after?.resume_at ?? null,
+    reason: after?.pause_reason ?? null,
+  };
 }
 
 export const startCampaignDialingFn = createServerFn({ method: "POST" })
-  .validator((data: { token: string; campaignId: string; origin: string }) => data)
+  .validator((data: { token: string; campaignId: string; origin: string; startAt?: string | null }) => data)
   .handler(async ({ data }) => startCampaignDialing(data));
 
 /** Pausing just stops the chain from advancing — dialNextPendingContact checks campaigns.status before every claim. */
 export async function pauseCampaignDialing(data: { token: string; campaignId: string }) {
   const tenantId = await requireTenant(data.token);
   await sql`
-    update campaigns set status = 'Paused', updated_at = now()
-    where id = ${data.campaignId} and tenant_id = ${tenantId}
+    update campaigns set status = 'Paused', pause_reason = null, start_at = null, resume_at = null, updated_at = now()
+    where id = ${data.campaignId} and tenant_id = ${tenantId} and status in ('Active', 'Waiting', 'Scheduled')
   `;
   return { ok: true as const };
 }
@@ -601,7 +977,7 @@ export async function sendTestCall(data: { token: string; campaignId: string; to
   `) as unknown as { n: number }[];
   if (Number(tests?.n ?? 0) >= TESTS_PER_DAY) throw new Error(`You can place ${TESTS_PER_DAY} test calls a day. Try again tomorrow.`);
 
-  const fromNumber = await pickOutboundNumber(tenantId);
+  const fromNumber = await resolveFromNumber(tenantId, settings.callerId);
   if (!fromNumber) throw new Error("Add a phone number first. A test call needs a number to ring from.");
 
   const [created] = (await sql`

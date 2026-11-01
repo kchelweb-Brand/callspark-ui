@@ -28,6 +28,7 @@ import { getSessionUser } from "@/lib/auth-api";
 import { getContactsMeta } from "@/lib/contacts-api";
 import { deleteGreeting } from "@/lib/media-api";
 import { createCampaign, type CampaignRecord } from "@/lib/workspace-api";
+import { getPhoneSystem } from "@/lib/phone-system-api";
 import { RecordingSettingsForm } from "@/components/dash/RecordingSettingsForm";
 import { DEFAULT_RECORDING_SETTINGS, recordingSettingsProblem, type RecordingSettings } from "@/backend/recording-options";
 
@@ -49,6 +50,7 @@ export function CreateCampaignDialog({
   const [complianceAck, setComplianceAck] = useState(false);
   const [saving, setSaving] = useState(false);
   const [contactLists, setContactLists] = useState<{ id: string; name: string }[]>([]);
+  const [phoneMeta, setPhoneMeta] = useState<{ numbers: { number: string; label: string }[]; zone: string }>({ numbers: [], zone: "" });
 
   useEffect(() => {
     if (!open) return;
@@ -56,6 +58,16 @@ export function CreateCampaignDialog({
       .then((meta) => setContactLists(meta.lists))
       .catch(() => {
         // Non-fatal — the dialog still works with no lists yet.
+      });
+    getPhoneSystem()
+      .then((ps) => {
+        const zone = ps.businessHours?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+        setPhoneMeta({ numbers: ps.numbers.map((n) => ({ number: n.number, label: n.label })), zone });
+        // A new campaign's calling hours start in the workspace's own zone, unless the owner already changed it.
+        setRecording((r) => (r.window.zone === DEFAULT_RECORDING_SETTINGS.window.zone ? { ...r, window: { ...r.window, zone } } : r));
+      })
+      .catch(() => {
+        // Non-fatal — the caller ID list just stays empty.
       });
   }, [open]);
 
@@ -235,7 +247,12 @@ export function CreateCampaignDialog({
             </>
           ) : (
             <>
-              <RecordingSettingsForm value={recording} onChange={setRecording} />
+              <RecordingSettingsForm
+                value={recording}
+                onChange={setRecording}
+                numbers={phoneMeta.numbers}
+                defaultZone={phoneMeta.zone}
+              />
 
               <div className="flex items-start gap-2.5 rounded-lg border border-border bg-muted/40 p-3">
                 <Checkbox
@@ -244,8 +261,8 @@ export function CreateCampaignDialog({
                   onCheckedChange={(v) => setComplianceAck(v === true)}
                 />
                 <Label htmlFor="camp-compliance" className="text-xs leading-relaxed font-normal">
-                  I confirm these contacts agreed to receive recorded calls, the recording says who is calling, and I
-                  will follow the calling rules where I operate.
+                  I confirm these contacts agreed to receive recorded calls, the recording says who is calling and how to
+                  opt out, and I will follow the calling rules where I operate.
                 </Label>
               </div>
 

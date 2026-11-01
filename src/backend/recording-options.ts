@@ -1,6 +1,17 @@
-// Settings for a voice-broadcast campaign: one recording that is played to everyone who answers.
+// Settings for a voice-broadcast campaign: one recording that is played to everyone who answers,
+// and the rules around it (when to call, retries, caller ID, a follow-up text).
 //
 // Plain data and pure functions only, so both the Worker and the browser can import it.
+
+import {
+  DEFAULT_CALLING_WINDOW,
+  OFF_CALLING_WINDOW,
+  callingWindowProblem,
+  sanitizeCallingWindow,
+  type CallingWindow,
+} from "./calling-window";
+
+export type { CallingWindow };
 
 export interface RecordingFile {
   /** Storage key, under greetings/<tenant>/. Used to delete the file and to check it belongs to the workspace. */
@@ -9,6 +20,8 @@ export interface RecordingFile {
   url: string;
   fileName: string;
   bytes: number;
+  /** How long the recording plays, when known. Only used to estimate how many minutes a run will use. */
+  seconds?: number;
 }
 
 /**
@@ -25,6 +38,37 @@ export const RECORDING_VOICEMAIL = [
 
 export type RecordingVoicemail = (typeof RECORDING_VOICEMAIL)[number]["id"];
 
+/** Try the people who didn't pick up again, automatically. */
+export interface RetryRule {
+  /** Extra tries after the first call, 0 to 3. Zero means one call per person. */
+  max: number;
+  delayMinutes: number;
+  /** Also try again when voicemail picked up. Off by default: leaving a message once is usually enough. */
+  includeVoicemail: boolean;
+}
+
+export const RETRY_DELAYS = [
+  { minutes: 30, label: "30 minutes" },
+  { minutes: 60, label: "1 hour" },
+  { minutes: 120, label: "2 hours" },
+  { minutes: 240, label: "4 hours" },
+  { minutes: 480, label: "8 hours" },
+  { minutes: 1440, label: "The next day" },
+] as const;
+
+export const MAX_RETRIES = 3;
+
+/** A text message sent after the call, to the people who responded. */
+export interface FollowUp {
+  enabled: boolean;
+  /** "pressed_1": only people who pressed 1. "heard": everyone who listened to the recording. */
+  when: "pressed_1" | "heard";
+  /** Supports {first_name} and {company}. */
+  message: string;
+}
+
+export const MAX_FOLLOW_UP_CHARS = 320;
+
 export interface RecordingSettings {
   file: RecordingFile | null;
   voicemail: RecordingVoicemail;
@@ -35,17 +79,35 @@ export interface RecordingSettings {
   optOutEnabled: boolean;
   /** How many people are rung at the same time. One keeps it calm; more finishes a list sooner. */
   callsAtOnce: number;
+  /** When calls may be placed. */
+  window: CallingWindow;
+  retry: RetryRule;
+  /** The number to call from, one of the workspace's own. Empty means pick automatically. */
+  callerId: string;
+  followUp: FollowUp;
 }
 
 export const MAX_CALLS_AT_ONCE = 5;
 
-export const DEFAULT_RECORDING_SETTINGS: RecordingSettings = {
+/** Campaigns saved before the newer options existed: no calling window, no retries, no text, nothing new. */
+export const LEGACY_RECORDING_SETTINGS: RecordingSettings = {
   file: null,
   voicemail: "leave",
   connectEnabled: false,
   transferNumber: "",
   optOutEnabled: false,
   callsAtOnce: 1,
+  window: OFF_CALLING_WINDOW,
+  retry: { max: 0, delayMinutes: 120, includeVoicemail: false },
+  callerId: "",
+  followUp: { enabled: false, when: "pressed_1", message: "" },
+};
+
+/** A brand-new campaign: the safe choices are already on (opt-out key, a 9am to 8pm calling window). */
+export const DEFAULT_RECORDING_SETTINGS: RecordingSettings = {
+  ...LEGACY_RECORDING_SETTINGS,
+  optOutEnabled: true,
+  window: DEFAULT_CALLING_WINDOW,
 };
 
 /** Carriers fetch these over plain HTTP; MP3 and WAV are the formats they all play. */
@@ -66,11 +128,13 @@ function sanitizeFile(raw: unknown): RecordingFile | null {
   const url = text(r["url"]).trim();
   if (!key || !url) return null;
   const bytes = Number(r["bytes"]);
+  const seconds = Number(r["seconds"]);
   return {
     key,
     url,
     fileName: text(r["fileName"]).trim().slice(0, 200) || "recording",
     bytes: Number.isFinite(bytes) && bytes > 0 ? Math.round(bytes) : 0,
+    ...(Number.isFinite(seconds) && seconds > 0 && seconds < 3600 ? { seconds: Math.round(seconds) } : {}),
   };
 }
 
@@ -80,8 +144,35 @@ function atOnce(value: unknown, fallback: number): number {
   return Math.min(MAX_CALLS_AT_ONCE, Math.max(1, n));
 }
 
-/** Fills every field, so a half-saved or hand-edited value can never reach the dialer. */
-export function sanitizeRecordingSettings(raw: unknown, fallback: RecordingSettings = DEFAULT_RECORDING_SETTINGS): RecordingSettings {
+function sanitizeRetry(raw: unknown, fallback: RetryRule): RetryRule {
+  const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const max = Math.round(Number(r["max"]));
+  const delay = Math.round(Number(r["delayMinutes"]));
+  return {
+    max: Number.isFinite(max) ? Math.min(MAX_RETRIES, Math.max(0, max)) : fallback.max,
+    delayMinutes: RETRY_DELAYS.some((d) => d.minutes === delay) ? delay : fallback.delayMinutes,
+    includeVoicemail: typeof r["includeVoicemail"] === "boolean" ? r["includeVoicemail"] : fallback.includeVoicemail,
+  };
+}
+
+function sanitizeFollowUp(raw: unknown, fallback: FollowUp): FollowUp {
+  const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  return {
+    enabled: typeof r["enabled"] === "boolean" ? r["enabled"] : fallback.enabled,
+    when: r["when"] === "heard" || r["when"] === "pressed_1" ? r["when"] : fallback.when,
+    message: "message" in r ? text(r["message"]).slice(0, MAX_FOLLOW_UP_CHARS) : fallback.message,
+  };
+}
+
+/**
+ * Fills every field, so a half-saved or hand-edited value can never reach the dialer.
+ *
+ * `fallback` is what a missing field becomes. Reading a stored campaign uses the default (legacy:
+ * newer options off). Creating one passes DEFAULT_RECORDING_SETTINGS. Saving over an existing one
+ * passes the settings already stored, so a screen that doesn't know about a newer option (the
+ * Windows Dialer) can save without ever wiping it.
+ */
+export function sanitizeRecordingSettings(raw: unknown, fallback: RecordingSettings = LEGACY_RECORDING_SETTINGS): RecordingSettings {
   const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
   const voicemail = text(r["voicemail"]);
   return {
@@ -91,6 +182,10 @@ export function sanitizeRecordingSettings(raw: unknown, fallback: RecordingSetti
     transferNumber: text(r["transferNumber"] ?? fallback.transferNumber).trim().slice(0, 40),
     optOutEnabled: typeof r["optOutEnabled"] === "boolean" ? r["optOutEnabled"] : fallback.optOutEnabled,
     callsAtOnce: atOnce(r["callsAtOnce"], fallback.callsAtOnce),
+    window: "window" in r ? sanitizeCallingWindow(r["window"], fallback.window) : fallback.window,
+    retry: "retry" in r ? sanitizeRetry(r["retry"], fallback.retry) : fallback.retry,
+    callerId: "callerId" in r ? text(r["callerId"]).trim().slice(0, 20) : fallback.callerId,
+    followUp: "followUp" in r ? sanitizeFollowUp(r["followUp"], fallback.followUp) : fallback.followUp,
   };
 }
 
@@ -101,7 +196,11 @@ export function sanitizeRecordingSettings(raw: unknown, fallback: RecordingSetti
  * country code, because a national format like 0803... cannot be turned into a real number here.
  */
 export function transferTarget(s: RecordingSettings): string | null {
-  const raw = s.transferNumber.trim();
+  return toE164(s.transferNumber);
+}
+
+export function toE164(input: string): string | null {
+  const raw = input.trim();
   const digits = raw.replace(/[^\d]/g, "");
   if (digits.length < 7 || digits.length > 15) return null;
   if (raw.startsWith("+")) return `+${digits}`;
@@ -118,5 +217,9 @@ export function recordingSettingsProblem(s: RecordingSettings): string | null {
   if (s.connectEnabled && !transferTarget(s)) {
     return "Enter the number to connect people to when they press 1, with its country code, for example +14155550134.";
   }
+  const windowProblem = callingWindowProblem(s.window);
+  if (windowProblem) return windowProblem;
+  if (s.callerId && !toE164(s.callerId)) return "Choose the number to call from, or leave it on automatic.";
+  if (s.followUp.enabled && s.followUp.message.trim().length === 0) return "Write the text to send, or turn the follow-up text off.";
   return null;
 }

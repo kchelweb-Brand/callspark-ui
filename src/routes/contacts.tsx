@@ -9,6 +9,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -30,6 +40,8 @@ import {
   createContact,
   importContacts,
   deleteContacts,
+  deleteContactList,
+  getContactListUsage,
   type Contact,
   type ContactList,
 } from "@/lib/contacts-api";
@@ -108,6 +120,15 @@ function ContactsPage() {
   const [activeList, setActiveList] = useState<string | null>(null);
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  const [listDelete, setListDelete] = useState<{
+    id: string;
+    name: string;
+    contacts: number;
+    campaigns: { name: string; status: string }[];
+  } | null>(null);
+  const [alsoContacts, setAlsoContacts] = useState(true);
+  const [listBusy, setListBusy] = useState(false);
 
   const [addOpen, setAddOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -300,6 +321,41 @@ function ContactsPage() {
     }
   }
 
+  async function openListDelete(id: string) {
+    try {
+      const usage = await getContactListUsage(id);
+      setAlsoContacts(true);
+      setListDelete({ id, name: usage.name, contacts: usage.contacts, campaigns: usage.campaigns });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not open that list.");
+    }
+  }
+
+  async function confirmListDelete() {
+    if (!listDelete) return;
+    setListBusy(true);
+    try {
+      const result = await deleteContactList(listDelete.id, alsoContacts);
+      toast.success(
+        alsoContacts
+          ? `"${listDelete.name}" and its ${result.deletedContacts.toLocaleString()} contact${result.deletedContacts === 1 ? "" : "s"} deleted`
+          : `List "${listDelete.name}" deleted. Its contacts were kept.`,
+        result.pausedCampaigns > 0
+          ? { description: `${result.pausedCampaigns} campaign${result.pausedCampaigns === 1 ? "" : "s"} using it ${result.pausedCampaigns === 1 ? "was" : "were"} paused.` }
+          : undefined,
+      );
+      setListDelete(null);
+      setActiveList(null);
+      setSelected(new Set());
+      setPage(1);
+      await Promise.all([load(), loadMeta()]);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not delete that list.");
+    } finally {
+      setListBusy(false);
+    }
+  }
+
   function toggle(id: string) {
     setSelected((prev) => {
       const next = new Set(prev);
@@ -398,6 +454,14 @@ function ContactsPage() {
                 {l.name} · {l.contact_count}
               </button>
             ))}
+            {activeList && (
+              <button
+                onClick={() => void openListDelete(activeList)}
+                className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-destructive/40 bg-destructive/10 px-2.5 py-0.5 text-xs font-semibold text-destructive transition hover:bg-destructive/20"
+              >
+                <Trash2 className="size-3" /> Delete this list
+              </button>
+            )}
             {tags.map((tag) => (
               <button
                 key={tag}
@@ -649,6 +713,58 @@ function ContactsPage() {
           </>
         )}
       </Panel>
+
+      <AlertDialog open={!!listDelete} onOpenChange={(open) => !open && !listBusy && setListDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete the list "{listDelete?.name}"?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="flex flex-col gap-3">
+                <label className="flex items-start gap-2.5 rounded-md border border-border p-3 text-sm text-foreground">
+                  <Checkbox checked={alsoContacts} onCheckedChange={(v) => setAlsoContacts(v === true)} className="mt-0.5" />
+                  <span>
+                    Also delete all {listDelete?.contacts.toLocaleString()} contact{listDelete?.contacts === 1 ? "" : "s"} in this list.
+                    <span className="block text-xs text-muted-foreground">
+                      {alsoContacts
+                        ? "Every contact in the list is removed, not just the ones shown on this page. This can't be undone."
+                        : "The contacts stay in your book, but are no longer in any list."}
+                    </span>
+                  </span>
+                </label>
+                {listDelete && listDelete.campaigns.length > 0 && (
+                  <div className="rounded-md border border-border bg-muted/40 p-3 text-sm">
+                    <p className="font-medium text-foreground">
+                      {listDelete.campaigns.length === 1 ? "A campaign uses" : `${listDelete.campaigns.length} campaigns use`} this list:
+                    </p>
+                    <ul className="mt-1 list-disc pl-5">
+                      {listDelete.campaigns.slice(0, 5).map((c) => (
+                        <li key={c.name}>
+                          {c.name} <span className="text-muted-foreground">({c.status})</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="mt-1 text-xs text-muted-foreground">Any that are running will be paused.</p>
+                  </div>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={listBusy}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={listBusy}
+              className="bg-destructive text-white hover:bg-destructive/90"
+              onClick={(e) => {
+                e.preventDefault();
+                void confirmListDelete();
+              }}
+            >
+              {listBusy ? <Loader2 className="size-4 animate-spin" /> : null}
+              {alsoContacts ? "Delete list and contacts" : "Delete list only"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
         <DialogContent>

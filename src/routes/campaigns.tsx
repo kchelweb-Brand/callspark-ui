@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import {
+  CalendarClock,
   Copy,
+  Download,
   List,
   Loader2,
   MoreHorizontal,
@@ -48,6 +50,7 @@ import { CreateCampaignDialog } from "@/components/dash/CreateCampaignDialog";
 import { RecordingSettingsForm } from "@/components/dash/RecordingSettingsForm";
 import { Checkbox } from "@/components/ui/checkbox";
 import { deleteGreeting } from "@/lib/media-api";
+import { getPhoneSystem } from "@/lib/phone-system-api";
 import {
   DEFAULT_RECORDING_SETTINGS,
   recordingSettingsProblem,
@@ -58,7 +61,9 @@ import {
   deleteCampaign,
   deleteCampaigns,
   duplicateCampaign,
+  exportCampaignCsv,
   getCampaignCallLog,
+  getCampaignSummary,
   listCampaigns,
   getCampaignOutcomes,
   pauseCampaignDialing,
@@ -69,6 +74,7 @@ import {
   updateCampaign,
   type CampaignCallLogRow,
   type CampaignRecord,
+  type CampaignSummary,
 } from "@/lib/workspace-api";
 import {
   DropdownMenu,
@@ -112,6 +118,9 @@ interface Campaign {
   queueCompleted: number;
   queueFailed: number;
   recording: RecordingSettings;
+  startAt: string | null;
+  resumeAt: string | null;
+  pauseReason: string | null;
 }
 
 function toRow(record: CampaignRecord): Campaign {
@@ -127,8 +136,46 @@ function toRow(record: CampaignRecord): Campaign {
     queueTotal: record.queue_total ?? 0,
     queueCompleted: record.queue_completed ?? 0,
     queueFailed: record.queue_failed ?? 0,
-    recording: sanitizeRecordingSettings(record.recording, DEFAULT_RECORDING_SETTINGS),
+    // A stored value missing the newer options is read as "off", exactly as that campaign has always behaved.
+    recording: sanitizeRecordingSettings(record.recording),
+    startAt: record.start_at ?? null,
+    resumeAt: record.resume_at ?? null,
+    pauseReason: record.pause_reason ?? null,
   };
+}
+
+/** "1 minute", "5 minutes". */
+function minutesText(n: number): string {
+  return `${n.toLocaleString()} ${n === 1 ? "minute" : "minutes"}`;
+}
+
+/** "Mon, Nov 2, 9:00 AM" in the viewer's own time. */
+function formatWhen(iso: string): string {
+  return new Date(iso).toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+}
+
+/** The line under a campaign's status: when it starts, why it is waiting, or why it stopped. */
+function statusNote(c: Campaign): string | null {
+  if (c.status === "Scheduled" && c.startAt) return `Starts ${formatWhen(c.startAt)}`;
+  if (c.status === "Waiting") return `${c.pauseReason ?? "Waiting."}${c.resumeAt ? ` About ${formatWhen(c.resumeAt)}.` : ""}`;
+  if (c.status === "Paused" && c.pauseReason) return c.pauseReason;
+  return null;
+}
+
+/** A start time an hour from now, on the quarter hour, in the format a datetime-local box wants. */
+function defaultLocalStart(): string {
+  const d = new Date(Date.now() + 60 * 60 * 1000);
+  d.setMinutes(Math.ceil(d.getMinutes() / 15) * 15, 0, 0);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/** What one row of the call log says about where a person stands. */
+function rowStatus(row: CampaignCallLogRow): string {
+  if (row.status === "completed") return "Reached";
+  if (row.status === "failed") return "Not reached";
+  if (row.status === "calling") return "Calling";
+  return row.retry_at ? "Trying again" : "Waiting";
 }
 
 function CampaignsPage() {
@@ -142,6 +189,13 @@ function CampaignsPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [startTarget, setStartTarget] = useState<Campaign | null>(null);
+  const [startInfo, setStartInfo] = useState<CampaignSummary | null>(null);
+  const [startWhen, setStartWhen] = useState<"now" | "later">("now");
+  const [startLocal, setStartLocal] = useState("");
+  const [startBusy, setStartBusy] = useState(false);
+  const [phoneMeta, setPhoneMeta] = useState<{ numbers: { number: string; label: string }[]; zone: string }>({ numbers: [], zone: "" });
+  const [logSummary, setLogSummary] = useState<CampaignSummary | null>(null);
   const [logTarget, setLogTarget] = useState<Campaign | null>(null);
   const [logRows, setLogRows] = useState<CampaignCallLogRow[]>([]);
   const [logLoading, setLogLoading] = useState(false);
@@ -188,18 +242,60 @@ function CampaignsPage() {
   // "Active" needs the call queue seeded first, which these dedicated
   // endpoints handle before flipping status.
   async function startBroadcast(c: Campaign) {
+    setStartTarget(c);
+    setStartInfo(null);
+    setStartWhen("now");
+    setStartLocal(defaultLocalStart());
     try {
-      await startCampaignDialing(c.id, window.location.origin);
+      setStartInfo(await getCampaignSummary(c.id));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not check that campaign.");
+    }
+  }
+
+  async function confirmStart() {
+    const c = startTarget;
+    if (!c) return;
+    let startAt: string | null = null;
+    if (startWhen === "later") {
+      const when = new Date(startLocal);
+      if (Number.isNaN(when.getTime()) || when.getTime() < Date.now() + 2 * 60 * 1000) {
+        toast.error("Pick a start time at least a few minutes from now.");
+        return;
+      }
+      startAt = when.toISOString();
+    }
+    setStartBusy(true);
+    try {
+      const result = await startCampaignDialing(c.id, window.location.origin, startAt);
+      setStartTarget(null);
       await load();
-      toast.success(`${c.name} is dialing`);
+      if (result.scheduledFor) toast.success(`${c.name} will start ${formatWhen(result.scheduledFor)}`);
+      else if (result.status === "Waiting") toast.success(`${c.name} is ready`, { description: result.reason ?? "It will start when calling hours open." });
+      else toast.success(`${c.name} is dialing`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not start the broadcast.");
+    } finally {
+      setStartBusy(false);
+    }
+  }
+
+  async function loadPhoneMeta() {
+    try {
+      const ps = await getPhoneSystem();
+      setPhoneMeta({
+        numbers: ps.numbers.map((n) => ({ number: n.number, label: n.label })),
+        zone: ps.businessHours?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
+      });
+    } catch {
+      // The number list and the suggested zone are conveniences; the form still works without them.
     }
   }
 
   function openSettings(c: Campaign) {
     setSettingsDraft(c.recording);
     setSettingsTarget(c);
+    void loadPhoneMeta();
   }
 
   /** Closing without saving: a recording uploaded just now has nothing to belong to. */
@@ -289,14 +385,33 @@ function CampaignsPage() {
 
   const refreshLog = useCallback(async (c: Campaign) => {
     try {
-      setLogRows(await getCampaignCallLog(c.id));
+      const [log, summary] = await Promise.all([getCampaignCallLog(c.id), getCampaignSummary(c.id)]);
+      setLogRows(log);
+      setLogSummary(summary);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not load the call log.");
+      toast.error(err instanceof Error ? err.message : "Could not load the results.");
     }
   }, []);
 
+  async function handleExport(c: Campaign) {
+    try {
+      const file = await exportCampaignCsv(c.id);
+      const url = URL.createObjectURL(new Blob([file.csv], { type: "text/csv;charset=utf-8" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = file.filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not export the results.");
+    }
+  }
+
   async function openCallLog(c: Campaign) {
     setLogTarget(c);
+    setLogSummary(null);
     setLogLoading(true);
     await refreshLog(c);
     setLogLoading(false);
@@ -308,7 +423,7 @@ function CampaignsPage() {
   // rather than through `load()`, which would flip the whole table into its
   // loading state on every tick.
   useEffect(() => {
-    if (!logTarget || logTarget.status !== "Active") return;
+    if (!logTarget || (logTarget.status !== "Active" && logTarget.status !== "Waiting")) return;
     const interval = setInterval(async () => {
       try {
         await reconcileCampaign(logTarget.id, window.location.origin);
@@ -542,6 +657,7 @@ function CampaignsPage() {
                   </TableCell>
                   <TableCell>
                     <StatusPill status={c.status} />
+                    {statusNote(c) && <p className="mt-1 max-w-52 text-xs text-muted-foreground">{statusNote(c)}</p>}
                   </TableCell>
                   <TableCell className="text-right font-mono text-sm">
                     {c.contacts.toLocaleString()}
@@ -564,13 +680,13 @@ function CampaignsPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         {c.mode === "recording" ? (
-                          c.status === "Active" ? (
+                          c.status === "Active" || c.status === "Waiting" || c.status === "Scheduled" ? (
                             <DropdownMenuItem onClick={() => void pauseBroadcast(c)}>
-                              <Pause className="size-3.5" /> Pause
+                              <Pause className="size-3.5" /> {c.status === "Scheduled" ? "Cancel schedule" : "Pause"}
                             </DropdownMenuItem>
                           ) : (
                             <DropdownMenuItem onClick={() => void startBroadcast(c)}>
-                              <Play className="size-3.5" /> {c.queueTotal > 0 ? "Resume" : "Start"} broadcast
+                              <Play className="size-3.5" /> {c.queueTotal > 0 ? "Resume" : "Start"} broadcast…
                             </DropdownMenuItem>
                           )
                         ) : c.status === "Active" ? (
@@ -584,7 +700,7 @@ function CampaignsPage() {
                         ) : null}
                         {c.mode === "recording" && c.queueTotal > 0 && (
                           <DropdownMenuItem onClick={() => void openCallLog(c)}>
-                            <List className="size-3.5" /> View call log
+                            <List className="size-3.5" /> Results and call log
                           </DropdownMenuItem>
                         )}
                         {c.mode === "recording" && c.queueTotal > 0 && (
@@ -696,6 +812,8 @@ function CampaignsPage() {
             value={settingsDraft}
             onChange={setSettingsDraft}
             savedKey={settingsTarget?.recording.file?.key ?? null}
+            numbers={phoneMeta.numbers}
+            defaultZone={phoneMeta.zone}
           />
           <DialogFooter>
             <Button variant="outline" onClick={closeSettings}>
@@ -800,17 +918,107 @@ function CampaignsPage() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={!!startTarget} onOpenChange={(open) => !open && !startBusy && setStartTarget(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Start {startTarget?.name}</DialogTitle>
+            <DialogDescription>Check what this run will do before it goes to real people.</DialogDescription>
+          </DialogHeader>
+          {!startInfo ? (
+            <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+              <Loader2 className="size-4 animate-spin" /> Checking…
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3 text-sm">
+              <div className="rounded-lg border border-border p-3">
+                <p className="font-medium">
+                  {startInfo.remaining.toLocaleString()} {startInfo.remaining === 1 ? "person" : "people"} left to call
+                </p>
+                <p className="mt-1 text-muted-foreground">
+                  About {minutesText(startInfo.estimate.minutes)} of calls
+                  {startTarget && startTarget.recording.retry.max > 0
+                    ? `, up to ${minutesText(startInfo.estimate.maxMinutes)} if every retry is used`
+                    : ""}
+                  . {startInfo.estimate.exactLength ? "Based on your recording's length." : "Estimated at 30 seconds a call, since the recording's length isn't known."}
+                </p>
+              </div>
+              {startTarget && (
+                <p className="text-muted-foreground">
+                  {startTarget.recording.window.enabled
+                    ? `Calls only between ${startTarget.recording.window.startHour > 12 ? startTarget.recording.window.startHour - 12 : startTarget.recording.window.startHour}${startTarget.recording.window.startHour >= 12 ? "pm" : "am"} and ${startTarget.recording.window.endHour > 12 ? startTarget.recording.window.endHour - 12 : startTarget.recording.window.endHour}${startTarget.recording.window.endHour >= 12 ? "pm" : "am"}, ${startTarget.recording.window.mode === "contact" ? "each person's own time" : startTarget.recording.window.zone.replace(/_/g, " ")}.`
+                    : "No calling hours are set, so calls can go out at any hour."}
+                </p>
+              )}
+              <div className="grid grid-cols-2 gap-2">
+                <Button type="button" variant={startWhen === "now" ? "default" : "outline"} onClick={() => setStartWhen("now")}>
+                  Start now
+                </Button>
+                <Button type="button" variant={startWhen === "later" ? "default" : "outline"} onClick={() => setStartWhen("later")}>
+                  <CalendarClock className="size-4" /> Schedule
+                </Button>
+              </div>
+              {startWhen === "later" && (
+                <div className="flex flex-col gap-1.5">
+                  <Input type="datetime-local" value={startLocal} onChange={(e) => setStartLocal(e.target.value)} />
+                  <p className="text-xs text-muted-foreground">
+                    In your time ({Intl.DateTimeFormat().resolvedOptions().timeZone.replace(/_/g, " ")}). It starts within 15 minutes of this time.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" disabled={startBusy} onClick={() => setStartTarget(null)}>
+              Cancel
+            </Button>
+            <Button disabled={startBusy || !startInfo} onClick={() => void confirmStart()}>
+              {startBusy ? <Loader2 className="size-4 animate-spin" /> : startWhen === "later" ? <CalendarClock className="size-4" /> : <Play className="size-4" />}
+              {startWhen === "later" ? "Schedule it" : "Start broadcast"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={!!logTarget} onOpenChange={(open) => !open && setLogTarget(null)}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>{logTarget?.name} — call log</DialogTitle>
+            <DialogTitle>{logTarget?.name} — results</DialogTitle>
             <DialogDescription>
               {logTarget?.status === "Active"
                 ? "Updates automatically while this campaign is dialing."
-                : "Every contact this campaign has attempted."}
+                : "How this campaign has gone, and every contact it has tried."}
             </DialogDescription>
           </DialogHeader>
-          <div className="max-h-[60vh] overflow-y-auto">
+          {logSummary && (
+            <div className="flex flex-col gap-2 rounded-lg border border-border bg-muted/40 p-3 text-sm">
+              <div className="flex flex-wrap gap-x-4 gap-y-1">
+                {logSummary.results.length === 0 ? (
+                  <span className="text-muted-foreground">No results yet.</span>
+                ) : (
+                  logSummary.results.map((r) => (
+                    <span key={r.key}>
+                      <span className="font-semibold">{r.count.toLocaleString()}</span> <span className="text-muted-foreground">{r.label.toLowerCase()}</span>
+                    </span>
+                  ))
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {logSummary.remaining.toLocaleString()} left to call
+                {logSummary.waitingForRetry > 0 ? ` (${logSummary.waitingForRetry.toLocaleString()} waiting to be tried again)` : ""}
+                {logSummary.inFlight > 0 ? ` · ${logSummary.inFlight} ringing now` : ""} · {logSummary.callsPlaced.toLocaleString()} calls placed ·{" "}
+                {minutesText(Math.ceil(logSummary.secondsOnCalls / 60))} on calls
+              </p>
+              {logSummary.pauseReason && logSummary.status !== "Active" && (
+                <p className="text-xs font-medium text-foreground">{logSummary.pauseReason}</p>
+              )}
+            </div>
+          )}
+          <div className="flex justify-end">
+            <Button variant="outline" size="sm" disabled={!logTarget} onClick={() => logTarget && void handleExport(logTarget)}>
+              <Download className="size-3.5" /> Export spreadsheet
+            </Button>
+          </div>
+          <div className="max-h-[50vh] overflow-y-auto">
             {logLoading ? (
               <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
                 <Loader2 className="size-4 animate-spin" /> Loading…
@@ -835,15 +1043,13 @@ function CampaignsPage() {
                         <p className="font-mono text-xs text-muted-foreground">{row.phone}</p>
                       </TableCell>
                       <TableCell>
-                        <StatusPill
-                          status={
-                            row.status === "completed"
-                              ? "Successfully dialed"
-                              : row.status.charAt(0).toUpperCase() + row.status.slice(1)
-                          }
-                        />
+                        <StatusPill status={rowStatus(row)} />
                       </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{row.outcome ?? "—"}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {row.outcome ?? "—"}
+                        {row.attempts > 1 ? ` · ${row.attempts} tries` : ""}
+                        {row.status === "pending" && row.retry_at ? ` · next try ${formatWhen(row.retry_at)}` : ""}
+                      </TableCell>
                       <TableCell className="text-right font-mono text-sm">
                         {row.duration_seconds ? `${row.duration_seconds}s` : "—"}
                       </TableCell>

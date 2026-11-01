@@ -105,6 +105,7 @@ const statusTones: Record<string, string> = {
   "wrap-up": "bg-warning/18 text-warning-foreground border-warning/35",
   pending: "bg-warning/18 text-warning-foreground border-warning/35",
   paused: "bg-warning/18 text-warning-foreground border-warning/35",
+  waiting: "bg-warning/18 text-warning-foreground border-warning/35",
   warning: "bg-warning/18 text-warning-foreground border-warning/35",
   voicemail: "bg-warning/18 text-warning-foreground border-warning/35",
   "waiting on customer": "bg-warning/18 text-warning-foreground border-warning/35",

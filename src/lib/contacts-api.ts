@@ -3,6 +3,8 @@
 import {
   createContactFn,
   deleteContactsFn,
+  deleteContactListFn,
+  getContactListUsageFn,
   getContactsMetaFn,
   importContactsFn,
   listContactsFn,
@@ -87,4 +89,14 @@ export function importContacts(rows: ImportRow[], listName?: string) {
 
 export function deleteContacts(ids: string[]) {
   return deleteContactsFn({ data: { token: requireToken(), ids } });
+}
+
+/** What a list holds and which campaigns use it, for the confirmation before deleting it. */
+export function getContactListUsage(listId: string) {
+  return getContactListUsageFn({ data: { token: requireToken(), listId } });
+}
+
+/** Deletes a whole list. `withContacts` also deletes every contact in it, not just the ones on screen. */
+export function deleteContactList(listId: string, withContacts: boolean) {
+  return deleteContactListFn({ data: { token: requireToken(), listId, withContacts } });
 }

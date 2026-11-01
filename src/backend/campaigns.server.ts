@@ -6,8 +6,10 @@ import { requireCanCreate } from "./entitlements";
 import { ensureSchema } from "./schema.server";
 import { deleteStoredFiles } from "./media-store";
 import {
+  DEFAULT_RECORDING_SETTINGS,
   recordingSettingsProblem,
   sanitizeRecordingSettings,
+  toE164,
   type RecordingSettings,
 } from "./recording-options";
 
@@ -30,6 +32,12 @@ export interface CampaignRecord {
   /** The recording and what happens around it. Only set on a voice broadcast. */
   recording: RecordingSettings | null;
   compliance_ack: boolean;
+  /** When a scheduled campaign will start. */
+  start_at: string | null;
+  /** When a campaign that is waiting (for calling hours or a retry) will carry on by itself. */
+  resume_at: string | null;
+  /** Why a campaign is paused or waiting, in plain words. */
+  pause_reason: string | null;
   contacts_loaded: number;
   calls_made: number;
   connect_rate: number;
@@ -44,7 +52,7 @@ export async function listCampaigns(data: { token: string }) {
   const tenantId = await requireTenant(data.token);
   await ensureSchema();
   const rows = await sql`
-    select c.id, c.name, c.status, c.list_name, c.list_id, c.owner, c.script, c.mode, c.recording, c.compliance_ack,
+    select c.id, c.name, c.status, c.list_name, c.list_id, c.owner, c.script, c.mode, c.recording, c.compliance_ack, c.start_at, c.resume_at, c.pause_reason,
            c.contacts_loaded, c.calls_made, c.connect_rate, c.created_at,
            count(cc.id)::int as queue_total,
            count(cc.id) filter (where cc.status = 'completed')::int as queue_completed,
@@ -63,12 +71,18 @@ export const listCampaignsFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => listCampaigns(data));
 
 /** The recording must be one this workspace uploaded, in a format phones can play. */
-function checkRecording(tenantId: string, settings: RecordingSettings): void {
+async function checkRecording(tenantId: string, settings: RecordingSettings): Promise<void> {
   if (settings.file && !settings.file.key.startsWith(`greetings/${tenantId}/`)) {
     throw new Error("That recording doesn't belong to this workspace. Upload it again.");
   }
   const problem = recordingSettingsProblem(settings);
   if (problem) throw new Error(problem);
+  // The number to call from has to be one of this workspace's own.
+  const callerId = settings.callerId ? toE164(settings.callerId) : null;
+  if (callerId) {
+    const own = await sql`select 1 from phone_numbers where tenant_id = ${tenantId} and number = ${callerId} limit 1`;
+    if (own.length === 0) throw new Error("That number to call from isn't one of your numbers. Choose one from the list.");
+  }
 }
 
 /**
@@ -102,8 +116,8 @@ export async function createCampaign(data: {
   await requireCanCreate(tenantId, "campaigns");
 
   const mode = data.mode === "recording" ? "recording" : "manual";
-  const recording = mode === "recording" ? sanitizeRecordingSettings(data.recording) : null;
-  if (recording) checkRecording(tenantId, recording);
+  const recording = mode === "recording" ? sanitizeRecordingSettings(data.recording, DEFAULT_RECORDING_SETTINGS) : null;
+  if (recording) await checkRecording(tenantId, recording);
   // A voice broadcast always starts Draft — it's only allowed to go Active
   // through startCampaignDialingFn, which gates on the recording and the
   // compliance acknowledgment existing first.
@@ -116,7 +130,7 @@ export async function createCampaign(data: {
       ${data.listName ?? null}, ${data.listId ?? null}, ${data.owner ?? null}, ${data.script ?? null},
       ${mode}, ${recording ? JSON.stringify(recording) : null}::jsonb, ${data.complianceAck ?? false}
     )
-    returning id, name, status, list_name, list_id, owner, script, mode, recording, compliance_ack,
+    returning id, name, status, list_name, list_id, owner, script, mode, recording, compliance_ack, start_at, resume_at, pause_reason,
               contacts_loaded, calls_made, connect_rate, created_at
   `;
   return { ok: true as const, campaign: rows[0] as unknown as CampaignRecord };
@@ -163,8 +177,8 @@ export async function updateCampaign(data: {
   }
 
   const previous = sanitizeRecordingSettings(existing["recording"]);
-  const recording = data.recording === undefined ? null : sanitizeRecordingSettings(data.recording);
-  if (recording) checkRecording(tenantId, recording);
+  const recording = data.recording === undefined ? null : sanitizeRecordingSettings(data.recording, previous);
+  if (recording) await checkRecording(tenantId, recording);
 
   // coalesce keeps unspecified fields untouched, so a status change can't
   // accidentally blank out the name.
@@ -177,7 +191,7 @@ export async function updateCampaign(data: {
       compliance_ack = coalesce(${data.complianceAck ?? null}, compliance_ack),
       updated_at = now()
     where id = ${data.id} and tenant_id = ${tenantId}
-    returning id, name, status, list_name, list_id, owner, script, mode, recording, compliance_ack,
+    returning id, name, status, list_name, list_id, owner, script, mode, recording, compliance_ack, start_at, resume_at, pause_reason,
               contacts_loaded, calls_made, connect_rate, created_at
   `;
   if (rows.length === 0) throw new Error("Campaign not found.");
@@ -221,7 +235,7 @@ export async function duplicateCampaign(data: { token: string; id: string }) {
     insert into campaigns (tenant_id, name, status, list_name, list_id, owner, script, mode, recording, compliance_ack)
     select tenant_id, name || ' (copy)', 'Draft', list_name, list_id, owner, script, mode, recording, false
     from campaigns where id = ${data.id} and tenant_id = ${tenantId}
-    returning id, name, status, list_name, list_id, owner, script, mode, recording, compliance_ack,
+    returning id, name, status, list_name, list_id, owner, script, mode, recording, compliance_ack, start_at, resume_at, pause_reason,
               contacts_loaded, calls_made, connect_rate, created_at
   `;
   if (rows.length === 0) throw new Error("Campaign not found.");

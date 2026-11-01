@@ -344,6 +344,13 @@ async function apply(): Promise<void> {
   await sql`alter table campaigns add column if not exists recording jsonb`;
   // How a voice-broadcast call ended: played, voicemail, voicemail_left, transferred, opted_out.
   await sql`alter table calls add column if not exists broadcast_result text`;
+  // Smart calling: scheduled starts, waiting for calling hours, retries, why a run stopped, where webhooks go.
+  await sql`alter table campaigns add column if not exists start_at timestamptz`;
+  await sql`alter table campaigns add column if not exists resume_at timestamptz`;
+  await sql`alter table campaigns add column if not exists pause_reason text`;
+  await sql`alter table campaigns add column if not exists callback_origin text`;
+  await sql`alter table campaign_calls add column if not exists retry_at timestamptz`;
+  await sql`create index if not exists idx_campaigns_due on campaigns (status, start_at, resume_at)`;
   // Campaigns used to be 'manual' or 'ai_agent'. AI campaigns are gone: any left over become voice
   // broadcasts (paused, with no recording yet) so the owner keeps their list and history.
   await sql`
