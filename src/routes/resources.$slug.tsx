@@ -2,6 +2,7 @@ import { createFileRoute, notFound } from "@tanstack/react-router";
 
 import { Breadcrumb, Container, CtaBand, SLink, TextLink } from "@/site/blocks";
 import { GUIDES } from "@/site/content";
+import { breadcrumbLd, howToLd, ldScript } from "@/site/seo";
 import { SiteLayout } from "@/site/Layout";
 
 export const Route = createFileRoute("/resources/$slug")({
@@ -16,6 +17,20 @@ export const Route = createFileRoute("/resources/$slug")({
         { title: `${g?.title ?? "Guide"} — Kchel Dialer` },
         { name: "description", content: g?.summary ?? "A Kchel Dialer guide." },
       ],
+      scripts: g
+        ? [
+            ldScript(breadcrumbLd([{ name: "Home", path: "/" }, { name: "Resources", path: "/resources" }, { name: g.title }])),
+            ldScript(
+              howToLd({
+                name: g.title,
+                description: g.summary,
+                path: `/resources/${g.slug}`,
+                time: `${g.minutes} minutes`,
+                steps: g.steps.map((s) => ({ name: s.title, text: s.body })),
+              }),
+            ),
+          ]
+        : [],
     };
   },
   component: GuidePage,

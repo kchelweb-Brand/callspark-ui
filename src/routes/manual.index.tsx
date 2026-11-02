@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { CtaBand, Section, SLink, TextPageHead } from "@/site/blocks";
 import { SiteLayout } from "@/site/Layout";
 import { LEVELS, MANUAL, articlePath, plain, type Level } from "@/manual";
+import { breadcrumbLd, itemListLd, ldScript } from "@/site/seo";
 
 export const Route = createFileRoute("/manual/")({
   head: () => ({
@@ -15,6 +16,10 @@ export const Route = createFileRoute("/manual/")({
         content:
           "Step-by-step guides with screenshots for every part of Kchel Dialer: connecting your SIP line, contacts, campaigns, voice broadcasts, your phone system and more.",
       },
+    ],
+    scripts: [
+      ldScript(breadcrumbLd([{ name: "Home", path: "/" }, { name: "Manual" }])),
+      ldScript(itemListLd("The Kchel Dialer manual", MANUAL.map((a) => ({ name: a.title, path: articlePath(a.slug) })))),
     ],
   }),
   component: ManualIndex,

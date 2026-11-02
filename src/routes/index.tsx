@@ -7,6 +7,7 @@ import { FAQS, GUIDES, PRODUCTS, SOLUTIONS } from "@/site/content";
 import { SiteLayout } from "@/site/Layout";
 import { Visual } from "@/site/mocks";
 import { PlanCards, TrialStrip } from "@/site/PlanCards";
+import { ldScript, softwareLd } from "@/site/seo";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -20,6 +21,7 @@ export const Route = createFileRoute("/")({
       { property: "og:title", content: "Kchel Dialer — The phone system your sales floor actually dials with" },
       { property: "og:description", content: "Power dialer, voice broadcast campaigns and team tools. Free for 7 days." },
     ],
+    scripts: [ldScript(softwareLd())],
   }),
   component: HomePage,
 });

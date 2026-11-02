@@ -4,10 +4,13 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
+  useRouterState,
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
+
+import { OG_IMAGE_PATH, SITE_DESCRIPTION, SITE_NAME, absoluteUrl, isPrivatePath, ldScript, organizationLd, websiteLd } from "@/site/seo";
 
 import { Toaster } from "@/components/ui/sonner";
 import { SoftphoneProvider } from "@/components/dash/SoftphoneProvider";
@@ -81,15 +84,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Kchel Dialer — Multi-tenant Call Center Platform" },
-      {
-        name: "description",
-        content:
-          "Kchel Dialer is a multi-tenant call center platform with tenant dialer workspaces and a super admin console.",
-      },
+      { title: "Kchel Dialer: call center software with a power dialer and voice broadcasts" },
+      { name: "description", content: SITE_DESCRIPTION },
+      { name: "theme-color", content: "#0b2742" },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
+    scripts: [ldScript(organizationLd()), ldScript(websiteLd())],
     links: [
       {
         rel: "stylesheet",
@@ -121,6 +122,7 @@ function RootShell({ children }: { children: ReactNode }) {
     <html lang="en">
       <head>
         <HeadContent />
+        <SeoTags />
       </head>
       <body>
         {children}
@@ -146,5 +148,37 @@ function RootComponent() {
       <HelpChat />
       <Toaster richColors position="top-right" />
     </QueryClientProvider>
+  );
+}
+
+/**
+ * Tags every page needs and no page should have to repeat: the canonical address, the social preview
+ * built from the page's own title and description, and a "do not index" on the signed-in app.
+ */
+function SeoTags() {
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const matches = useRouterState({ select: (s) => s.matches });
+  const metas = matches.flatMap((m) => ((m as { meta?: unknown }).meta ?? []) as Record<string, string | undefined>[]);
+  const has = (key: "name" | "property", value: string) => metas.some((m) => m?.[key] === value);
+  const title = [...metas].reverse().find((m) => typeof m?.["title"] === "string")?.["title"] ?? SITE_NAME;
+  const description = [...metas].reverse().find((m) => m?.["name"] === "description")?.["content"] ?? SITE_DESCRIPTION;
+  const url = absoluteUrl(pathname);
+  const image = absoluteUrl(OG_IMAGE_PATH);
+  return (
+    <>
+      <link rel="canonical" href={url} />
+      <meta property="og:url" content={url} />
+      <meta property="og:site_name" content={SITE_NAME} />
+      <meta property="og:image" content={image} />
+      <meta property="og:image:width" content="1200" />
+      <meta property="og:image:height" content="630" />
+      <meta property="og:image:alt" content="Kchel Dialer: call center software with a power dialer and voice broadcasts" />
+      <meta name="twitter:image" content={image} />
+      {!has("property", "og:title") && <meta property="og:title" content={title} />}
+      {!has("property", "og:description") && <meta property="og:description" content={description} />}
+      <meta name="twitter:title" content={title} />
+      <meta name="twitter:description" content={description} />
+      {isPrivatePath(pathname) && <meta name="robots" content="noindex, nofollow" />}
+    </>
   );
 }

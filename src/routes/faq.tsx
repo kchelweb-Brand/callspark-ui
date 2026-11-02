@@ -1,3 +1,4 @@
+import { breadcrumbLd, faqLd, ldScript } from "@/site/seo";
 import { createFileRoute } from "@tanstack/react-router";
 
 import { CtaBand, FaqList, Section, TextLink, TextPageHead } from "@/site/blocks";
@@ -10,6 +11,7 @@ export const Route = createFileRoute("/faq")({
       { title: "Frequently asked questions — Kchel Dialer" },
       { name: "description", content: "Answers about the free trial, calling, voice broadcasts, plans and billing." },
     ],
+    scripts: [ldScript(faqLd(FAQS.flatMap((g) => g.items))), ldScript(breadcrumbLd([{ name: "Home", path: "/" }, { name: "FAQ" }]))],
   }),
   component: FaqPage,
 });

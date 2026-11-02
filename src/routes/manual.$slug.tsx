@@ -4,7 +4,8 @@ import { Clock, Monitor } from "lucide-react";
 import { Inline, MoreSection, StepList } from "@/components/manual/ManualParts";
 import { Breadcrumb, Container, CtaBand, SLink, TextLink } from "@/site/blocks";
 import { SiteLayout } from "@/site/Layout";
-import { LEVELS, MANUAL, articlePath, getArticle, plain } from "@/manual";
+import { LEVELS, MANUAL, articlePath, getArticle, getShot, plain } from "@/manual";
+import { breadcrumbLd, howToLd, ldScript } from "@/site/seo";
 
 export const Route = createFileRoute("/manual/$slug")({
   loader: ({ params }) => {
@@ -18,6 +19,27 @@ export const Route = createFileRoute("/manual/$slug")({
         { title: `${a?.title ?? "Guide"}: Kchel Dialer manual` },
         { name: "description", content: a ? plain(a.summary) : "A Kchel Dialer guide." },
       ],
+      scripts: a
+        ? [
+            ldScript(breadcrumbLd([{ name: "Home", path: "/" }, { name: "Manual", path: "/manual" }, { name: a.title }])),
+            ...(a.steps.length > 0
+              ? [
+                  ldScript(
+                    howToLd({
+                      name: a.title,
+                      description: plain(a.summary),
+                      path: articlePath(a.slug),
+                      time: a.time,
+                      steps: a.steps.map((s) => {
+                        const text = plain(s.text);
+                        return { name: text.split(/(?<=[.!?])\s/)[0]?.slice(0, 110) ?? text, text, image: getShot(s.shot)?.src };
+                      }),
+                    }),
+                  ),
+                ]
+              : []),
+          ]
+        : [],
     };
   },
   component: ManualArticlePage,

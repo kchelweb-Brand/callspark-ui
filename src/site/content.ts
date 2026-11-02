@@ -2,6 +2,11 @@
 // feature, a plan or a promise is changed once. Every statement describes what
 // the product really does; if a screen changes, change its words here.
 
+import { PLANS } from "../backend/plans";
+
+const P = PLANS;
+const money = (n: number | undefined) => `$${(n ?? 0).toLocaleString()}`;
+
 export type VisualKey =
   | "dialer"
   | "queue"
@@ -504,9 +509,42 @@ export const FAQS: { group: string; items: Faq[] }[] = [
     ],
   },
   {
+    group: "Phone lines and SIP",
+    items: [
+      {
+        q: "Where do I get SIP credentials for Kchel Dialer?",
+        a: "There are two ways. Ask the admin for Managed SIP credentials through the Support page, or get SIP credentials from your own SIP provider. Then open Phone System, Connection, Add SIP credentials and enter the SIP username, password, host and WebSocket URL. The manual guide “Where to get your SIP credentials” walks through it with screenshots.",
+      },
+      {
+        q: "What is SIP, and do I need a SIP provider?",
+        a: "SIP is the standard way phone calls travel over the internet, and a SIP provider is the company that connects those calls to the normal phone network. On Starter, Professional and Business you use your own provider, or ask the admin for Managed SIP credentials. On Managed Enterprise Kchel runs the phone line for you.",
+      },
+      {
+        q: "Does Kchel Dialer work with my existing phone provider?",
+        a: "Yes, any provider that gives you SIP credentials works. For calling from the browser the provider needs to offer SIP over WebSocket (WSS), also called WebRTC. Other connection types are saved and can receive routed calls, but the browser softphone needs WSS.",
+      },
+      {
+        q: "What is the difference between a power dialer and a voice broadcast?",
+        a: "A power dialer lets your team call a list one contact after another, and an agent talks to each person. A voice broadcast plays your own recording to everyone on a list who answers, with no agent needed, and can let people press 1 to be connected or 2 to never be called again.",
+      },
+      {
+        q: "Is there a manual or help for setting it up?",
+        a: "Yes. The manual has step-by-step guides with screenshots from beginner to expert, and a Help assistant inside the app answers questions in plain language.",
+      },
+    ],
+  },
+  {
     group: "Plans and billing",
     items: [
       { q: "How do I pay?", a: "Open Billing, choose a plan and pay with the link shown. Depending on your country there may also be bank, crypto or gift card options and regional prices. Pay by card with the email you sign in with and your plan switches on by itself within a minute or two. Other methods are confirmed by our team after you tell us from the same page." },
+      {
+        q: "How much does Kchel Dialer cost?",
+        a: `Every new workspace starts with a ${P.trial.trialDays ?? 7}-day free trial with no card needed. After that, Starter is ${money(P.starter.pricePerAgentMonthly)} per agent per month, Professional is ${money(P.professional.pricePerAgentMonthly)} per agent per month, Business is ${money(P.business.priceFlatMonthly)} a month flat for up to ${P.business.limits.agents} agents, and Managed Enterprise is ${money(P.managed.priceFlatMonthly)} a month flat for up to ${P.managed.limits.agents} agents with the phone line, the Windows Dialer, support and maintenance included.`,
+      },
+      {
+        q: "Which plan is right for my team?",
+        a: `Starter fits up to ${P.starter.limits.agents} agents, Professional up to ${P.professional.limits.agents}, Business up to ${P.business.limits.agents} on a single flat price, and Managed Enterprise up to ${P.managed.limits.agents} when you want Kchel to run the phone line and look after the setup. Contacts range from ${P.starter.limits.contacts?.toLocaleString()} on Starter to ${P.managed.limits.contacts?.toLocaleString()} on Managed Enterprise.`,
+      },
       { q: "Is there an annual discount?", a: "Yes. Annual billing includes two months free." },
       { q: "What happens to my data if I cancel?", a: "It stays yours and remains exportable." },
     ],

@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
+import { breadcrumbLd, ldScript, softwareLd } from "@/site/seo";
+
 import { CtaBand, Container, FaqList, Section, SectionHead, SLink } from "@/site/blocks";
 import { SiteLayout } from "@/site/Layout";
 import { ComparisonTable, PlanCards, TrialStrip } from "@/site/PlanCards";
@@ -14,6 +16,7 @@ export const Route = createFileRoute("/pricing")({
           "Kchel Dialer pricing: per-agent plans from $29, one flat price for a team on Business, and Managed Enterprise with the phone line supplied. Free for 7 days.",
       },
     ],
+    scripts: [ldScript(softwareLd()), ldScript(breadcrumbLd([{ name: "Home", path: "/" }, { name: "Pricing" }]))],
   }),
   component: PricingPage,
 });

@@ -124,6 +124,13 @@ export default {
 
     try {
       const url = new URL(request.url);
+      // Search and AI-search files, built from the site's own content on each request.
+      if (url.pathname === "/sitemap.xml" || url.pathname === "/robots.txt" || url.pathname === "/llms.txt" || url.pathname === "/llms-full.txt") {
+        const { seoResponse } = await import("./backend/seo.server");
+        const seo = seoResponse(url);
+        if (seo) return seo;
+      }
+
       if (url.pathname.startsWith("/media/")) {
         return await serveMedia(url.pathname);
       }

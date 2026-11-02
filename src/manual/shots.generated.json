@@ -15,61 +15,61 @@
   "alt": "Phone System in the left menu, then the Connection tab at the top",
   "w": 1280,
   "h": 800,
-  "bytes": 97103
+  "bytes": 100066
  },
  "sip-2-connection-tab": {
   "alt": "The Connection tab with the Connect your own SIP card and its Add SIP credentials button",
   "w": 1280,
   "h": 800,
-  "bytes": 85764
+  "bytes": 88547
  },
  "sip-3-add-button": {
   "alt": "Press Add SIP credentials on the Connect your own SIP card",
   "w": 1280,
   "h": 800,
-  "bytes": 86223
+  "bytes": 89002
  },
  "sip-4-empty-form": {
   "alt": "The Connect your own SIP form before anything is filled in",
   "w": 560,
   "h": 728,
-  "bytes": 50067
+  "bytes": 52316
  },
  "sip-5-filled-form": {
   "alt": "The form filled in: label, WebSocket URL, host, SIP username and SIP password",
   "w": 560,
   "h": 728,
-  "bytes": 64108
+  "bytes": 65871
  },
  "sip-6-save": {
   "alt": "Press Save credentials at the bottom of the form",
   "w": 560,
   "h": 728,
-  "bytes": 54214
+  "bytes": 56101
  },
  "sip-7-saved-pending": {
   "alt": "After saving, the connection shows Saved, not yet registered until the first agent connects",
   "w": 1280,
   "h": 800,
-  "bytes": 87736
+  "bytes": 89931
  },
  "sip-8-connected": {
   "alt": "A healthy connection shows Connected with a green Active badge",
   "w": 1280,
   "h": 800,
-  "bytes": 81991
+  "bytes": 84343
  },
  "sip-9-failed": {
   "alt": "A failed connection shows the reason from your provider, here a rejected username or password",
   "w": 1280,
   "h": 800,
-  "bytes": 87205
+  "bytes": 89531
  },
  "sip-10-edit": {
   "alt": "Edit opens the same form with your details; leave the password blank to keep the current one",
   "w": 560,
   "h": 728,
-  "bytes": 55138
+  "bytes": 56583
  },
  "page-live-calls": {
   "alt": "Live Calls: every call in progress, who is waiting and who is free",

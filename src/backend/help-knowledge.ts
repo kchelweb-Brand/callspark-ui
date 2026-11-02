@@ -29,7 +29,7 @@ export const PRODUCT_BRIEF =
   "Desktop app menu: Notifications, Team tasks, Messages, Overview, Live calls, Agents, Analytics, Dialer, Contacts, Campaigns, SMS, " +
   "Call history, Recordings, IVR menus, Extensions, Voicemail, Numbers, Number health, Automations, Billing, Support, Settings, SIP configuration. " +
   "Campaigns are either Manual dialing (people call the list, with the power dialer) or Voice broadcast (a recording is played to everyone who answers). " +
-  "On most plans the customer brings their own phone provider (carrier) and enters its SIP credentials; on Managed Enterprise Kchel runs the carrier.";
+  "On most plans the customer brings their own phone provider (carrier) and enters its SIP credentials; on Managed Enterprise Kchel runs the carrier. Anyone can also contact the admin through Support to ask for Managed SIP credentials.";
 
 function featureList(features: PlanFeatures): string {
   return (Object.keys(FEATURE_LABELS) as (keyof PlanFeatures)[])
