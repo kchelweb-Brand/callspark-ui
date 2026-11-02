@@ -232,7 +232,7 @@ export const PRODUCTS: Product[] = [
     blocks: [
       {
         title: "A call history you can actually use",
-        body: "Search by name or number, filter by outcome or agent, and open any call. Calls handled by the AI carry a summary and an outcome tag.",
+        body: "Search by name or number, filter by outcome or agent, and open any call. On plans with call summaries, recorded calls get a short written summary.",
         points: ["Filter by outcome, such as Interested or Call back", "Agents see their own calls unless you allow more"],
         visual: "analytics",
       },

@@ -45,6 +45,8 @@ import { Route as AdminSystemHealthRouteImport } from './routes/admin.system-hea
 import { Route as AdminTenantsRouteImport } from './routes/admin.tenants'
 import { Route as LegalPrivacyRouteImport } from './routes/legal.privacy'
 import { Route as LegalTermsRouteImport } from './routes/legal.terms'
+import { Route as ManualIndexRouteImport } from './routes/manual.index'
+import { Route as ManualSlugRouteImport } from './routes/manual.$slug'
 import { Route as ProductIndexRouteImport } from './routes/product.index'
 import { Route as ProductSlugRouteImport } from './routes/product.$slug'
 import { Route as ResourcesIndexRouteImport } from './routes/resources.index'
@@ -232,6 +234,16 @@ const LegalTermsRoute = LegalTermsRouteImport.update({
   path: '/legal/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ManualIndexRoute = ManualIndexRouteImport.update({
+  id: '/manual/',
+  path: '/manual/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ManualSlugRoute = ManualSlugRouteImport.update({
+  id: '/manual/$slug',
+  path: '/manual/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProductIndexRoute = ProductIndexRouteImport.update({
   id: '/product/',
   path: '/product/',
@@ -299,10 +311,12 @@ export interface FileRoutesByFullPath {
   '/admin/tenants': typeof AdminTenantsRoute
   '/legal/privacy': typeof LegalPrivacyRoute
   '/legal/terms': typeof LegalTermsRoute
+  '/manual/$slug': typeof ManualSlugRoute
   '/product/$slug': typeof ProductSlugRoute
   '/resources/$slug': typeof ResourcesSlugRoute
   '/solutions/$slug': typeof SolutionsSlugRoute
   '/admin/': typeof AdminIndexRoute
+  '/manual/': typeof ManualIndexRoute
   '/product/': typeof ProductIndexRoute
   '/resources/': typeof ResourcesIndexRoute
   '/solutions/': typeof SolutionsIndexRoute
@@ -343,10 +357,12 @@ export interface FileRoutesByTo {
   '/admin/tenants': typeof AdminTenantsRoute
   '/legal/privacy': typeof LegalPrivacyRoute
   '/legal/terms': typeof LegalTermsRoute
+  '/manual/$slug': typeof ManualSlugRoute
   '/product/$slug': typeof ProductSlugRoute
   '/resources/$slug': typeof ResourcesSlugRoute
   '/solutions/$slug': typeof SolutionsSlugRoute
   '/admin': typeof AdminIndexRoute
+  '/manual': typeof ManualIndexRoute
   '/product': typeof ProductIndexRoute
   '/resources': typeof ResourcesIndexRoute
   '/solutions': typeof SolutionsIndexRoute
@@ -388,10 +404,12 @@ export interface FileRoutesById {
   '/admin/tenants': typeof AdminTenantsRoute
   '/legal/privacy': typeof LegalPrivacyRoute
   '/legal/terms': typeof LegalTermsRoute
+  '/manual/$slug': typeof ManualSlugRoute
   '/product/$slug': typeof ProductSlugRoute
   '/resources/$slug': typeof ResourcesSlugRoute
   '/solutions/$slug': typeof SolutionsSlugRoute
   '/admin/': typeof AdminIndexRoute
+  '/manual/': typeof ManualIndexRoute
   '/product/': typeof ProductIndexRoute
   '/resources/': typeof ResourcesIndexRoute
   '/solutions/': typeof SolutionsIndexRoute
@@ -434,10 +452,12 @@ export interface FileRouteTypes {
     | '/admin/tenants'
     | '/legal/privacy'
     | '/legal/terms'
+    | '/manual/$slug'
     | '/product/$slug'
     | '/resources/$slug'
     | '/solutions/$slug'
     | '/admin/'
+    | '/manual/'
     | '/product/'
     | '/resources/'
     | '/solutions/'
@@ -478,10 +498,12 @@ export interface FileRouteTypes {
     | '/admin/tenants'
     | '/legal/privacy'
     | '/legal/terms'
+    | '/manual/$slug'
     | '/product/$slug'
     | '/resources/$slug'
     | '/solutions/$slug'
     | '/admin'
+    | '/manual'
     | '/product'
     | '/resources'
     | '/solutions'
@@ -522,10 +544,12 @@ export interface FileRouteTypes {
     | '/admin/tenants'
     | '/legal/privacy'
     | '/legal/terms'
+    | '/manual/$slug'
     | '/product/$slug'
     | '/resources/$slug'
     | '/solutions/$slug'
     | '/admin/'
+    | '/manual/'
     | '/product/'
     | '/resources/'
     | '/solutions/'
@@ -567,10 +591,12 @@ export interface RootRouteChildren {
   AdminTenantsRoute: typeof AdminTenantsRoute
   LegalPrivacyRoute: typeof LegalPrivacyRoute
   LegalTermsRoute: typeof LegalTermsRoute
+  ManualSlugRoute: typeof ManualSlugRoute
   ProductSlugRoute: typeof ProductSlugRoute
   ResourcesSlugRoute: typeof ResourcesSlugRoute
   SolutionsSlugRoute: typeof SolutionsSlugRoute
   AdminIndexRoute: typeof AdminIndexRoute
+  ManualIndexRoute: typeof ManualIndexRoute
   ProductIndexRoute: typeof ProductIndexRoute
   ResourcesIndexRoute: typeof ResourcesIndexRoute
   SolutionsIndexRoute: typeof SolutionsIndexRoute
@@ -830,6 +856,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LegalTermsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/manual/': {
+      id: '/manual/'
+      path: '/manual'
+      fullPath: '/manual/'
+      preLoaderRoute: typeof ManualIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/manual/$slug': {
+      id: '/manual/$slug'
+      path: '/manual/$slug'
+      fullPath: '/manual/$slug'
+      preLoaderRoute: typeof ManualSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/product/': {
       id: '/product/'
       path: '/product'
@@ -911,10 +951,12 @@ const rootRouteChildren: RootRouteChildren = {
   AdminTenantsRoute: AdminTenantsRoute,
   LegalPrivacyRoute: LegalPrivacyRoute,
   LegalTermsRoute: LegalTermsRoute,
+  ManualSlugRoute: ManualSlugRoute,
   ProductSlugRoute: ProductSlugRoute,
   ResourcesSlugRoute: ResourcesSlugRoute,
   SolutionsSlugRoute: SolutionsSlugRoute,
   AdminIndexRoute: AdminIndexRoute,
+  ManualIndexRoute: ManualIndexRoute,
   ProductIndexRoute: ProductIndexRoute,
   ResourcesIndexRoute: ResourcesIndexRoute,
   SolutionsIndexRoute: SolutionsIndexRoute,

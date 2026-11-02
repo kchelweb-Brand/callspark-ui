@@ -94,7 +94,8 @@ function Panel({ which }: { which: MenuKey }) {
         <div>
           <p className="px-3 text-[12px] font-bold tracking-[0.12em] text-slate uppercase">Guides</p>
           <div className="mt-2 grid gap-x-4 sm:grid-cols-2">
-            {GUIDES.slice(0, 6).map((g) => (
+            <MenuItem to="/manual" title="The manual" blurb="Step-by-step with screenshots, from beginner to expert" />
+            {GUIDES.slice(0, 5).map((g) => (
               <MenuItem key={g.slug} to={`/resources/${g.slug}`} title={g.title} blurb={`${g.minutes} min · ${g.summary}`} />
             ))}
           </div>
@@ -103,7 +104,7 @@ function Panel({ which }: { which: MenuKey }) {
           <Feature
             eyebrow="Questions"
             title="Answers, in plain words"
-            body="Setup, billing, calling and the AI features, answered."
+            body="Setup, billing, calling and voice broadcasts, answered."
             to="/faq"
             cta="Read the FAQ"
           />
@@ -294,7 +295,7 @@ function MobileLinks({ which }: { which: MenuKey }) {
       : which === "solutions"
         ? SOLUTIONS.map((s) => ({ label: s.name, to: `/solutions/${s.slug}` }))
         : which === "resources"
-          ? [{ label: "All guides", to: "/resources" }, ...GUIDES.map((g) => ({ label: g.title, to: `/resources/${g.slug}` })), { label: "FAQ", to: "/faq" }]
+          ? [{ label: "The manual", to: "/manual" }, { label: "All guides", to: "/resources" }, ...GUIDES.map((g) => ({ label: g.title, to: `/resources/${g.slug}` })), { label: "FAQ", to: "/faq" }]
           : COMPANY.map((c) => ({ label: c.label, to: c.to }));
   return (
     <ul>

@@ -1,9 +1,11 @@
-// What the help assistant knows: short guides on how Kchel Dialer works, written
-// against the real menus and screens. The assistant answers only from these (and
-// the live plan table), so when a screen changes, change its guide here.
+// What the help assistant knows: the manual (src/manual), written against the real menus and
+// screens, plus the live plan table. The assistant answers Kchel-specific questions from these, so
+// when a screen changes, change its guide in the manual and both the manual page and the assistant
+// follow.
 //
 // Server-only: it is read when a question arrives, never shipped to the browser.
 
+import { MANUAL, plain, type ManualArticle } from "../manual";
 import { FEATURE_LABELS, PLANS, type PlanFeatures } from "./plans";
 
 export interface HelpArticle {
@@ -11,7 +13,9 @@ export interface HelpArticle {
   title: string;
   /** Words a person might use that the guide itself does not. */
   keywords: string[];
+  /** Everything in the guide as plain text, for the assistant to read. */
   body: string;
+  article: ManualArticle;
 }
 
 /** Always given to the assistant: what the product is and the ground rules for where things live. */
@@ -19,10 +23,13 @@ export const PRODUCT_BRIEF =
   "Kchel Dialer is a call center platform for teams and solo operators. It has a website (sign in at the workspace page with " +
   "your email and a one-time code, there is no password) and a Windows desktop app also called Kchel Dialer. Both show the same " +
   "workspace: contacts, campaigns, call history, recordings, phone system settings, agents, billing and support. " +
-  "Website menu: Overview, Campaigns, Contacts, SMS, Live Calls, Agents, Team, Call History, Recordings, Analytics, Phone System, " +
-  "Automations, Settings, Billing, Support. Desktop app menu: Notifications, Team tasks, Messages, Overview, Live calls, Agents, " +
-  "Analytics, Dialer, Contacts, Campaigns, SMS, Call history, Recordings, IVR menus, Extensions, Voicemail, Numbers, Number health, " +
-  "Automations, Billing, Support, Settings, SIP configuration.";
+  "Website menu: Overview, Live Calls, Agents, Team, Analytics, Campaigns, Contacts, SMS, Call History, Recordings, Phone System, " +
+  "Automations, Settings, Billing, Support, and Manual (step-by-step guides with screenshots, at /manual). " +
+  "Phone System tabs: Inbound, Outbound, Connection, Numbers, IVR Menus, Call Routing, Business Hours, Extensions, Voicemail. " +
+  "Desktop app menu: Notifications, Team tasks, Messages, Overview, Live calls, Agents, Analytics, Dialer, Contacts, Campaigns, SMS, " +
+  "Call history, Recordings, IVR menus, Extensions, Voicemail, Numbers, Number health, Automations, Billing, Support, Settings, SIP configuration. " +
+  "Campaigns are either Manual dialing (people call the list, with the power dialer) or Voice broadcast (a recording is played to everyone who answers). " +
+  "On most plans the customer brings their own phone provider (carrier) and enters its SIP credentials; on Managed Enterprise Kchel runs the carrier.";
 
 function featureList(features: PlanFeatures): string {
   return (Object.keys(FEATURE_LABELS) as (keyof PlanFeatures)[])
@@ -48,206 +55,37 @@ export function planFacts(): string {
         l.contacts !== null ? `${l.contacts.toLocaleString()} contacts` : "unlimited contacts",
         l.ivrMenus !== null ? `${l.ivrMenus} IVR menus` : "unlimited IVR menus",
         l.phoneNumbers !== null ? `${l.phoneNumbers} phone numbers` : "unlimited phone numbers",
-      ].join(", ");
+        l.recordingRetentionDays ? `${l.recordingRetentionDays} days of recordings` : "",
+      ]
+        .filter(Boolean)
+        .join(", ");
       const feats = featureList(p.features);
-      return `${p.name}: ${price}. Includes up to ${lim}.${feats ? ` Extras: ${feats}.` : ""}`;
+      return `${p.name}: ${price}. Includes up to ${lim}.${feats ? ` Extras: ${feats}.` : ""}${p.managedSip ? " Kchel runs the carrier, the Windows Dialer is included, and it comes with full support and maintenance." : " Runs on the customer's own carrier."}`;
     });
   const trial = PLANS.trial;
   return (
-    `Every new workspace starts with a ${trial.trialDays ?? 7}-day free trial. ` +
-    "When the trial ends the workspace is paused until a plan is bought; the data stays safe and can be exported. " +
+    `Every new workspace starts with a ${trial.trialDays ?? 7}-day free trial (1 agent, ${trial.limits.contacts?.toLocaleString()} contacts, ${trial.limits.calls} calls, own carrier). ` +
+    "When the trial ends the workspace is paused until a plan is bought; the data stays safe and can be exported. Annual billing gives two months free on the plans that offer it. " +
     lines.join(" ")
   );
 }
 
-export const ARTICLES: HelpArticle[] = [
-  {
-    id: "start",
-    title: "Create an account and sign in",
-    keywords: ["signup", "register", "create", "account", "trial", "login", "log in", "password", "code", "workspace"],
-    body:
-      "To create an account, open Sign up. Choose Business or Individual, then enter your name, company (for business), country, city, " +
-      "mobile phone, email and a workspace name. A 6-digit code is sent to your email and, when texting is on, another to your phone. " +
-      "Enter both to finish. The workspace is live straight away and the free trial starts then. " +
-      "There is no password. To sign in, open Sign in, enter your workspace name and email, then the 6-digit code emailed to you. " +
-      "Agents invited by the owner sign in the same way with the email they were invited on.",
-  },
-  {
-    id: "desktop",
-    title: "The Windows desktop app",
-    keywords: ["download", "install", "windows", "desktop", "app", "softphone", "exe", "dialer"],
-    body:
-      "Kchel Dialer for Windows is a desktop app for making and taking calls. It is an add-on (a one-time payment, shown on the Billing page). " +
-      "Once it is enabled, download it from Billing, run the installer, then sign in with your workspace name, email and the emailed code. " +
-      "It connects to your phone line automatically and shows when it is registered. To place a call open Dialer, type or paste a number " +
-      "(or press +) and press Call or Enter. Numbers typed without a country code are completed with your default country code.",
-  },
-  {
-    id: "browser-calling",
-    title: "Calling from the website",
-    keywords: ["browser", "web", "online", "microphone", "live calls", "softphone", "go online", "call from"],
-    body:
-      "You can call from the website too. Open Live Calls and go online; this connects your browser to your phone line. " +
-      "Once you are online, the call button next to each contact on the Contacts page works. Your browser asks for microphone permission the first time: allow it. " +
-      "A phone line (SIP connection) must be set up first under Phone System, Connection.",
-  },
-  {
-    id: "sip",
-    title: "Connecting your phone line (SIP)",
-    keywords: ["sip", "connection", "trunk", "carrier", "registered", "register", "credentials", "provider", "line", "managed", "byo"],
-    body:
-      "Calls travel over a SIP connection. In the website open Phone System, then the Connection tab (in the desktop app: SIP configuration). " +
-      "You can bring your own provider by entering its SIP host, username and password and the transport, or use the Managed SIP add-on where Kchel provides the line. " +
-      "If the Dialer says it is not registered, the credentials are usually wrong or missing: re-enter the SIP password and save. " +
-      "Nothing can be dialed until the connection shows as registered.",
-  },
-  {
-    id: "numbers",
-    title: "Phone numbers",
-    keywords: ["number", "numbers", "caller id", "buy", "add number", "did", "limit"],
-    body:
-      "Your numbers are listed under Phone System, Numbers (desktop: Numbers). The number of numbers you can hold depends on your plan. " +
-      "The number a call shows to the person you call is set by your SIP provider. Number health (desktop: Number health, website: Automations) scores each number from your own call results " +
-      "and rests numbers whose answer rate collapses.",
-  },
-  {
-    id: "ivr",
-    title: "IVR menus, routing, hours, extensions and voicemail",
-    keywords: ["ivr", "menu", "press 1", "routing", "route", "hours", "business hours", "extension", "voicemail", "greeting", "inbound", "ring group"],
-    body:
-      "Everything about incoming calls is under Phone System. IVR Menus builds the \"press 1 for sales\" menu. Call Routing decides where calls ring and sets your default country code. " +
-      "Business Hours says when you are open. Extensions gives each agent a short number. Voicemail sets the greeting and where messages go. " +
-      "Inbound and Outbound tabs hold the general settings. The number of IVR menus you can create depends on your plan.",
-  },
-  {
-    id: "import",
-    title: "Importing contacts from a CSV file",
-    keywords: ["import", "csv", "upload", "excel", "spreadsheet", "contacts", "list", "xlsx", "bulk", "10,000", "duplicate", "limit"],
-    body:
-      "Open Contacts and press Import. Choose a CSV file (in Excel or Google Sheets use File, Save as, CSV). The file needs a phone column; " +
-      "names, company, email and tags are picked up when the columns have recognisable names like Name, Company, Email, Phone, Mobile. " +
-      "You see a preview of the columns found before anything is saved and can name the list. Up to 10,000 contacts can be imported at once. " +
-      "Numbers without a country code are completed with your default country code. Numbers already in your workspace are skipped as duplicates, and rows that are not valid numbers " +
-      "are listed with the reason so you can fix and re-import them. Your plan holds a maximum number of contacts: an import fills up to that limit and skips the rest, with no error.",
-  },
-  {
-    id: "contacts",
-    title: "Working with contacts and lists",
-    keywords: ["contact", "contacts", "dnc", "do not call", "tag", "tags", "list", "lists", "add contact", "delete", "whatsapp", "search"],
-    body:
-      "Contacts holds your people and lists. Search by name or number, add one contact with Add, or import many. Each row has a call button (you must be online) " +
-      "and a WhatsApp button that opens a WhatsApp chat with that number; calling through WhatsApp itself is not supported. " +
-      "A contact marked do-not-call is never dialed by campaigns or texted by automations. Select rows to delete them.",
-  },
-  {
-    id: "campaigns",
-    title: "Campaigns and the power dialer",
-    keywords: ["campaign", "campaigns", "power dial", "power dialer", "dial list", "create campaign", "human", "manual", "progressive", "auto dial", "ring", "wait between"],
-    body:
-      "Campaigns are lists you work through. Press Create campaign, name it, choose a contact list and an owner. A human-dialed campaign is worked with the power dialer: " +
-      "in the desktop app press Power dial on the campaign. It takes one contact at a time, counts down, places the call, then asks how it went (Connected, Call back, Not interested, Voicemail, Busy, Wrong number, Do not call) " +
-      "and moves to the next. You can set how long to wait between calls (or none) and when to stop ringing. It never calls ahead of an agent who is still on a call. Power dialing is included on the plans that list it.",
-  },
-  {
-    id: "voice-broadcast",
-    title: "Voice broadcast campaigns",
-    keywords: ["voice broadcast", "broadcast", "recording", "recorded message", "robocall", "play a recording", "upload recording", "voicemail drop", "press 1", "press 2", "opt out", "test call", "start broadcast", "call again", "campaign"],
-    body:
-      "A voice broadcast plays your own recording to everyone on a contact list who answers. Create a campaign and choose Voice broadcast, pick a contact list, upload an MP3 or WAV recording (up to 5 MB), " +
-      "and tick the box confirming your contacts agreed to receive recorded calls. Start the recording by saying who you are and that it is a recorded message. " +
-      "Choose what happens on voicemail: leave the recording after the beep, hang up, or skip the check and play to whoever answers. " +
-      "You can let people press 1 to be connected to a phone number you choose, and 2 to never be called again; say what each key does in the recording. " +
-      "Choose how many people are rung at the same time, from one to five. Use Send me a test call to hear it on your own phone first (up to 15 a day). " +
-      "Press Start broadcast to begin and Pause to stop. Use Call people again to put people who did not answer or reached voicemail back in the queue. " +
-      "Every call is listed in the campaign's call log and in Call History. Check your local laws on recorded calls before you start.",
-  },
-  {
-    id: "automations",
-    title: "Missed-call text-back and number rotation",
-    keywords: ["text back", "text-back", "missed call", "auto text", "rotation", "rotate", "daily cap", "number health", "spam", "automations"],
-    body:
-      "Automations has two switches. Missed-call text-back texts the caller right after a call nobody answered, from the number they called (one text per caller every 6 hours, never to do-not-call contacts); edit the message and use {business} for your name. " +
-      "Number rotation spreads automated outbound calls across your numbers, caps each at a daily number, and rests numbers whose answer rate collapses. " +
-      "Which plan includes each one is in the plans list.",
-  },
-  {
-    id: "history",
-    title: "Call history, summaries and recordings",
-    keywords: ["history", "call log", "recording", "recordings", "summary", "summaries", "transcript", "outcome", "filter", "listen", "retention"],
-    body:
-      "Call History lists every call with who, when, how long and the outcome; filter by outcome or agent and search by name or number. Open a call that was recorded to see it in Recordings, where you can listen. " +
-      "Call summaries (on the plans that include them) turn a recording into a short written summary and transcript. Calls handled by the AI show their summary and an outcome tag such as Interested or Call back. " +
-      "How long recordings are kept depends on your plan.",
-  },
-  {
-    id: "sms",
-    title: "SMS",
-    keywords: ["sms", "text", "texting", "message campaign", "bulk sms", "us sms"],
-    body:
-      "The SMS page is where you write and send text message campaigns and save drafts. SMS is for US numbers. Contacts marked do-not-call or do-not-text are skipped.",
-  },
-  {
-    id: "agents",
-    title: "Adding agents and choosing what they can do",
-    keywords: ["agent", "agents", "invite", "team member", "permission", "permissions", "access", "limit what", "extension", "supervisor", "seat", "add user", "employee", "staff"],
-    body:
-      "Open Agents and add an agent with their name and email. They are invited by email and sign in with the same one-time code. You, as the owner, control what each agent can do: place calls, use the power dialer, " +
-      "see no contacts, only the contacts on their open tasks, or all contacts, edit contacts, see only their own call history or everyone's, and listen to recordings. There are ready-made presets for a caller, a senior agent and a supervisor, " +
-      "and you can disable an agent at any time. How many agents you can have depends on your plan.",
-  },
-  {
-    id: "team",
-    title: "Tasks, messages and notifications",
-    keywords: ["task", "tasks", "assign", "message", "chat", "notification", "notifications", "bell", "direct message", "my day"],
-    body:
-      "Team (website) or Team tasks and Messages (desktop) is where the owner assigns tasks to agents and chats with them directly. Agents see their own day under My day. " +
-      "The bell shows new tasks, messages and announcements; in the desktop app a pop-up appears, and an email is sent if someone has been away from the app for a while.",
-  },
-  {
-    id: "billing",
-    title: "Plans, paying and upgrading",
-    keywords: ["billing", "price", "pricing", "plan", "plans", "pay", "payment", "upgrade", "cost", "how much", "crypto", "gift card", "bank", "card", "invoice", "annual", "yearly", "regional", "discount", "activate"],
-    body:
-      "Open Billing to see your plan, usage and ways to pay. Press upgrade, pick a plan and a number of seats, and pay with the link shown (card or bank; some regions also have crypto or gift card links, and some countries have regional prices). " +
-      "Annual billing gives two months free. A card payment made with the same email you sign in with switches the plan on by itself within a minute or two, and you get a confirmation email; other methods are confirmed by the team. " +
-      "After you pay, use I've paid and add a transaction ID, receipt number or the name you paid with so the payment can be found. Never type a card or gift card number. " +
-      "If your plan has no payment link (for example Managed Enterprise), request it from Billing and the team replies in Support.",
-  },
-  {
-    id: "support",
-    title: "Contacting support",
-    keywords: ["support", "help", "ticket", "contact us", "human", "person", "complain", "problem", "report", "bug"],
-    body:
-      "Open Support to message the team. Start a new conversation, describe the problem, and replies arrive in the same thread. " +
-      "This assistant can answer how-to questions; for anything about your account, payments or a fault, talk to a person.",
-  },
-  {
-    id: "settings",
-    title: "Settings and workspace profile",
-    keywords: ["settings", "profile", "company", "recording", "preferences", "default country", "country code", "rename"],
-    body:
-      "Settings holds your workspace profile (company, contact details) and call preferences such as recording defaults. " +
-      "Your default country code is under Phone System, Call Routing: it is used to complete local-format numbers when you dial and import.",
-  },
-  {
-    id: "troubleshooting",
-    title: "I can't make or hear calls",
-    keywords: ["can't call", "cannot call", "no audio", "no sound", "can't hear", "not working", "failed", "error", "doesn't ring", "not registered", "one way", "mute", "microphone"],
-    body:
-      "Check these in order. 1) Is the phone line connected? The Dialer or Live Calls must show it as registered; if not, fix the details under Phone System, Connection. " +
-      "2) Is the number in full international form, or is your default country code set? 3) Did the trial end or a plan limit get reached? Billing shows this. " +
-      "4) No sound: allow the microphone for the browser or app, check the right headset is chosen in Windows sound settings, and make sure nothing else is using it. " +
-      "5) A caller who hears nothing may be blocked by their network: ask for another number. If it still fails, talk to a person and say what you see on screen.",
-  },
-  {
-    id: "security",
-    title: "Security and sign-in",
-    keywords: ["security", "safe", "secure", "privacy", "data", "export", "delete account", "forgot", "lost access", "two factor"],
-    body:
-      "Kchel Dialer has no passwords: every sign-in uses a one-time code sent to your email, so access depends on your email account. " +
-      "Agents only see what the owner allows. Your data stays yours and can be exported, even after a trial ends. For account deletion or a lost email address, talk to a person.",
-  },
-];
+function articleText(a: ManualArticle): string {
+  const out: string[] = [`${a.title}. ${plain(a.summary)}`];
+  if (a.steps.length) out.push("Steps:\n" + a.steps.map((s, i) => `${i + 1}. ${plain(s.text)}${s.note ? ` (${s.note})` : ""}`).join("\n"));
+  for (const s of a.more ?? []) {
+    const bits: string[] = [s.heading + ":"];
+    if (s.text) bits.push(plain(s.text));
+    if (s.copy) bits.push(`Message to send: "${s.copy}"`);
+    if (s.bullets) bits.push(s.bullets.map((b) => `- ${plain(b)}`).join("\n"));
+    if (s.steps) bits.push(s.steps.map((st, i) => `${i + 1}. ${plain(st.text)}`).join("\n"));
+    out.push(bits.join("\n"));
+  }
+  if (a.tips?.length) out.push("Tips: " + a.tips.join(" "));
+  return out.join("\n\n");
+}
+
+export const ARTICLES: HelpArticle[] = MANUAL.map((a) => ({ id: a.slug, title: a.title, keywords: a.keywords, body: articleText(a), article: a }));
 
 // ---------------------------------------------------------------------------
 // Finding the right guides for a question
@@ -256,12 +94,23 @@ export const ARTICLES: HelpArticle[] = [
 const STOP = new Set([
   "the", "a", "an", "to", "of", "and", "or", "is", "it", "in", "on", "for", "how", "do", "does", "i", "my", "me", "can", "you",
   "what", "where", "when", "why", "with", "this", "that", "are", "be", "we", "our", "your", "get", "have", "has", "if", "at", "as", "from", "by",
+  "please", "need", "want", "would", "like", "know", "tell", "about", "there", "some", "any", "so", "im", "i'm", "ive", "i've", "not", "no", "yes", "its", "it's",
 ]);
+
+/** Words people write that the guides spell another way. */
+const SYNONYMS: Record<string, string> = {
+  creds: "credentials", cred: "credential", dialler: "dialer", voip: "sip", telephony: "sip", softphone: "softphone",
+  recieve: "receive", numbr: "number", ppl: "people", pw: "password", signin: "sign in", signup: "sign up", login: "log in",
+  broadcasts: "broadcast", robocalls: "robocall", autodial: "power dial", autodialer: "power dialer",
+};
 
 function words(text: string): string[] {
   return text
     .toLowerCase()
     .replace(/[^a-z0-9\s'-]/g, " ")
+    .split(/\s+/)
+    .map((w) => SYNONYMS[w] ?? w)
+    .join(" ")
     .split(/\s+/)
     .filter((w) => w.length > 1 && !STOP.has(w));
 }
@@ -270,37 +119,71 @@ function stem(w: string): string {
   return w.replace(/(ing|ed|es|s)$/, "");
 }
 
+/** Phrasings that say which kind of answer is wanted, which a bag of words cannot. */
+const INTENT_BOOSTS: { when: RegExp; slug: string; boost: number }[] = [
+  { when: /(where|how).{0,25}(do|can|would|should).{0,6}(i|we).{0,12}(get|find|obtain|buy|create|generate|receive).{0,30}\b(sip|credentials|provider|carrier|trunk)/i, slug: "sip-where-to-get", boost: 14 },
+  { when: /\b(sip|credentials?)\b.{0,40}\b(from|where|provider|carrier|signalwire|twilio|telnyx)\b|\b(signalwire|twilio|telnyx)\b/i, slug: "sip-where-to-get", boost: 9 },
+  { when: /(don'?t|do not|dont|no|without|haven'?t|have not|never).{0,12}(have|got|had|bought|a|any).{0,12}\b(sip|provider|carrier|credentials|trunk)\b/i, slug: "sip-where-to-get", boost: 10 },
+  { when: /\b(set ?up|setting up|add|adding|enter|entering|connect|connecting|configure|configuring|install|save|fill)\b.{0,30}\b(sip|credentials|phone line|connection)\b/i, slug: "sip-setup", boost: 12 },
+  { when: /\bsip\b.{0,30}\b(fail|failed|error|not (?:working|registered|connect)|pending|401|unauthori[sz]ed|rejected)\b|\b(not (?:yet )?registered|registration (?:failed|rejected)|connection failed|saved,? not)\b/i, slug: "sip-status", boost: 12 },
+  { when: /\b(can'?t|cannot|unable|won'?t|not able|isn'?t|no).{0,15}\b(calls?|dial(?:ing)?|hear|ring(?:ing)?|connect(?:ing)?)\b|no (?:sound|audio)|one[- ]way/i, slug: "troubleshoot-calls", boost: 12 },
+  { when: /\b(code|login code|verification|sign[- ]?in).{0,25}\b(not|never|didn'?t|haven'?t|doesn'?t).{0,15}(arriv|come|receiv|work|get)/i, slug: "sign-in", boost: 12 },
+  { when: /\bwhat (?:is|does|are)\b.{0,15}\b(sip|trunk|did|ivr|wss|registered|caller id|extension)\b/i, slug: "glossary", boost: 10 },
+  { when: /\b(how many|limits?(?! what)|maximum|can i (?:add|have)|too many|upgrade|plan|plans|exceed)\b/i, slug: "plan-limits", boost: 6 },
+  { when: /\b(limit|restrict|control|hide|stop|block|prevent)\b.{0,25}\b(agents?|they|them|users?|staff|team)\b.{0,25}\b(see|access|do|view|hear|using|use)\b|\bwhat (?:an |each )?(?:agents?|they|users?) can (?:see|do|access|hear)\b|\bpermissions?\b/i, slug: "permissions", boost: 14 },
+  { when: /\b(play|send|blast|broadcast|robocall|mass[- ]call|call everyone|call (?:my|the|a|our) (?:whole |entire )?(?:list|contacts))\b.{0,40}\b(recording|recorded|message|list|contacts)\b|\brecorded (?:message|call)s?\b|\bvoice broadcast|\brobocall/i, slug: "voice-broadcast", boost: 12 },
+  { when: /\b(start|pause|resume|stop|schedule|run|launch)\b.{0,25}\bbroadcast|\bbroadcast\b.{0,40}\b(results?|who (?:answered|heard|pressed|picked)|call log|status|progress)|\bcall (?:people|them|contacts) again\b|\bwho (?:answered|heard|pressed)\b/i, slug: "broadcast-run", boost: 14 },
+  { when: /\b(miss(?:ed)?|unanswered)\b.{0,25}\bcalls?\b|\btext[- ]?back\b/i, slug: "missed-call-textback", boost: 12 },
+  { when: /\b(getting started|where do i (?:start|begin)|where to start|just (?:signed|joined|started|registered)|i(?:'m| am) new|first (?:thing|steps?|day)|new (?:here|user|account))\b/i, slug: "start-here", boost: 10 },
+];
+
 /** The guides most related to what was asked (and, a little, to what was asked just before), best first. */
-export function pickArticles(question: string, earlier: string[] = [], count = 4): HelpArticle[] {
+export function rankArticles(question: string, earlier: string[] = []): { a: HelpArticle; score: number }[] {
   const asked = words(question).map(stem);
   const before = words(earlier.join(" ")).map(stem);
   const phrase = question.toLowerCase();
 
-  const scored = ARTICLES.map((a) => {
-    const title = words(a.title).map(stem);
+  return ARTICLES.map((a) => {
+    const title = new Set(words(a.title).map(stem));
+    const summary = new Set(words(a.article.summary).map(stem));
     const bodyWords = new Set(words(a.body).map(stem));
     let score = 0;
     for (const k of a.keywords) {
       const kl = k.toLowerCase();
-      if (kl.includes(" ") ? phrase.includes(kl) : asked.includes(stem(kl))) score += 4;
+      if (kl.includes(" ") ? phrase.includes(kl) : asked.includes(stem(kl))) score += kl.includes(" ") ? 6 : 3;
     }
     for (const w of asked) {
-      if (title.includes(w)) score += 3;
-      if (bodyWords.has(w)) score += 1;
+      if (title.has(w)) score += 3;
+      else if (summary.has(w)) score += 1.5;
+      else if (bodyWords.has(w)) score += 0.5;
     }
     for (const w of before) {
-      if (title.includes(w)) score += 1;
+      if (title.has(w)) score += 1;
       if (a.keywords.some((k) => stem(k.toLowerCase()) === w)) score += 1;
     }
+    for (const b of INTENT_BOOSTS) if (b.slug === a.id && b.when.test(question)) score += b.boost;
     return { a, score };
   })
     .filter((s) => s.score > 0)
     .sort((x, y) => y.score - x.score);
+}
 
-  return scored.slice(0, count).map((s) => s.a);
+export function pickArticles(question: string, earlier: string[] = [], count = 3): HelpArticle[] {
+  return rankArticles(question, earlier)
+    .slice(0, count)
+    .map((s) => s.a);
+}
+
+/** How sure we are that the best guide is the one they want: a clear lead, not just a few shared words. */
+export function bestGuide(question: string, earlier: string[] = []): HelpArticle | null {
+  const ranked = rankArticles(question, earlier);
+  const top = ranked[0];
+  if (!top || top.a.article.steps.length === 0) return null;
+  const second = ranked[1]?.score ?? 0;
+  return top.score >= 9 && top.score >= second * 1.15 ? top.a : null;
 }
 
 /** Whether the question is about plans or money, which brings the live plan table into the answer. */
 export function wantsPlanFacts(question: string): boolean {
-  return /\b(price|prices|pricing|cost|plans?|trial|free|upgrade|how much|includes?|included|limits?|per agent|how many)\b/i.test(question);
+  return /\b(price|prices|pricing|cost|plans?|trial|free|upgrade|how much|includes?|included|limits?|per agent|how many|maximum|enterprise|business|professional|starter|bigger|more agents|more contacts)\b/i.test(question);
 }

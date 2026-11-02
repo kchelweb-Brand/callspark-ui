@@ -1,0 +1,320 @@
+{
+ "signin-1-form": {
+  "alt": "The sign-in page with the workspace name and email filled in",
+  "w": 1280,
+  "h": 800,
+  "bytes": 86602
+ },
+ "overview-1-dashboard": {
+  "alt": "The Overview page: today's calls, who is on a call, and the call volume chart",
+  "w": 1280,
+  "h": 800,
+  "bytes": 101319
+ },
+ "sip-1-open-phone-system": {
+  "alt": "Phone System in the left menu, then the Connection tab at the top",
+  "w": 1280,
+  "h": 800,
+  "bytes": 97103
+ },
+ "sip-2-connection-tab": {
+  "alt": "The Connection tab with the Connect your own SIP card and its Add SIP credentials button",
+  "w": 1280,
+  "h": 800,
+  "bytes": 85764
+ },
+ "sip-3-add-button": {
+  "alt": "Press Add SIP credentials on the Connect your own SIP card",
+  "w": 1280,
+  "h": 800,
+  "bytes": 86223
+ },
+ "sip-4-empty-form": {
+  "alt": "The Connect your own SIP form before anything is filled in",
+  "w": 560,
+  "h": 728,
+  "bytes": 50067
+ },
+ "sip-5-filled-form": {
+  "alt": "The form filled in: label, WebSocket URL, host, SIP username and SIP password",
+  "w": 560,
+  "h": 728,
+  "bytes": 64108
+ },
+ "sip-6-save": {
+  "alt": "Press Save credentials at the bottom of the form",
+  "w": 560,
+  "h": 728,
+  "bytes": 54214
+ },
+ "sip-7-saved-pending": {
+  "alt": "After saving, the connection shows Saved, not yet registered until the first agent connects",
+  "w": 1280,
+  "h": 800,
+  "bytes": 87736
+ },
+ "sip-8-connected": {
+  "alt": "A healthy connection shows Connected with a green Active badge",
+  "w": 1280,
+  "h": 800,
+  "bytes": 81991
+ },
+ "sip-9-failed": {
+  "alt": "A failed connection shows the reason from your provider, here a rejected username or password",
+  "w": 1280,
+  "h": 800,
+  "bytes": 87205
+ },
+ "sip-10-edit": {
+  "alt": "Edit opens the same form with your details; leave the password blank to keep the current one",
+  "w": 560,
+  "h": 728,
+  "bytes": 55138
+ },
+ "page-live-calls": {
+  "alt": "Live Calls: every call in progress, who is waiting and who is free",
+  "w": 1280,
+  "h": 800,
+  "bytes": 79129
+ },
+ "page-agents": {
+  "alt": "Agents: your team, their status and today's numbers, with the Invite agent button",
+  "w": 1280,
+  "h": 800,
+  "bytes": 82927
+ },
+ "page-team": {
+  "alt": "Team: assign work and chat with each agent",
+  "w": 1280,
+  "h": 800,
+  "bytes": 52282
+ },
+ "page-analytics": {
+  "alt": "Analytics: call volume by hour, outcomes and the agent leaderboard",
+  "w": 1280,
+  "h": 800,
+  "bytes": 92848
+ },
+ "page-campaigns": {
+  "alt": "Campaigns: every campaign with its status, progress and owner",
+  "w": 1280,
+  "h": 800,
+  "bytes": 88157
+ },
+ "page-sms": {
+  "alt": "SMS: conversations, the bulk sender and your SMS campaigns",
+  "w": 1280,
+  "h": 800,
+  "bytes": 75723
+ },
+ "page-call-history": {
+  "alt": "Call History: every call with its outcome and length, with an Export log button",
+  "w": 1280,
+  "h": 800,
+  "bytes": 123020
+ },
+ "page-recordings": {
+  "alt": "Recordings: call recordings and voicemails",
+  "w": 1280,
+  "h": 800,
+  "bytes": 61851
+ },
+ "page-automations": {
+  "alt": "Automations: missed-call text-back, number rotation and number health",
+  "w": 1280,
+  "h": 800,
+  "bytes": 93232
+ },
+ "page-billing": {
+  "alt": "Billing: your plan, usage, the Desktop Dialer download and invoices",
+  "w": 1280,
+  "h": 800,
+  "bytes": 90570
+ },
+ "page-support": {
+  "alt": "Support: send a request to the Kchel team and read replies",
+  "w": 1280,
+  "h": 800,
+  "bytes": 52307
+ },
+ "phone-inbound": {
+  "alt": "Phone System, Inbound tab",
+  "w": 1280,
+  "h": 800,
+  "bytes": 96366
+ },
+ "phone-numbers": {
+  "alt": "Phone System, Numbers tab",
+  "w": 1280,
+  "h": 800,
+  "bytes": 83243
+ },
+ "phone-ivr": {
+  "alt": "Phone System, IVR Menus tab",
+  "w": 1280,
+  "h": 800,
+  "bytes": 101010
+ },
+ "phone-routing": {
+  "alt": "Phone System, Call Routing tab",
+  "w": 1280,
+  "h": 800,
+  "bytes": 90912
+ },
+ "phone-hours": {
+  "alt": "Phone System, Business Hours tab",
+  "w": 1280,
+  "h": 800,
+  "bytes": 91966
+ },
+ "phone-extensions": {
+  "alt": "Phone System, Extensions tab",
+  "w": 1280,
+  "h": 800,
+  "bytes": 72972
+ },
+ "phone-voicemail": {
+  "alt": "Phone System, Voicemail tab",
+  "w": 1280,
+  "h": 800,
+  "bytes": 87550
+ },
+ "campaign-1-create-button": {
+  "alt": "Press Create campaign at the top right of the Campaigns page",
+  "w": 1280,
+  "h": 800,
+  "bytes": 89167
+ },
+ "campaign-2-choose-type": {
+  "alt": "Choose how the campaign is dialed: Manual dialing for your team, or Voice broadcast to play a recording",
+  "w": 560,
+  "h": 638,
+  "bytes": 43454
+ },
+ "campaign-3-manual-form": {
+  "alt": "A manual campaign: name, the contact list, the owner and an optional opening script",
+  "w": 560,
+  "h": 638,
+  "bytes": 41599
+ },
+ "campaign-4-broadcast-form": {
+  "alt": "A voice broadcast: the same name and list, plus the recording and the options that control the calls",
+  "w": 536,
+  "h": 704,
+  "bytes": 58679
+ },
+ "broadcast-1-row-menu": {
+  "alt": "The three dots at the end of a campaign row open its actions: Start, settings, duplicate and delete",
+  "w": 1280,
+  "h": 800,
+  "bytes": 91272
+ },
+ "broadcast-2-results": {
+  "alt": "Results and call log for a finished voice broadcast: who heard it, who pressed 1, who asked to stop",
+  "w": 1280,
+  "h": 800,
+  "bytes": 76523
+ },
+ "contacts-1-buttons": {
+  "alt": "Import CSV loads a whole file at once; Add contact adds one person",
+  "w": 1280,
+  "h": 800,
+  "bytes": 117929
+ },
+ "contacts-2-import-preview": {
+  "alt": "After choosing a file, match the columns, pick or name a list, and press Preview",
+  "w": 560,
+  "h": 610,
+  "bytes": 41420
+ },
+ "agents-1-invite-button": {
+  "alt": "Press Invite agent at the top right of the Agents page",
+  "w": 1280,
+  "h": 800,
+  "bytes": 83791
+ },
+ "agents-2-invite-form": {
+  "alt": "The invite form: name, email and what the agent may do",
+  "w": 624,
+  "h": 740,
+  "bytes": 44413
+ },
+ "agents-3-card-menu": {
+  "alt": "The three dots on an agent's card: status, Assign task, Message, What they can do, Turn access off",
+  "w": 1280,
+  "h": 800,
+  "bytes": 84824
+ },
+ "ivr-1-add-option-button": {
+  "alt": "Under Keypress routing, press Add option",
+  "w": 1280,
+  "h": 800,
+  "bytes": 91089
+ },
+ "ivr-2-option-form": {
+  "alt": "The keypress option form: Key, Label, Action and Target",
+  "w": 560,
+  "h": 390,
+  "bytes": 18151
+ },
+ "ext-1-add-button": {
+  "alt": "Press Add extension",
+  "w": 1280,
+  "h": 800,
+  "bytes": 73887
+ },
+ "ext-2-form": {
+  "alt": "The extension form: Number, Label, Type and Forwards to",
+  "w": 560,
+  "h": 316,
+  "bytes": 16768
+ },
+ "billing-1-compare-button": {
+  "alt": "Press Compare plans at the top right of Billing",
+  "w": 1280,
+  "h": 800,
+  "bytes": 91260
+ },
+ "billing-2-plans": {
+  "alt": "The plan comparison: each plan's price, limits and what it includes",
+  "w": 1280,
+  "h": 800,
+  "bytes": 86281
+ },
+ "support-1-new-request": {
+  "alt": "The new support request form",
+  "w": 560,
+  "h": 498,
+  "bytes": 29999
+ },
+ "smart-1-open-options": {
+  "alt": "Open the three dots on a voice broadcast and choose Recording and options",
+  "w": 1280,
+  "h": 800,
+  "bytes": 92544
+ },
+ "smart-2-options-top": {
+  "alt": "The Recording and options form: the recording, voicemail handling and the keys a person can press",
+  "w": 592,
+  "h": 696,
+  "bytes": 60828
+ },
+ "smart-3-calling-hours": {
+  "alt": "When calls are placed: only call during set hours, the days, and whose clock to use",
+  "w": 592,
+  "h": 696,
+  "bytes": 57719
+ },
+ "smart-4-retries": {
+  "alt": "Try again, Call from and Text follow-up: retries, which number people see, and a text for the people who respond",
+  "w": 592,
+  "h": 696,
+  "bytes": 61079
+ },
+ "smart-5-follow-up": {
+  "alt": "Text follow-up: who gets the text and what it says, plus how many people are rung at the same time",
+  "w": 592,
+  "h": 696,
+  "bytes": 58122
+ }
+}

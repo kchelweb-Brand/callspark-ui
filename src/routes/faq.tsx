@@ -8,7 +8,7 @@ export const Route = createFileRoute("/faq")({
   head: () => ({
     meta: [
       { title: "Frequently asked questions — Kchel Dialer" },
-      { name: "description", content: "Answers about the free trial, calling, the AI features, plans and billing." },
+      { name: "description", content: "Answers about the free trial, calling, voice broadcasts, plans and billing." },
     ],
   }),
   component: FaqPage,

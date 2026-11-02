@@ -1,5 +1,5 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { ArrowLeftRight, LifeBuoy, LogOut, Menu, Search } from "lucide-react";
+import { ArrowLeftRight, BookOpen, LifeBuoy, LogOut, Menu, Search } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -102,6 +102,16 @@ function SidebarBody({ scope, onNavigate }: { scope: Scope; onNavigate?: (() => 
           >
             <ArrowLeftRight className="size-[18px] opacity-80" />
             {scope === "admin" ? "Workspace view" : "Platform console"}
+          </Link>
+        )}
+        {scope !== "admin" && (
+          <Link
+            to="/manual"
+            onClick={onNavigate}
+            className="flex items-center gap-3 rounded-md px-3 py-2 text-[14px] font-semibold text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent/60 hover:text-white"
+          >
+            <BookOpen className="size-[18px] opacity-80" />
+            Manual
           </Link>
         )}
         <Link

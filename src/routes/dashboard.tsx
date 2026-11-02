@@ -17,6 +17,7 @@ import { Shell } from "@/components/dash/Shell";
 import { Panel, StatCard } from "@/components/dash/bits";
 import { Button } from "@/components/ui/button";
 import { CreateCampaignDialog } from "@/components/dash/CreateCampaignDialog";
+import { ManualWelcome } from "@/components/manual/ManualWelcome";
 import { downloadCsv } from "@/lib/download";
 import { formatTalk, getOverview } from "@/lib/metrics-api";
 
@@ -121,6 +122,7 @@ function OverviewPage() {
         </>
       }
     >
+      <ManualWelcome />
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <StatCard
           label="Calls today"

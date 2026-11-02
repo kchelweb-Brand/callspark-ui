@@ -4,12 +4,12 @@
 
 import { createServerFn } from "@tanstack/react-start";
 
-import type { ChatMessage } from "./help-types";
+import type { ChatMessage, GuideCard, HelpReply, UpgradeCard } from "./help-types";
 
-export type { ChatMessage };
+export type { ChatMessage, GuideCard, HelpReply, UpgradeCard };
 
 export const helpChatFn = createServerFn({ method: "POST" })
-  .validator((data: { token?: string; messages: ChatMessage[]; page?: string }) => data)
+  .validator((data: { token?: string; messages: ChatMessage[]; page?: string; rich?: boolean }) => data)
   .handler(async ({ data }) => {
     const { helpChat } = await import("./help-chat.server");
     let clientKey = "";

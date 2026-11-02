@@ -1,13 +1,13 @@
 // Client wrappers around src/backend/help-chat.server.ts (the help assistant).
-import { escalateHelpFn, helpChatFn, type ChatMessage } from "@/backend/help-chat.fn";
+import { escalateHelpFn, helpChatFn, type ChatMessage, type GuideCard, type HelpReply, type UpgradeCard } from "@/backend/help-chat.fn";
 import { getSessionToken } from "./auth-api";
 
-export type { ChatMessage };
+export type { ChatMessage, GuideCard, HelpReply, UpgradeCard };
 
 /** Asks the assistant. Works signed out: visitors can ask about the product and its plans. */
 export function askHelp(messages: ChatMessage[], page: string) {
   const token = getSessionToken();
-  return helpChatFn({ data: { messages, page, ...(token ? { token } : {}) } });
+  return helpChatFn({ data: { messages, page, rich: true, ...(token ? { token } : {}) } });
 }
 
 /** Sends the conversation to the team as a support thread. Workspace owners only. */

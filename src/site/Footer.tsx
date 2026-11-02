@@ -41,6 +41,7 @@ export function SiteFooter() {
           <Column
             title="Resources"
             links={[
+              { label: "The manual", to: "/manual" },
               { label: "All guides", to: "/resources" },
               ...GUIDES.slice(0, 4).map((g) => ({ label: g.title, to: `/resources/${g.slug}` })),
               { label: "FAQ", to: "/faq" },
