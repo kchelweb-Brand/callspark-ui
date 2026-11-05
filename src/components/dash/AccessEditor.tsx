@@ -76,10 +76,24 @@ export function AccessEditor({
             </SelectContent>
           </Select>
         </div>
-        <YesNo label="Listen to recordings" value={value.recordings} onChange={(v) => set("recordings", v)} />
+        <YesNo label="Listen to recordings and voicemail" value={value.recordings} onChange={(v) => set("recordings", v)} />
+        <div className="flex flex-col gap-2">
+          <Label>Phone System</Label>
+          <Select value={value.phoneSystem} onValueChange={(v) => set("phoneSystem", v as AgentPermissions["phoneSystem"])}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Not visible</SelectItem>
+              <SelectItem value="view">View only</SelectItem>
+              <SelectItem value="edit">View and change</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <YesNo label="Read and send text messages" value={value.sms} onChange={(v) => set("sms", v)} />
       </div>
       <p className="text-xs text-muted-foreground">
-        Agents never see billing, phone system, settings, automations or your team list. Changes take effect straight away.
+        Agents never see billing, your plan, settings, automations or your team list. Even with Phone System access they never see the phone line connection or its credentials. Changes take effect straight away.
       </p>
     </div>
   );

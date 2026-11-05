@@ -73,6 +73,38 @@ export const BEGINNER: ManualArticle[] = [
     related: ["start-here", "invite-agents"],
   },
   {
+    slug: "agent-guide",
+    title: "Using Kchel Dialer as an agent",
+    level: "beginner",
+    summary: "For people invited to a workspace: how to sign in, take and make calls, and find your contacts, history and phone system.",
+    time: "5 minutes",
+    keywords: ["agent", "agents", "i am an agent", "invited", "invite", "my day", "agent dashboard", "agent login", "sign in as agent", "what can an agent do", "make calls as agent", "agent access", "voicemail", "my calls"],
+    steps: [
+      { text: "Open the invitation email, then go to the sign-in page. Type your **workspace name** (the owner gives it to you) and your **email**, and press **Send login code**.", shot: "signin-1-form" },
+      { text: "Enter the 6-digit code from your email. You land on **My day**: your calls today, your tasks and your messages." },
+      { text: "To make and take calls, find the **Softphone** on My day and press **Go online**. Allow the microphone when your browser asks, and wait for **Registered**." },
+      { text: "Type a number and press the green call button, or open **Contacts** and press the call button next to a person. Incoming calls ring in the same place." },
+      { text: "Use the menu on the left to open what you have been given: **Contacts**, **Campaigns**, **SMS**, **Call History**, **Recordings** (which holds voicemail), **My stats** and **Phone System**." },
+      { text: "Open **Call History** to see your calls, and **Recordings** to listen to calls and voicemail you are allowed to hear." },
+      { text: "Open **Phone System** to see the numbers, phone menus (IVR), routing, hours, extensions and voicemail. Depending on what the owner allowed, you can look at them or change them." },
+    ],
+    more: [
+      {
+        heading: "What you see is decided by the workspace owner",
+        bullets: [
+          "The menu shows only what the owner switched on for you. If something is missing, ask the owner to turn it on.",
+          "Billing, the plan, settings, automations, the list of other agents and the phone line connection are always the owner’s.",
+          "If calls are not working, tell the owner: the phone line is set up by them.",
+        ],
+      },
+      {
+        heading: "Your own numbers",
+        text: "My stats shows only your calls: how many, how many connected, the busiest hours and how they ended. You never see other agents’ numbers unless the owner lets you see everyone’s call history.",
+      },
+    ],
+    related: ["first-call", "ivr-menu", "recordings"],
+  },
+  {
     slug: "tour",
     title: "A tour of your workspace",
     level: "beginner",

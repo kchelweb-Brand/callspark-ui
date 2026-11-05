@@ -1,3 +1,5 @@
+import { AgentCampaigns } from "@/components/dash/AgentCampaigns";
+import { useMyAccess } from "@/lib/access-api";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   CalendarClock,
@@ -178,7 +180,14 @@ function rowStatus(row: CampaignCallLogRow): string {
   return row.retry_at ? "Trying again" : "Waiting";
 }
 
+/** Owners get the full page; an agent gets a read-only list. */
 function CampaignsPage() {
+  const access = useMyAccess();
+  if (access.isAgent) return <AgentCampaigns />;
+  return <OwnerCampaigns />;
+}
+
+function OwnerCampaigns() {
   const [rows, setRows] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

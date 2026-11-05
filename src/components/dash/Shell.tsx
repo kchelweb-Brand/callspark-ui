@@ -1,6 +1,6 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { ArrowLeftRight, BookOpen, LifeBuoy, LogOut, Menu, Search } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
@@ -9,7 +9,8 @@ import { cn } from "@/lib/utils";
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { SoftphoneBar } from "@/components/dash/SoftphoneBar";
 import { clearSession, getSessionUser } from "@/lib/auth-api";
-import { tenantNavGroups, adminNav, agentNav, type NavGroup } from "./nav";
+import { useMyAccess } from "@/lib/access-api";
+import { tenantNavGroups, adminNav, agentNavGroups, type NavGroup } from "./nav";
 import { NotificationBell } from "./NotificationBell";
 import { PlanBanner } from "./PlanBanner";
 import { Logo } from "@/components/brand/Logo";
@@ -56,13 +57,16 @@ function NavGroups({ groups, onNavigate }: { groups: NavGroup[]; onNavigate?: ((
   );
 }
 
-function SidebarBody({ scope, onNavigate }: { scope: Scope; onNavigate?: (() => void) | undefined }) {
+function SidebarBody({ scope: declared, onNavigate }: { scope: Scope; onNavigate?: (() => void) | undefined }) {
   const sessionUser = getSessionUser();
+  const access = useMyAccess();
+  // An agent on a shared page (Contacts, Call History...) gets the agent menu, not the owner's.
+  const scope: Scope = declared === "tenant" && access.isAgent ? "agent" : declared;
   const groups: NavGroup[] =
     scope === "admin"
       ? [{ label: "Platform", items: adminNav }]
       : scope === "agent"
-        ? [{ label: "Workspace", items: agentNav }]
+        ? agentNavGroups(access.permissions)
         : tenantNavGroups;
 
   return (
@@ -162,6 +166,16 @@ export function Shell({
 }) {
   const [open, setOpen] = useState(false);
   const user = getSessionUser();
+  const access = useMyAccess();
+  const navigate = useNavigate();
+  const here = useRouterState({ select: (s) => s.location.pathname });
+
+  // An agent who opens a page they were not given (a typed address, an old bookmark) goes back to My day.
+  useEffect(() => {
+    if (scope !== "tenant" || !access.isAgent || !access.ready) return;
+    const allowed = agentNavGroups(access.permissions).flatMap((g) => g.items.map((i) => i.to));
+    if (!allowed.some((p) => here === p || here.startsWith(p + "/"))) void navigate({ to: "/agent" });
+  }, [scope, access.isAgent, access.ready, access.permissions, here, navigate]);
 
   return (
     <AuthGuard scope={scope}>
@@ -204,7 +218,7 @@ export function Shell({
             </div>
           </header>
 
-          {scope === "tenant" && <PlanBanner />}
+          {scope === "tenant" && user?.role !== "agent" && <PlanBanner />}
 
           <main className="px-4 py-8 md:px-8 md:py-10">
             <div className="mx-auto flex max-w-[1400px] flex-col gap-7">

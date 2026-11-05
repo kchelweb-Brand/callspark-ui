@@ -5,6 +5,7 @@ import { toast } from "sonner";
 
 import { Shell } from "@/components/dash/Shell";
 import { Panel, StatCard } from "@/components/dash/bits";
+import { Softphone } from "@/components/dash/Softphone";
 import { AgentTasks, ChatPanel } from "@/components/dash/TeamPanels";
 import { Button } from "@/components/ui/button";
 import { getAgentHome, type AgentHome } from "@/lib/team-api";
@@ -99,6 +100,8 @@ function AgentPage() {
             />
             <StatCard label="Unread messages" value={String(home.unreadMessages)} />
           </div>
+
+          {home.permissions.dial && <Softphone />}
 
           <Panel title="Up next" description="Your open tasks, soonest first">
             {home.upcoming.length === 0 ? (

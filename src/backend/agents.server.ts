@@ -198,7 +198,12 @@ export async function updateAgent(data: {
       `;
     }
     if (data.preset !== undefined || data.permissions !== undefined) {
-      const permissions = resolvePermissions({ preset: data.preset, permissions: data.permissions });
+      let incoming = data.permissions;
+      if (data.preset === undefined && incoming && typeof incoming === "object") {
+        const current = await sql`select permissions from users where tenant_id = ${tenantId} and email = ${agent.email} and role = 'agent' limit 1`;
+        incoming = { ...((current[0] as { permissions?: object } | undefined)?.permissions ?? {}), ...(incoming as object) };
+      }
+      const permissions = resolvePermissions({ preset: data.preset, permissions: incoming });
       await sql`
         update users set permissions = ${JSON.stringify(permissions)}::jsonb
         where tenant_id = ${tenantId} and email = ${agent.email} and role = 'agent'

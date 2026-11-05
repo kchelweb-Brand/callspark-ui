@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { ShotImage } from "@/components/manual/ManualParts";
 import { askHelp, isSignedIn, sendChatToSupport, type ChatMessage, type GuideCard, type UpgradeCard } from "@/lib/help-api";
 import { SLink } from "@/site/blocks";
+import { getSessionUser } from "@/lib/auth-api";
 
 /** A chat message as shown: the words, plus the guide and plan cards the answer came with. */
 type Shown = ChatMessage & { guide?: GuideCard; upgrade?: UpgradeCard };
@@ -202,7 +203,9 @@ export function HelpChat() {
             )}
             {offerPerson && !busy && (
               <div className="rounded-lg border border-border bg-muted/50 p-3 text-xs">
-                {signedIn ? (
+                {signedIn && getSessionUser()?.role === "agent" ? (
+                  <p>Please ask your workspace owner about this one. They can help, or contact the Kchel team for you.</p>
+                ) : signedIn ? (
                   <>
                     <p className="mb-2">Want a person to look at this? I'll send them this conversation.</p>
                     <button

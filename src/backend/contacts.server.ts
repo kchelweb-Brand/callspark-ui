@@ -3,7 +3,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { sql, sqlQuery } from "./db";
 import { verifyToken } from "./tokens";
 import { getTenantPlan, requireActivePlan, requireCanCreate } from "./entitlements";
-import { requireMember } from "./access.server";
+import { asMember, requireMember } from "./access.server";
 import { ensureSchema } from "./schema.server";
 import { callingCodeFromE164 } from "./phone-numbers";
 import {
@@ -30,12 +30,12 @@ async function requireTenant(token: string): Promise<string> {
 async function contactScope(token: string, write = false) {
   await ensureSchema();
   const member = await requireMember(token);
-  if (!member.isAgent) return { tenantId: member.tenantId, onlyForAgent: null as string | null };
+  if (!member.isAgent) return { tenantId: member.tenantId, onlyForAgent: null as string | null, isAgent: false };
   const p = member.permissions!;
   if (p.contacts === "none") throw new Error("You don't have access to contacts.");
   if (write && !p.editContacts) throw new Error("You don't have permission to add contacts.");
   await ensureSchema();
-  return { tenantId: member.tenantId, onlyForAgent: p.contacts === "assigned" ? member.userId : null };
+  return { tenantId: member.tenantId, onlyForAgent: p.contacts === "assigned" ? member.userId : null, isAgent: true };
 }
 
 interface ContactRow {
@@ -189,8 +189,8 @@ export async function createContact(data: {
   tags?: string[];
   listName?: string;
 }) {
-    const { tenantId } = await contactScope(data.token, true);
-    await requireCanCreate(tenantId, "contacts");
+    const { tenantId, isAgent } = await contactScope(data.token, true);
+    await asMember({ isAgent }, () => requireCanCreate(tenantId, "contacts"));
 
     const parsed = parsePhone(data.phone, await workspaceDialCode(tenantId));
     if (parsed.error !== undefined) throw new Error(parsed.error);

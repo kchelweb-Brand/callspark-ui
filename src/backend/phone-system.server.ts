@@ -1,13 +1,22 @@
 import { createServerFn } from "@tanstack/react-start";
 
 import { sql } from "./db";
-import { verifyToken } from "./tokens";
+import { asMember, requireMember, type Member } from "./access.server";
 import { requireCountWithinLimit } from "./entitlements";
 
-async function requireTenant(token: string): Promise<string> {
-  const payload = await verifyToken(token);
-  if (!payload || !payload.tenantId) throw new Error("Not signed in.");
-  return payload.tenantId;
+/**
+ * The owner always; an agent only when the owner gave them the phone system, and only to change it when
+ * they were given "edit". The carrier connection and its credentials live in sip.server.ts, which stays
+ * owner-only whatever an agent is allowed here.
+ */
+async function requireAccess(token: string, level: "view" | "edit"): Promise<Member> {
+  const member = await requireMember(token);
+  if (member.isAgent) {
+    const access = member.permissions?.phoneSystem ?? "none";
+    if (access === "none") throw new Error("You don't have access to the phone system.");
+    if (level === "edit" && access !== "edit") throw new Error("You can see the phone system but not change it.");
+  }
+  return member;
 }
 
 /**
@@ -32,7 +41,7 @@ export interface PhoneSystemConfig {
 }
 
 export async function getPhoneSystem(data: { token: string }) {
-  const tenantId = await requireTenant(data.token);
+  const { tenantId } = await requireAccess(data.token, "view");
 
   const rows = await sql`
     select routing, business_hours, voicemail, menus, extensions
@@ -81,8 +90,9 @@ export async function savePhoneSystem(data: {
   businessHours: JsonObject;
   voicemail: JsonObject;
 }) {
-  const tenantId = await requireTenant(data.token);
-  await requireCountWithinLimit(tenantId, "ivrMenus", data.menus.length);
+  const member = await requireAccess(data.token, "edit");
+  const { tenantId } = member;
+  await asMember(member, () => requireCountWithinLimit(tenantId, "ivrMenus", data.menus.length));
 
   await sql`
     insert into phone_system_settings
@@ -134,8 +144,9 @@ export async function savePhoneNumbers(data: {
     smsEnabled?: boolean;
   }[];
 }) {
-  const tenantId = await requireTenant(data.token);
-  await requireCountWithinLimit(tenantId, "phoneNumbers", data.numbers.length);
+  const member = await requireAccess(data.token, "edit");
+  const { tenantId } = member;
+  await asMember(member, () => requireCountWithinLimit(tenantId, "phoneNumbers", data.numbers.length));
 
   const keep = data.numbers.map((n) => n.number);
   if (keep.length === 0) {

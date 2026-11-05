@@ -24,7 +24,7 @@ import { ensureSchema } from "./schema.server";
 import { getUsageSummary } from "./entitlements";
 import { FEATURE_LABELS, PLANS, RESOURCE_LABELS, type PlanFeatures } from "./plans";
 import { createMyTicket } from "./workspace.server";
-import { PRODUCT_BRIEF, bestGuide, pickArticles, planFacts, wantsPlanFacts } from "./help-knowledge";
+import { PRODUCT_BRIEF, PRODUCT_BRIEF_FOR_AGENTS, bestGuide, pickArticles, planFacts, wantsPlanFacts } from "./help-knowledge";
 import { adviceFor, type UpgradeAdvice, type UsageRow } from "./upgrade-advice";
 import { articlePath, getArticle, getShot, plain, type ManualArticle } from "../manual";
 
@@ -47,6 +47,9 @@ const MODELS = ["@cf/meta/llama-3.3-70b-instruct-fp8-fast", "@cf/meta/llama-3.1-
 class HelpError extends Error {}
 
 export const HUMAN_MARKER = "[[HUMAN]]";
+
+/** Guides an agent is never shown by the assistant: money, plans and the carrier connection belong to the owner. */
+const OWNER_ONLY_GUIDES = new Set(["billing-plans", "plan-limits", "sip-where-to-get", "sip-setup", "sip-status", "sip-advanced"]);
 
 export const RULES = [
   "You are the support expert inside Kchel Dialer, a call center platform. Your job is to get the person to a working result, so be thorough, specific and friendly, and solve the problem in this reply wherever you can.",
@@ -127,19 +130,21 @@ async function accountSnapshot(tenantId: string, isAgent: boolean): Promise<Snap
     const { plan: tp, usage } = await getUsageSummary(tenantId);
     const rows: UsageRow[] = usage.map((u) => ({ key: u.key, used: u.used, limit: u.limit }));
     const lines: string[] = [];
+    // An agent never hears about the plan, its price, its limits or what is used: that is the owner's business.
+    const planLines = !isAgent;
     const planPrice =
       tp.plan.priceFlatMonthly !== undefined
         ? `$${tp.plan.priceFlatMonthly.toLocaleString()} a month flat`
         : tp.plan.pricePerAgentMonthly > 0
           ? `$${tp.plan.pricePerAgentMonthly} per agent per month`
           : "free trial";
-    lines.push(`Plan: ${tp.plan.name} (${planPrice}). Includes: ${featuresLine(tp.plan.features)}.`);
-    if (tp.plan.id === "trial") {
+    if (planLines) lines.push(`Plan: ${tp.plan.name} (${planPrice}). Includes: ${featuresLine(tp.plan.features)}.`);
+    if (planLines && tp.plan.id === "trial") {
       lines.push(tp.trialExpired ? "The free trial has ended, so the workspace is on hold until a plan is bought; their data is safe." : `Trial days left: ${tp.daysRemaining ?? "unknown"}.`);
-    } else if (tp.onHold) {
+    } else if (planLines && tp.onHold) {
       lines.push("The plan has ended and the workspace is on hold until it is renewed in Billing; their data is safe.");
     }
-    lines.push(
+    if (planLines) lines.push(
       "Usage against the plan: " +
         rows
           .filter((r) => r.key !== "calls" || r.limit !== null)
@@ -167,7 +172,7 @@ async function accountSnapshot(tenantId: string, isAgent: boolean): Promise<Snap
     } catch {
       // The line status is a nicety; the rest of the snapshot is still useful without it.
     }
-    if (isAgent) lines.push("This person is an agent, not the owner: billing and plan changes are the owner's to make.");
+    if (isAgent) lines.push("This person is an agent, not the owner. Plans, prices, limits, usage, billing and upgrades are not theirs to see: never discuss them, and if asked, say the workspace owner looks after that. They also cannot see the phone line connection or its credentials; if calls are not working, tell them to let the owner know.");
     return { planId: tp.plan.id, text: lines.join("\n"), usage: rows, trialExpired: tp.trialExpired };
   } catch (err) {
     console.warn("[help-chat] account snapshot failed", err);
@@ -208,9 +213,12 @@ async function buildSystemPrompt(args: {
   rich: boolean;
 }): Promise<string> {
   const { question, earlier, who, page, snapshot, advice, guide, rich } = args;
-  const parts = [RULES, `About the product:\n${PRODUCT_BRIEF}`];
+  const isAgent = Boolean(who?.agent);
+  const parts = [RULES, `About the product:\n${isAgent ? PRODUCT_BRIEF_FOR_AGENTS : PRODUCT_BRIEF}`];
 
-  const articles = pickArticles(question, earlier, 3);
+  const articles = pickArticles(question, earlier, 6)
+    .filter((a) => !(isAgent && OWNER_ONLY_GUIDES.has(a.id)))
+    .slice(0, 3);
   // The guide that will be shown must also be the one the model reads, even if it ranked lower on a follow-up.
   if (guide && !articles.some((a) => a.id === guide.slug)) {
     const g = pickArticles(guide.title, [], 1)[0];
@@ -221,7 +229,7 @@ async function buildSystemPrompt(args: {
   } else {
     parts.push("Guide excerpts: none matched this question. Answer from the product brief and general knowledge where you can, and be clear about what you could not confirm.");
   }
-  if (wantsPlanFacts(question) || wantsPlanFacts(earlier.join(" ")) || advice) parts.push(`Plan facts:\n${planFacts()}`);
+  if (!isAgent && (wantsPlanFacts(question) || wantsPlanFacts(earlier.join(" ")) || advice)) parts.push(`Plan facts:\n${planFacts()}`);
 
   if (who?.tenantId && snapshot) {
     parts.push(`The person is signed in. Account snapshot of their own workspace (live):\n${snapshot.text}`);
@@ -329,7 +337,9 @@ async function answer(data: { token?: string; messages: unknown; page?: string; 
   const advice = isAgent
     ? null
     : adviceFor({ planId: snapshot?.planId ?? "trial", usage: snapshot?.usage ?? [], question: last.content, trialExpired: snapshot?.trialExpired === true, signedIn });
-  const guideArticle = bestGuide(last.content, earlier)?.article ?? null;
+  const found = bestGuide(last.content, earlier)?.article ?? null;
+  // Guides about billing, plans and the carrier connection are the owner's; an agent is not handed them.
+  const guideArticle = found && isAgent && OWNER_ONLY_GUIDES.has(found.slug) ? null : found;
   const guide = guideArticle ? toGuideCard(guideArticle) : undefined;
   const upgrade = advice ? toUpgradeCard(advice, signedIn) : undefined;
 

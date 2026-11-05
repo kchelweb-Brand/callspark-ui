@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Shell } from "@/components/dash/Shell";
+import { useMyAccess } from "@/lib/access-api";
 import { ActionButton, Panel } from "@/components/dash/bits";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -106,6 +107,10 @@ function formatWhen(iso: string | null) {
 
 function ContactsPage() {
   const { state: phoneState, dial } = useSoftphoneContext();
+  const access = useMyAccess();
+  // Importing and deleting stay with the owner. An agent may add a contact only when allowed.
+  const ownerOnly = !access.isAgent;
+  const canAdd = ownerOnly || Boolean(access.permissions?.editContacts);
   const canCall = phoneState.status === "ready" && phoneState.call === "idle";
 
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -388,12 +393,16 @@ function ContactsPage() {
             className="hidden"
             onChange={(e) => void handleFile(e)}
           />
-          <ActionButton variant="outline" onClick={() => setAddOpen(true)}>
-            <Plus className="size-4" /> Add contact
-          </ActionButton>
-          <ActionButton onClick={() => fileRef.current?.click()}>
-            <Upload className="size-4" /> Import CSV
-          </ActionButton>
+          {canAdd && (
+            <ActionButton variant="outline" onClick={() => setAddOpen(true)}>
+              <Plus className="size-4" /> Add contact
+            </ActionButton>
+          )}
+          {ownerOnly && (
+            <ActionButton onClick={() => fileRef.current?.click()}>
+              <Upload className="size-4" /> Import CSV
+            </ActionButton>
+          )}
         </>
       }
     >
@@ -414,7 +423,7 @@ function ContactsPage() {
           <ActionButton variant="outline" onClick={() => void load()} disabled={loading}>
             <RefreshCw className={`size-4 ${loading ? "animate-spin" : ""}`} />
           </ActionButton>
-          {selected.size > 0 && (
+          {ownerOnly && selected.size > 0 && (
             <ActionButton variant="outline" disabled={busy} onClick={() => void handleDeleteSelected()}>
               <Trash2 className="size-4" /> Delete {selected.size}
             </ActionButton>
@@ -454,7 +463,7 @@ function ContactsPage() {
                 {l.name} · {l.contact_count}
               </button>
             ))}
-            {activeList && (
+            {ownerOnly && activeList && (
               <button
                 onClick={() => void openListDelete(activeList)}
                 className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-destructive/40 bg-destructive/10 px-2.5 py-0.5 text-xs font-semibold text-destructive transition hover:bg-destructive/20"
@@ -514,6 +523,7 @@ function ContactsPage() {
                   <TableRow>
                     <TableHead className="w-10">
                       <Checkbox
+                        className={ownerOnly ? "" : "hidden"}
                         aria-label="Select all"
                         checked={allOnPageSelected}
                         onCheckedChange={(checked) => {
@@ -542,6 +552,7 @@ function ContactsPage() {
                     <TableRow key={c.id}>
                       <TableCell>
                         <Checkbox
+                          className={ownerOnly ? "" : "hidden"}
                           aria-label={`Select ${c.company || c.phone}`}
                           checked={selected.has(c.id)}
                           onCheckedChange={() => toggle(c.id)}
@@ -613,7 +624,7 @@ function ContactsPage() {
               {contacts.map((c) => (
                 <li key={c.id} className="flex items-start gap-3 px-4 py-3.5">
                   <Checkbox
-                    className="mt-1"
+                    className={ownerOnly ? "mt-1" : "hidden"}
                     aria-label={`Select ${c.company || c.phone}`}
                     checked={selected.has(c.id)}
                     onCheckedChange={() => toggle(c.id)}

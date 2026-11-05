@@ -4,7 +4,7 @@ import { createServerFn } from "@tanstack/react-start";
 
 import { sql } from "./db";
 import { ensureSchema } from "./schema.server";
-import { requireAgent, touchSeen } from "./access.server";
+import { requireAgent, requireMember, touchSeen } from "./access.server";
 import type { AgentPermissions } from "./permissions";
 
 export interface AgentHome {
@@ -83,3 +83,13 @@ export const getAgentHomeFn = createServerFn({ method: "POST" })
   .validator((data: Parameters<typeof getAgentHome>[0]) => data)
   .handler(async ({ data }) => getAgentHome(data));
 
+
+/** Who is signed in and what they may open. Owners get everything; agents get what their owner switched on. */
+export async function getMyAccess(data: { token: string }) {
+  const member = await requireMember(data.token);
+  return { ok: true as const, isAgent: member.isAgent, permissions: member.permissions };
+}
+
+export const getMyAccessFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string }) => data)
+  .handler(async ({ data }) => getMyAccess(data));

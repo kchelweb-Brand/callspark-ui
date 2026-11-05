@@ -1,3 +1,4 @@
+import { useMyAccess } from "@/lib/access-api";
 import { createFileRoute } from "@tanstack/react-router";
 import { AudioLines, Loader2, Play, Search } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
@@ -42,6 +43,7 @@ type Recordings = Awaited<ReturnType<typeof listRecordings>>;
 type Recording = Recordings["recordings"][number];
 
 function RecordingsPage() {
+  const access = useMyAccess();
   const [query, setQuery] = useState("");
   const [data, setData] = useState<Recordings | null>(null);
   const [loading, setLoading] = useState(true);
@@ -67,6 +69,7 @@ function RecordingsPage() {
   }, [load]);
 
   useEffect(() => {
+    if (access.isAgent) return;
     getTenantSettings()
       .then((settings) => {
         const days = (settings.preferences as { retentionDays?: string }).retentionDays;
@@ -86,12 +89,16 @@ function RecordingsPage() {
       description={
         loading
           ? "Loading…"
-          : `${recordings.length} recording${recordings.length === 1 ? "" : "s"} · ${retentionDays}-day retention`
+          : access.isAgent
+            ? `${recordings.length} recording${recordings.length === 1 ? "" : "s"}`
+            : `${recordings.length} recording${recordings.length === 1 ? "" : "s"} · ${retentionDays}-day retention`
       }
       actions={
-        <Button variant="outline" onClick={() => setRetentionOpen(true)}>
-          Retention settings
-        </Button>
+        access.isAgent ? undefined : (
+          <Button variant="outline" onClick={() => setRetentionOpen(true)}>
+            Retention settings
+          </Button>
+        )
       }
     >
       <Panel bodyClassName="p-4">

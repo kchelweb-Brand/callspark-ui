@@ -6,6 +6,8 @@
 
 export type ContactAccess = "none" | "assigned" | "all";
 export type CallHistoryAccess = "own" | "all";
+/** Phone System: the numbers, menus, routing, hours, extensions and voicemail. Never the carrier connection. */
+export type PhoneSystemAccess = "none" | "view" | "edit";
 
 export interface AgentPermissions {
   /** Place and answer calls. */
@@ -22,6 +24,10 @@ export interface AgentPermissions {
   callHistory: CallHistoryAccess;
   /** Listen to recordings of their own calls (and everyone's when callHistory is `all`). */
   recordings: boolean;
+  /** See (`view`) or change (`edit`) the phone system. The carrier connection and its credentials stay with the owner either way. */
+  phoneSystem: PhoneSystemAccess;
+  /** Read and send text messages. */
+  sms: boolean;
 }
 
 export type PermissionPreset = "caller" | "senior" | "supervisor";
@@ -34,6 +40,8 @@ export const PRESETS: Record<PermissionPreset, AgentPermissions> = {
     editContacts: false,
     callHistory: "own",
     recordings: false,
+    phoneSystem: "none",
+    sms: false,
   },
   senior: {
     dial: true,
@@ -42,6 +50,8 @@ export const PRESETS: Record<PermissionPreset, AgentPermissions> = {
     editContacts: true,
     callHistory: "own",
     recordings: true,
+    phoneSystem: "view",
+    sms: true,
   },
   supervisor: {
     dial: true,
@@ -50,13 +60,15 @@ export const PRESETS: Record<PermissionPreset, AgentPermissions> = {
     editContacts: true,
     callHistory: "all",
     recordings: true,
+    phoneSystem: "edit",
+    sms: true,
   },
 };
 
 export const PRESET_LABELS: Record<PermissionPreset, string> = {
   caller: "Caller: dials assigned contacts, sees only their own calls",
-  senior: "Senior: all contacts, can add contacts, hears recordings",
-  supervisor: "Supervisor: everything above, plus everyone's call history",
+  senior: "Senior: all contacts, can add contacts, hears recordings, sees the phone system and texts",
+  supervisor: "Supervisor: everything above, plus everyone's call history and can change the phone system",
 };
 
 export function isPreset(value: unknown): value is PermissionPreset {
@@ -81,6 +93,8 @@ export function normalizePermissions(raw: unknown): AgentPermissions {
     editContacts: contacts !== "none" && (typeof r["editContacts"] === "boolean" ? r["editContacts"] : base.editContacts),
     callHistory,
     recordings: typeof r["recordings"] === "boolean" ? r["recordings"] : base.recordings,
+    phoneSystem: r["phoneSystem"] === "view" || r["phoneSystem"] === "edit" || r["phoneSystem"] === "none" ? r["phoneSystem"] : base.phoneSystem,
+    sms: typeof r["sms"] === "boolean" ? r["sms"] : base.sms,
   };
 }
 

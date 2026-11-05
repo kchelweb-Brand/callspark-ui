@@ -296,7 +296,7 @@ export const INTERMEDIATE: ManualArticle[] = [
     slug: "permissions",
     title: "Agent permissions: what each person can do",
     level: "intermediate",
-    summary: "Control who can call, see contacts, hear recordings and view everyone’s history.",
+    summary: "Control who can call, see contacts, hear recordings, see or change the phone system and view everyone’s history. Agents never see billing or your plan.",
     time: "5 minutes",
     keywords: ["permissions", "access", "what they can do", "caller", "senior", "supervisor", "preset", "restrict", "see contacts", "recordings access", "call history access", "edit contacts"],
     steps: [
@@ -310,8 +310,8 @@ export const INTERMEDIATE: ManualArticle[] = [
         heading: "The presets",
         bullets: [
           "Caller: dials assigned contacts and sees only their own calls.",
-          "Senior: sees all contacts, can add contacts and can hear recordings.",
-          "Supervisor: everything above, plus everyone’s call history.",
+          "Senior: sees all contacts, can add contacts, can hear recordings, can see the phone system and can use text messages.",
+          "Supervisor: everything above, plus everyone’s call history and the right to change the phone system.",
         ],
       },
       {
@@ -321,7 +321,9 @@ export const INTERMEDIATE: ManualArticle[] = [
           "See no contacts, only the contacts on their open tasks, or all contacts.",
           "Add new contacts (importing and deleting stay with the owner).",
           "See only their own call history, or everyone’s.",
-          "Listen to recordings.",
+          "Listen to recordings and voicemail.",
+          "Phone System: not visible, view only, or view and change (numbers, phone menus, routing, hours, extensions and voicemail). The phone line connection and its credentials always stay with you.",
+          "Read and send text messages.",
         ],
       },
     ],

@@ -15,6 +15,7 @@ import {
   YAxis,
 } from "recharts";
 
+import { useMyAccess } from "@/lib/access-api";
 import { Shell } from "@/components/dash/Shell";
 import { Panel, StatCard } from "@/components/dash/bits";
 import { Button } from "@/components/ui/button";
@@ -70,6 +71,8 @@ const tooltipStyle = {
 };
 
 function AnalyticsPage() {
+  const access = useMyAccess();
+  const heading = access.isAgent ? "My stats" : "Analytics";
   const [range, setRange] = useState("7d");
   const [data, setData] = useState<Analytics | null>(null);
   const [loading, setLoading] = useState(true);
@@ -108,7 +111,7 @@ function AnalyticsPage() {
     return (
       <Shell
         scope="tenant"
-        title="Analytics"
+        title={heading}
         description={RANGE_LABELS[range] ?? "Analytics"}
         actions={rangeSelect}
       >
@@ -135,7 +138,7 @@ function AnalyticsPage() {
   return (
     <Shell
       scope="tenant"
-      title="Analytics"
+      title={heading}
       description={`${RANGE_LABELS[range] ?? "Analytics"} · ${data.dials.toLocaleString()} dial${data.dials === 1 ? "" : "s"}`}
       actions={rangeSelect}
     >
@@ -207,6 +210,7 @@ function AnalyticsPage() {
         </Panel>
       </div>
 
+      {!access.isAgent && (
       <Panel title="Agent leaderboard" description="Ranked by calls handled" bodyClassName="p-5">
         {data.leaderboard.length === 0 ? (
           <p className="py-6 text-center text-sm text-muted-foreground">
@@ -235,6 +239,7 @@ function AnalyticsPage() {
           </ul>
         )}
       </Panel>
+      )}
     </Shell>
   );
 }

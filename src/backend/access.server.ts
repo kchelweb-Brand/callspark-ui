@@ -65,3 +65,25 @@ export async function ownersOf(tenantId: string): Promise<{ id: string; email: s
 export async function touchSeen(userId: string): Promise<void> {
   await sql`update users set last_seen_at = now() where id = ${userId}`;
 }
+
+/**
+ * Plan limits and plan names are the owner's business. When an agent hits one, they hear that the
+ * workspace is at a limit and who to ask, never the plan, the number or the price.
+ */
+export function agentSafeMessage(member: Pick<Member, "isAgent">, message: string): string {
+  if (!member.isAgent) return message;
+  if (/\bplan\b|upgrade|billing|\$\d|trial/i.test(message)) {
+    return "This workspace has reached a limit. Please ask the workspace owner.";
+  }
+  return message;
+}
+
+/** Runs an action for a member and rewrites a plan-related failure for agents. Owners see the original message. */
+export async function asMember<T>(member: Pick<Member, "isAgent">, action: () => Promise<T>): Promise<T> {
+  try {
+    return await action();
+  } catch (err) {
+    if (member.isAgent && err instanceof Error) throw new Error(agentSafeMessage(member, err.message));
+    throw err;
+  }
+}

@@ -2,6 +2,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
+import { AGENT_PAGES } from "@/components/dash/nav";
 import {
   clearSession,
   getSessionUser,
@@ -71,10 +72,13 @@ export function AuthGuard({ scope, children }: { scope: Scope; children: ReactNo
       void navigate({ to: "/admin" });
       return;
     }
-    // Invited agents have their own dashboard; owners have no business there.
+    // Invited agents have their own dashboard and a short list of shared pages; the rest is the owner's.
     if (scope === "tenant" && user?.role === "agent") {
-      void navigate({ to: "/agent" });
-      return;
+      const here = window.location.pathname;
+      if (!AGENT_PAGES.some((p) => here === p || here.startsWith(p + "/"))) {
+        void navigate({ to: "/agent" });
+        return;
+      }
     }
     if (scope === "agent" && user?.role !== "agent") {
       void navigate({ to: user?.is_super_admin ? "/admin" : "/dashboard" });

@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 
 import { sql } from "./db";
 import { verifyToken } from "./tokens";
+import { requireMember } from "./access.server";
 import { requireCanCreate } from "./entitlements";
 import { ensureSchema } from "./schema.server";
 import { deleteStoredFiles } from "./media-store";
@@ -49,7 +50,11 @@ export interface CampaignRecord {
 }
 
 export async function listCampaigns(data: { token: string }) {
-  const tenantId = await requireTenant(data.token);
+  // The owner sees everything. An agent who may dial sees the list of campaigns to work, without
+  // the recording settings (which hold transfer numbers and caller IDs) or who owns them.
+  const member = await requireMember(data.token);
+  if (member.isAgent && !member.permissions?.dial) throw new Error("You don't have access to campaigns.");
+  const tenantId = member.tenantId;
   await ensureSchema();
   const rows = await sql`
     select c.id, c.name, c.status, c.list_name, c.list_id, c.owner, c.script, c.mode, c.recording, c.compliance_ack, c.start_at, c.resume_at, c.pause_reason,
@@ -63,7 +68,11 @@ export async function listCampaigns(data: { token: string }) {
     group by c.id
     order by c.created_at desc
   `;
-  return { ok: true as const, campaigns: rows as unknown as CampaignRecord[] };
+  const campaigns = rows as unknown as CampaignRecord[];
+  if (member.isAgent) {
+    return { ok: true as const, campaigns: campaigns.map((c) => ({ ...c, recording: null, owner: null, script: c.script })) };
+  }
+  return { ok: true as const, campaigns };
 }
 
 export const listCampaignsFn = createServerFn({ method: "POST" })

@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { asMember, requireMember } from "./access.server";
 
 import { sql } from "./db";
 import { verifyToken } from "./tokens";
@@ -168,6 +169,13 @@ export interface SmsCampaignRecord {
   replies: number;
 }
 
+/** Text messages: the owner, or an agent the owner gave the SMS permission. */
+async function requireSmsAccess(token: string) {
+  const member = await requireMember(token);
+  if (member.isAgent && !member.permissions?.sms) throw new Error("You don't have access to text messages.");
+  return member;
+}
+
 export interface SmsDraftRecord {
   id: string;
   list_name: string | null;
@@ -176,7 +184,7 @@ export interface SmsDraftRecord {
 }
 
 export async function listSms(data: { token: string }) {
-    const tenantId = await requireTenant(data.token);
+    const { tenantId } = await requireSmsAccess(data.token);
     const campaigns = await sql`
       select id, name, status, list_name, body, sent, delivered, replies
       from sms_campaigns where tenant_id = ${tenantId} order by created_at desc
@@ -197,9 +205,10 @@ export const listSmsFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => listSms(data));
 
 export async function createSmsCampaign(data: { token: string; name: string; listName?: string; body?: string; status?: string }) {
-    const tenantId = await requireTenant(data.token);
+    const member = await requireSmsAccess(data.token);
+    const { tenantId } = member;
     const name = data.name.trim() || "Untitled SMS campaign";
-    await requireCanCreate(tenantId, "smsCampaigns");
+    await asMember(member, () => requireCanCreate(tenantId, "smsCampaigns"));
 
     const rows = await sql`
       insert into sms_campaigns (tenant_id, name, status, list_name, body)
@@ -214,7 +223,7 @@ export const createSmsCampaignFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => createSmsCampaign(data));
 
 export async function updateSmsCampaign(data: { token: string; id: string; status: string }) {
-    const tenantId = await requireTenant(data.token);
+    const { tenantId } = await requireSmsAccess(data.token);
     await sql`
       update sms_campaigns set status = ${data.status}
       where id = ${data.id} and tenant_id = ${tenantId}
@@ -227,7 +236,7 @@ export const updateSmsCampaignFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => updateSmsCampaign(data));
 
 export async function saveSmsDraft(data: { token: string; listName?: string; body: string }) {
-    const tenantId = await requireTenant(data.token);
+    const { tenantId } = await requireSmsAccess(data.token);
     if (!data.body.trim()) throw new Error("Nothing to save yet.");
 
     const rows = await sql`
@@ -243,7 +252,7 @@ export const saveSmsDraftFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => saveSmsDraft(data));
 
 export async function deleteSmsDraft(data: { token: string; id: string }) {
-    const tenantId = await requireTenant(data.token);
+    const { tenantId } = await requireSmsAccess(data.token);
     await sql`delete from sms_drafts where id = ${data.id} and tenant_id = ${tenantId}`;
     return { ok: true as const };
   }

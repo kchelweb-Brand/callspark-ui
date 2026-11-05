@@ -1,3 +1,4 @@
+import { useMyAccess } from "@/lib/access-api";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { Check, Loader2 } from "lucide-react";
@@ -52,7 +53,29 @@ export const Route = createFileRoute("/phone-system")({
 
 const AUTOSAVE_DELAY_MS = 800;
 
+/** Switches every field and button inside off. The server refuses a view-only agent's save as well. */
+function Lock({ readOnly, children }: { readOnly: boolean; children: React.ReactNode }) {
+  return (
+    <fieldset disabled={readOnly} className="m-0 min-w-0 border-0 p-0">
+      {children}
+    </fieldset>
+  );
+}
+
+/** What an agent sees where the owner's carrier connection would be. */
+function LineNote() {
+  return (
+    <p className="rounded-lg border border-border bg-muted/50 px-4 py-6 text-sm text-muted-foreground">
+      The phone line connection is set up by the workspace owner. If calls are not working, tell them.
+    </p>
+  );
+}
+
 function PhoneSystemPage() {
+  const access = useMyAccess();
+  // An agent with "view" only looks. Until we know what they may do, they only look.
+  const readOnly = access.isAgent && access.permissions?.phoneSystem !== "edit";
+  const hideLine = access.isAgent;
   const [numbers, setNumbers] = useState<PhoneNumber[]>(defaultNumbers);
   const [menus, setMenus] = useState<IvrMenu[]>(defaultMenus);
   const [routing, setRouting] = useState<RoutingRule>(defaultRouting);
@@ -107,7 +130,7 @@ function PhoneSystemPage() {
   // than threading a save callback through six components we persist whenever
   // the config settles.
   useEffect(() => {
-    if (!hydrated.current) return;
+    if (!hydrated.current || readOnly) return;
     const timer = setTimeout(async () => {
       setSaving(true);
       try {
@@ -120,10 +143,10 @@ function PhoneSystemPage() {
       }
     }, AUTOSAVE_DELAY_MS);
     return () => clearTimeout(timer);
-  }, [menus, extensions, routing, hours, voicemail]);
+  }, [menus, extensions, routing, hours, voicemail, readOnly]);
 
   useEffect(() => {
-    if (!hydrated.current) return;
+    if (!hydrated.current || readOnly) return;
     const timer = setTimeout(async () => {
       setSaving(true);
       try {
@@ -136,7 +159,7 @@ function PhoneSystemPage() {
       }
     }, AUTOSAVE_DELAY_MS);
     return () => clearTimeout(timer);
-  }, [numbers]);
+  }, [numbers, readOnly]);
 
   if (loading) {
     return (
@@ -164,20 +187,27 @@ function PhoneSystemPage() {
               <Check className="size-3.5 text-success" /> Saved{" "}
               {savedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
             </>
+          ) : readOnly ? (
+            "View only"
           ) : (
             "Changes save automatically"
           )}
         </span>
       }
     >
+      {readOnly && (
+        <p className="rounded-lg border border-border bg-muted/50 px-4 py-3 text-sm text-muted-foreground">
+          You can look at the phone system here. Changing it is up to the workspace owner.
+        </p>
+      )}
       <Tabs value={tab} onValueChange={setTab}>
         {/* Nine tabs wrap onto three stacked rows on a phone, which buries the
             page content below a block of chrome. Scrolling the strip sideways
             keeps it one row at every width. */}
         <TabsList className="w-full justify-start overflow-x-auto sm:w-auto sm:flex-wrap sm:justify-center">
           <TabsTrigger value="inbound">Inbound</TabsTrigger>
-          <TabsTrigger value="outbound">Outbound</TabsTrigger>
-          <TabsTrigger value="connection">Connection</TabsTrigger>
+          {!hideLine && <TabsTrigger value="outbound">Outbound</TabsTrigger>}
+          {!hideLine && <TabsTrigger value="connection">Connection</TabsTrigger>}
           <TabsTrigger value="numbers">Numbers</TabsTrigger>
           <TabsTrigger value="ivr">IVR Menus</TabsTrigger>
           <TabsTrigger value="routing">Call Routing</TabsTrigger>
@@ -187,6 +217,7 @@ function PhoneSystemPage() {
         </TabsList>
 
         <TabsContent value="inbound" className="mt-4">
+          <Lock readOnly={readOnly}>
           <InboundTab
             numbers={numbers}
             menus={menus}
@@ -196,30 +227,47 @@ function PhoneSystemPage() {
             businessHours={hours}
             onNavigate={setTab}
           />
+          </Lock>
         </TabsContent>
         <TabsContent value="outbound" className="mt-4">
-          <OutboundTab onNavigate={setTab} />
+          <Lock readOnly={readOnly}>
+          {hideLine ? <LineNote /> : <OutboundTab onNavigate={setTab} />}
+          </Lock>
         </TabsContent>
         <TabsContent value="connection" className="mt-4">
-          <ConnectionTab />
+          <Lock readOnly={readOnly}>
+          {hideLine ? <LineNote /> : <ConnectionTab />}
+          </Lock>
         </TabsContent>
         <TabsContent value="numbers" className="mt-4">
+          <Lock readOnly={readOnly}>
           <NumbersTab numbers={numbers} setNumbers={setNumbers} menus={menus} />
+          </Lock>
         </TabsContent>
         <TabsContent value="ivr" className="mt-4">
+          <Lock readOnly={readOnly}>
           <IvrTab menus={menus} setMenus={setMenus} />
+          </Lock>
         </TabsContent>
         <TabsContent value="routing" className="mt-4">
+          <Lock readOnly={readOnly}>
           <RoutingTab routing={routing} setRouting={setRouting} menus={menus} />
+          </Lock>
         </TabsContent>
         <TabsContent value="hours" className="mt-4">
+          <Lock readOnly={readOnly}>
           <BusinessHoursTab hours={hours} setHours={setHours} />
+          </Lock>
         </TabsContent>
         <TabsContent value="extensions" className="mt-4">
+          <Lock readOnly={readOnly}>
           <ExtensionsTab extensions={extensions} setExtensions={setExtensions} />
+          </Lock>
         </TabsContent>
         <TabsContent value="voicemail" className="mt-4">
+          <Lock readOnly={readOnly}>
           <VoicemailTab voicemail={voicemail} setVoicemail={setVoicemail} />
+          </Lock>
         </TabsContent>
       </Tabs>
     </Shell>

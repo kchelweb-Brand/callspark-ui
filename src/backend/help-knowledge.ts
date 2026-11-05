@@ -31,6 +31,18 @@ export const PRODUCT_BRIEF =
   "Campaigns are either Manual dialing (people call the list, with the power dialer) or Voice broadcast (a recording is played to everyone who answers). " +
   "On most plans the customer brings their own phone provider (carrier) and enters its SIP credentials; on Managed Enterprise Kchel runs the carrier. Anyone can also contact the admin through Support to ask for Managed SIP credentials.";
 
+/**
+ * The same, for an agent: their own menu, and nothing about plans, prices or the carrier. Which parts of the
+ * menu they actually have depends on what the workspace owner switched on for them.
+ */
+export const PRODUCT_BRIEF_FOR_AGENTS =
+  "Kchel Dialer is a call center platform. This person is an agent invited to a workspace by its owner. They sign in on the website " +
+  "with the workspace name, their email and a one-time code (no password). Their menu holds only what the owner allowed: My day " +
+  "(calls today, tasks, messages and the softphone, where they press Go online to make and take calls), Contacts, Campaigns (a read-only list), SMS, " +
+  "Call History, Recordings (calls and voicemail), My stats (their own numbers) and Phone System (numbers, IVR menus, call routing, business hours, " +
+  "extensions and voicemail, either view-only or changeable). They never see Billing, the plan, Settings, Automations, the agents list or the phone line connection. " +
+  "If something is missing from their menu, the owner has not switched it on, and they should ask the owner.";
+
 function featureList(features: PlanFeatures): string {
   return (Object.keys(FEATURE_LABELS) as (keyof PlanFeatures)[])
     .filter((k) => features[k])

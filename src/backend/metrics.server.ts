@@ -3,11 +3,21 @@ import { createServerFn } from "@tanstack/react-start";
 import { sql, sqlQuery } from "./db";
 import { verifyToken } from "./tokens";
 import { ensureSchema } from "./schema.server";
+import { requireMember } from "./access.server";
 
 async function requireTenant(token: string): Promise<string> {
   const payload = await verifyToken(token);
   if (!payload || !payload.tenantId) throw new Error("Not signed in.");
   return payload.tenantId;
+}
+
+/**
+ * Owner or agent. For an agent, `onlyEmail` is their own address: the questions below are then answered
+ * from their calls alone, in the query itself, so another agent's numbers are never read.
+ */
+async function requireViewer(token: string) {
+  const m = await requireMember(token);
+  return { tenantId: m.tenantId, isAgent: m.isAgent, permissions: m.permissions, onlyEmail: m.isAgent ? m.email : null };
 }
 
 function num(v: unknown): number {
@@ -101,7 +111,7 @@ export const getOverviewFn = createServerFn({ method: "POST" })
 // ---------- analytics ----------
 
 export async function getAnalytics(data: { token: string; range?: string }) {
-    const tenantId = await requireTenant(data.token);
+    const { tenantId, onlyEmail } = await requireViewer(data.token);
     const days = RANGE_DAYS[data.range ?? "7d"] ?? 7;
 
     const totalRows = await sqlQuery(
@@ -110,8 +120,9 @@ export async function getAnalytics(data: { token: string; range?: string }) {
          count(*) filter (where answered_at is not null)::int as connected,
          coalesce(avg(duration_seconds) filter (where answered_at is not null), 0)::int as avg_handle
        from calls
-       where tenant_id = $1 and started_at >= current_date - ($2::int - 1) * interval '1 day'`,
-      [tenantId, days],
+       where tenant_id = $1 and started_at >= current_date - ($2::int - 1) * interval '1 day'
+         and ($3::text is null or agent_email = $3)`,
+      [tenantId, days, onlyEmail],
     );
     const t = totalRows[0] as Record<string, number>;
 
@@ -119,8 +130,9 @@ export async function getAnalytics(data: { token: string; range?: string }) {
       `select coalesce(outcome, status) as name, count(*)::int as value
        from calls
        where tenant_id = $1 and started_at >= current_date - ($2::int - 1) * interval '1 day'
+         and ($3::text is null or agent_email = $3)
        group by 1 order by value desc`,
-      [tenantId, days],
+      [tenantId, days, onlyEmail],
     );
 
     const hourly = await sqlQuery(
@@ -128,10 +140,11 @@ export async function getAnalytics(data: { token: string; range?: string }) {
               (select count(*)::int from calls c
                 where c.tenant_id = $1
                   and c.started_at >= current_date - ($2::int - 1) * interval '1 day'
+                  and ($3::text is null or c.agent_email = $3)
                   and extract(hour from c.started_at) = h) as calls
        from generate_series(0, 23) as h
        order by h`,
-      [tenantId, days],
+      [tenantId, days, onlyEmail],
     );
 
     // Leaderboard joins on the agent email, which is what a call records.
@@ -145,10 +158,10 @@ export async function getAnalytics(data: { token: string; range?: string }) {
          on c.agent_email = a.email
         and c.tenant_id = a.tenant_id
         and c.started_at >= current_date - ($2::int - 1) * interval '1 day'
-       where a.tenant_id = $1
+       where a.tenant_id = $1 and ($3::text is null or a.email = $3)
        group by a.id, a.name, a.extension
        order by calls desc, a.name`,
-      [tenantId, days],
+      [tenantId, days, onlyEmail],
     );
 
     const dials = num(t["dials"]);
@@ -247,11 +260,15 @@ export const getLiveFloorFn = createServerFn({ method: "POST" })
 // ---------- recordings ----------
 
 export async function listRecordings(data: { token: string; search?: string }) {
-    const tenantId = await requireTenant(data.token);
+    const viewer = await requireViewer(data.token);
+    const { tenantId } = viewer;
+    // An agent needs the recordings permission, and hears only their own calls unless they may see everyone's history.
+    if (viewer.isAgent && !viewer.permissions?.recordings) throw new Error("You don't have access to recordings.");
+    const onlyEmail = viewer.isAgent && viewer.permissions?.callHistory !== "all" ? viewer.onlyEmail : null;
     await ensureSchema();
 
-    const params: unknown[] = [tenantId];
-    let where = "c.tenant_id = $1 and c.recording_url is not null";
+    const params: unknown[] = [tenantId, onlyEmail];
+    let where = "c.tenant_id = $1 and c.recording_url is not null and ($2::text is null or c.agent_email = $2)";
     if (data.search?.trim()) {
       params.push(`%${data.search.trim()}%`);
       const p = params.length;
@@ -275,7 +292,7 @@ export async function listRecordings(data: { token: string; search?: string }) {
     // "no calls yet" or "calls happened but were not recorded".
     const completed = await sql`
       select count(*)::int as n from calls
-      where tenant_id = ${tenantId} and status = 'completed'
+      where tenant_id = ${tenantId} and status = 'completed' and (${onlyEmail}::text is null or agent_email = ${onlyEmail})
     `;
 
     return {
